@@ -6,6 +6,7 @@ go 1.26.10
 // this module is the main one, so `go install ...@latest` does not build
 // agent-vm: releases ship binaries.
 replace (
+	github.com/Code-Hex/vz/v3 => ./third_party/vz
 	github.com/containers/gvisor-tap-vsock => ./third_party/gvisor-tap-vsock
 	github.com/lima-vm/lima/v2 => ./third_party/lima
 	github.com/lima-vm/sshocker => ./third_party/sshocker
