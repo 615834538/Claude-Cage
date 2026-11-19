@@ -8,11 +8,11 @@ internal sealed class MainWindow : Form
 {
     private WebView2 web = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly NativeInput nativeInput;
-    private readonly Label message = new() { AutoSize = true, MaximumSize = new Size(720, 0), Text = "正在启动 Cage 工作台…", Margin = new Padding(12) };
+    private readonly Label message = new() { AutoSize = true, MaximumSize = new Size(720, 0), Text = InterfaceLanguage.Text("正在启动 Cage 工作台…"), Margin = new Padding(12) };
     private readonly FlowLayoutPanel status = new() { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, Padding = new Padding(48), WrapContents = false };
-    private readonly Button retry = new() { Text = "重试连接", AutoSize = true, Visible = false };
-    private readonly Button existing = new() { Text = "打开现有环境保存文件", AutoSize = true, Visible = false };
-    private readonly Button complete = new() { Text = "保存后停止环境并完成更新", AutoSize = true, Visible = false };
+    private readonly Button retry = new() { Text = InterfaceLanguage.Text("重试连接"), AutoSize = true, Visible = false };
+    private readonly Button existing = new() { Text = InterfaceLanguage.Text("打开现有环境保存文件"), AutoSize = true, Visible = false };
+    private readonly Button complete = new() { Text = InterfaceLanguage.Text("保存后停止环境并完成更新"), AutoSize = true, Visible = false };
     private readonly NotifyIcon tray;
     private readonly AppUpdater updater;
     private int expectedPort;
@@ -41,12 +41,18 @@ internal sealed class MainWindow : Form
             if (ConfirmStop()) await Bootstrap("--complete-update");
         };
         var trayMenu = new TrayMenu();
-        trayMenu.Items.Add("打开 Cage", null, (_, _) => RestoreWindow());
-        trayMenu.Items.Add("检查应用更新…", null, (_, _) => updater!.Handle("check"));
-        trayMenu.Items.Add("关于 Cage", null, (_, _) => MessageBox.Show(this, $"Cage {AppUpdater.Version}\n本机隔离编码工作区", "关于 Cage"));
+        AddTrayItem("打开 Cage", (_, _) => RestoreWindow());
+        AddTrayItem("检查应用更新…", (_, _) => updater!.Handle("check"));
+        AddTrayItem("关于 Cage", (_, _) => MessageBox.Show(this,
+            $"Cage {AppUpdater.Version}\n" + InterfaceLanguage.Text("本机隔离编码工作区"),
+            InterfaceLanguage.Text("关于 Cage")));
         trayMenu.Items.Add(new ToolStripSeparator());
-        trayMenu.Items.Add("退出 Cage…", null, (_, _) => RequestQuit());
-        trayMenu.Opening += (_, _) => (chrome ?? new WindowChrome(BackColor, ForeColor, false)).ApplyMenu(trayMenu);
+        AddTrayItem("退出 Cage…", (_, _) => RequestQuit());
+        trayMenu.Opening += (_, _) => {
+            foreach (ToolStripItem item in trayMenu.Items)
+                if (item.Tag is string source) item.Text = InterfaceLanguage.Text(source);
+            (chrome ?? new WindowChrome(BackColor, ForeColor, false)).ApplyMenu(trayMenu);
+        };
         tray = new NotifyIcon { Icon = Icon, Text = "Cage", Visible = true, ContextMenuStrip = trayMenu };
         tray.DoubleClick += (_, _) => RestoreWindow();
         updater = new AppUpdater(PublishUpdate, () => { allowQuit = true; Close(); }, () => _ = Bootstrap());
@@ -60,6 +66,8 @@ internal sealed class MainWindow : Form
             if (!allowQuit && e.CloseReason is not (CloseReason.WindowsShutDown or CloseReason.TaskManagerClosing)) { e.Cancel = true; Hide(); }
         };
         FormClosed += (_, _) => { lifetime.Cancel(); updater.Dispose(); tray.Dispose(); trayMenu.Dispose(); web.Dispose(); };
+        void AddTrayItem(string source, EventHandler action) =>
+            trayMenu.Items.Add(InterfaceLanguage.Text(source), null, action).Tag = source;
     }
 
     protected override void OnLoad(EventArgs e)
@@ -126,8 +134,8 @@ internal sealed class MainWindow : Form
     }
 
     private bool ConfirmStop() => MessageBox.Show(this,
-        "请先保存编辑器中的文件并结束正在运行的工作。继续后 Cage 会停止环境、安装已验证的更新并重新启动。",
-        "保存并停止环境后安装重启", MessageBoxButtons.OKCancel, MessageBoxIcon.Information) == DialogResult.OK;
+        InterfaceLanguage.Text("请先保存编辑器中的文件并结束正在运行的工作。继续后 Cage 会停止环境、安装已验证的更新并重新启动。"),
+        InterfaceLanguage.Text("保存并停止环境后安装重启"), MessageBoxButtons.OKCancel, MessageBoxIcon.Information) == DialogResult.OK;
 
     public void RestoreWindow() { Show(); if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal; Activate(); PublishVisibility(); }
     private void RequestQuit()
@@ -180,16 +188,16 @@ internal sealed class MainWindow : Form
             core.DownloadStarting += (_, e) => e.Cancel = true;
             core.PermissionRequested += (_, e) => e.State = CoreWebView2PermissionState.Deny;
             core.WebMessageReceived += Receive;
-            core.ProcessFailed += (_, _) => { webFailed = true; Error("工作台显示进程已退出。后台任务保留，可重试连接。"); };
+            core.ProcessFailed += (_, _) => { webFailed = true; Error(InterfaceLanguage.Text("工作台显示进程已退出。后台任务保留，可重试连接。")); };
             core.NavigationCompleted += (_, e) => {
                 if (!e.IsSuccess) {
                     var reason = e.WebErrorStatus.ToString() switch {
-                        "Timeout" => "等待本机后台响应超时",
-                        "CannotConnect" => "本机后台没有接受连接，可能尚未启动或已经退出",
-                        "ConnectionAborted" or "ConnectionReset" => "本机工作台连接在加载完成前中断",
-                        _ => "内置网页组件未能加载本机工作台（错误类型 " + e.WebErrorStatus + "）",
+                        "Timeout" => InterfaceLanguage.Text("等待本机后台响应超时"),
+                        "CannotConnect" => InterfaceLanguage.Text("本机后台没有接受连接，可能尚未启动或已经退出"),
+                        "ConnectionAborted" or "ConnectionReset" => InterfaceLanguage.Text("本机工作台连接在加载完成前中断"),
+                        _ => InterfaceLanguage.Text("内置网页组件未能加载本机工作台（错误类型 ") + e.WebErrorStatus + "）",
                     };
-                    Error("打开工作台失败：" + reason + "。请点击“重试连接”；仍失败时请保留此错误提示并反馈给维护者。后台任务不会因此自动结束。"); return;
+                    Error(InterfaceLanguage.Text("打开工作台失败：") + reason + InterfaceLanguage.Text("。请点击“重试连接”；仍失败时请保留此错误提示并反馈给维护者。后台任务不会因此自动结束。")); return;
                 }
                 status.Hide(); web.Show(); web.Focus(); PublishVisibility();
             };
@@ -200,10 +208,10 @@ internal sealed class MainWindow : Form
         }
         catch (WebView2RuntimeNotFoundException)
         {
-            Error("缺少 Microsoft Edge WebView2 Runtime。请运行 Cage 安装程序安装随附运行时后重试。");
+            Error(InterfaceLanguage.Text("缺少 Microsoft Edge WebView2 Runtime。请运行 Cage 安装程序安装随附运行时后重试。"));
             webFailed = true;
         }
-        catch (Exception error) { webFailed = true; Error("无法初始化工作台：" + error.Message); }
+        catch (Exception error) { webFailed = true; Error(InterfaceLanguage.Text("无法初始化工作台：") + error.Message); }
         finally { retry.Enabled = true; }
     }
 
@@ -293,14 +301,14 @@ internal sealed class MainWindow : Form
     {
         if (bootstrapping || web.CoreWebView2 == null) return;
         bootstrapping = true;
-        message.Text = "正在连接 Cage 工作台…"; status.Show(); status.BringToFront();
+        message.Text = InterfaceLanguage.Text("正在连接 Cage 工作台…"); status.Show(); status.BringToFront();
         retry.Hide(); existing.Hide(); complete.Hide();
         try
         {
             smokePhase = "starting_backend";
             var (exit, data) = await Backend.Json(["desktop", "--json", ..options], lifetime.Token);
             smokePhase = "backend_returned";
-            if (exit != 0) throw new IOException(data.Text("message") is { Length: > 0 } detail ? detail : "工作台未能启动");
+            if (exit != 0) throw new IOException(data.Text("message") is { Length: > 0 } detail ? detail : InterfaceLanguage.Text("工作台未能启动"));
             controllerNeedsUpdate = data.Text("status") != "ready";
             if (data.Text("status") == "upgrade_pending")
             {
@@ -308,27 +316,27 @@ internal sealed class MainWindow : Form
             }
             var entry = UpdatePolicy.Entry(data.Text("url")); expectedPort = entry.Port;
             smokePhase = "loading_workbench";
-            Text = controllerNeedsUpdate ? "Cage（更新待完成）" : "Cage";
+            Text = controllerNeedsUpdate ? InterfaceLanguage.Text("Cage（更新待完成）") : "Cage";
             web.CoreWebView2.Navigate(entry.AbsoluteUri);
         }
-        catch (OperationCanceledException) { if (!lifetime.IsCancellationRequested) Error("启动工作台失败：等待本机后台响应超时。请点击“重试连接”；仍失败时请保留此提示并反馈给维护者。"); }
+        catch (OperationCanceledException) { if (!lifetime.IsCancellationRequested) Error(InterfaceLanguage.Text("启动工作台失败：等待本机后台响应超时。请点击“重试连接”；仍失败时请保留此提示并反馈给维护者。")); }
         catch (Exception error) {
             _ = Backend.Report("Workbench startup failed: " + error);
-            Error(error.Message.Any(c => c is >= '\u4E00' and <= '\u9FFF') ? error.Message : "启动工作台失败：本机后台未返回可识别的原因（错误类型 " + error.GetType().Name + "）。请点击“重试连接”；仍失败时请保留此提示并反馈给维护者。");
+            Error(error.Message.Any(c => c is >= '\u4E00' and <= '\u9FFF') ? error.Message : InterfaceLanguage.Text("启动工作台失败：本机后台未返回可识别的原因（错误类型 ") + error.GetType().Name + InterfaceLanguage.Text("）。请点击“重试连接”；仍失败时请保留此提示并反馈给维护者。"));
         }
         finally { bootstrapping = false; }
     }
 
     private object RememberFiles(string[] paths)
     {
-        if (paths.Length is 0 or > 100) throw new InvalidDataException("请选择 1 至 100 个文件");
+        if (paths.Length is 0 or > 100) throw new InvalidDataException(InterfaceLanguage.Text("请选择 1 至 100 个文件"));
         foreach (var path in paths)
         {
-            if (!Path.IsPathFullyQualified(path) || path.StartsWith(@"\\", StringComparison.Ordinal)) throw new InvalidDataException("请选择本机文件");
+            if (!Path.IsPathFullyQualified(path) || path.StartsWith(@"\\", StringComparison.Ordinal)) throw new InvalidDataException(InterfaceLanguage.Text("请选择本机文件"));
             var file = new FileInfo(path);
             if (!file.Exists || (file.Attributes & (FileAttributes.Directory | FileAttributes.ReparsePoint)) != 0)
-                throw new InvalidDataException("请选择普通文件，暂不支持文件夹或链接");
-            if (file.Length > 2L * 1024 * 1024 * 1024) throw new InvalidDataException("每个文件不能超过 2 GB");
+                throw new InvalidDataException(InterfaceLanguage.Text("请选择普通文件，暂不支持文件夹或链接"));
+            if (file.Length > 2L * 1024 * 1024 * 1024) throw new InvalidDataException(InterfaceLanguage.Text("每个文件不能超过 2 GB"));
         }
         var now = DateTime.UtcNow;
         foreach (var key in fileSelections.Where(item => item.Value.Expires <= now).Select(item => item.Key).ToArray()) fileSelections.Remove(key);
@@ -517,6 +525,13 @@ internal sealed class MainWindow : Form
                 }
                 case "clipboardWrite":
                     if (request.Text("text") is { Length: > 0 } text) Clipboard.SetText(text); else Clipboard.Clear();
+                    result = true; break;
+                case "refreshLanguage":
+                    await InterfaceLanguage.Refresh();
+                    retry.Text = InterfaceLanguage.Text("重试连接");
+                    existing.Text = InterfaceLanguage.Text("打开现有环境保存文件");
+                    complete.Text = InterfaceLanguage.Text("保存后停止环境并完成更新");
+                    Text = controllerNeedsUpdate ? InterfaceLanguage.Text("Cage（更新待完成）") : "Cage";
                     result = true; break;
                 case "appearance":
                     var mode = request.Text("mode"); var background = request.Text("background");

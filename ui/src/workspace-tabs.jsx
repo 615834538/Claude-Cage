@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { dropAfter, tabName } from "./workspace-state.mjs";
 import { AgentIcon } from "./agent-icon";
+import { useTranslation } from "./interface-language.mjs";
 
 export function TabIcon({ kind, favicon, agent, accountNumber, size = 16 }) {
   const [failed, setFailed] = useState("");
@@ -61,6 +62,7 @@ export function WorkspaceTabs({
   openingSession,
   sessionOpenError,
 }) {
+  const tr = useTranslation();
   const [menu, setMenu] = useState(null);
   const [drag, setDrag] = useState(null);
   const [allOpen, setAllOpen] = useState(false);
@@ -253,7 +255,7 @@ export function WorkspaceTabs({
   const actions = menu && (
     <div className="menu workspace-tab-menu"
       style={{ top: menu.top, left: menu.left }}
-      role="menu" aria-label="标签操作">
+      role="menu" aria-label={tr("标签操作")}>
               <button
                 role="menuitem"
                 onClick={() => {
@@ -261,7 +263,7 @@ export function WorkspaceTabs({
                   onRename(menu.tab);
                 }}
               >
-                重命名标签
+                {tr("重命名标签")}
               </button>
               <button
                 role="menuitem"
@@ -271,7 +273,7 @@ export function WorkspaceTabs({
                 }}
               >
                 <Pin size={14} />
-                {saved[menu.tab.id]?.pinned ? "取消置顶" : "置顶标签"}
+                {saved[menu.tab.id]?.pinned ? tr("取消置顶") : tr("置顶标签")}
               </button>
               <button
                 role="menuitem"
@@ -281,7 +283,7 @@ export function WorkspaceTabs({
                 }}
               >
                 <X size={15} />
-                关闭标签<kbd>{shortcut("⌘W")}</kbd>
+                {tr("关闭标签")}<kbd>{shortcut("⌘W")}</kbd>
               </button>
     </div>
   );
@@ -410,7 +412,7 @@ export function WorkspaceTabs({
                 {tab.claudeLabel && <small className="claude-tab-profile">{tab.claudeLabel}</small>}
                 {saved[tab.id]?.pinned && <Pin size={11} className="tab-pin" />}
                 {!horizontal && !vertical && (opening || tab.sessionActive && !runningElsewhere) &&
-                  <LoaderCircle size={13} className="spin session-activity" role="img" aria-label={opening ? "正在打开会话" : "会话正在运行"} />}
+                  <LoaderCircle size={13} className="spin session-activity" role="img" aria-label={opening ? tr("正在打开会话") : tr("会话正在运行")} />}
               </button>
               {!horizontal && !vertical && runningElsewhere &&
                 <span className="session-owner" role="img" aria-label={runningNotice} tabIndex={0}>
@@ -419,18 +421,18 @@ export function WorkspaceTabs({
               {horizontal || vertical ? (
                 <button
                   className="tab-close icon-button"
-                  aria-label={`关闭 ${title}`}
+                  aria-label={tr("关闭 {0}", (title))}
                   disabled={busy}
                   onClick={() => onClose(tab)}
                 >
                   <X size={14} />
                 </button>
               ) : (
-                <div className="terminal-row-actions" role="group" aria-label={`${title} 的操作`}>
-                  <TerminalAction label={saved[tab.id]?.pinned ? "取消置顶" : "置顶"}
+                <div className="terminal-row-actions" role="group" aria-label={tr("{0} 的操作", (title))}>
+                  <TerminalAction label={saved[tab.id]?.pinned ? tr("取消置顶") : tr("置顶")}
                     icon={saved[tab.id]?.pinned ? PinOff : Pin} disabled={busy} onClick={() => onPin(tab.id)} />
-                  <TerminalAction label="重命名" icon={Pencil} disabled={busy} onClick={() => onRename(tab)} />
-                  <TerminalAction label={tab.cli_session_id ? "归档" : "关闭终端"} icon={tab.cli_session_id ? Archive : X} disabled={busy} onClick={event => onClose(tab, event.currentTarget)} />
+                  <TerminalAction label={tr("重命名")} icon={Pencil} disabled={busy} onClick={() => onRename(tab)} />
+                  <TerminalAction label={tab.cli_session_id ? tr("归档") : tr("关闭终端")} icon={tab.cli_session_id ? Archive : X} disabled={busy} onClick={event => onClose(tab, event.currentTarget)} />
                 </div>
               )}
             </div>
@@ -443,8 +445,8 @@ export function WorkspaceTabs({
         <div className="browser-all-tabs">
           <button
             className="icon-button"
-            aria-label="搜索标签页"
-            title="搜索标签页"
+            aria-label={tr("搜索标签页")}
+            title={tr("搜索标签页")}
             aria-expanded={allOpen}
             onClick={(event) => {
               trigger.current = event.currentTarget;
@@ -460,18 +462,18 @@ export function WorkspaceTabs({
               <div
                 className="menu all-tabs-menu"
                 role="dialog"
-                aria-label="搜索标签页"
+                aria-label={tr("搜索标签页")}
               >
                 <input
                   autoFocus
-                  aria-label="搜索已打开的标签页"
-                  placeholder="搜索标签页"
+                  aria-label={tr("搜索已打开的标签页")}
+                  placeholder={tr("搜索标签页")}
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                 />
                 <div className="all-tabs-results">
                   {matchingTabs.length === 0 && (
-                    <p className="favorites-empty">没有匹配的标签页</p>
+                    <p className="favorites-empty">{tr("没有匹配的标签页")}</p>
                   )}
                   {matchingTabs.map((tab) => (
                     <button
@@ -487,7 +489,7 @@ export function WorkspaceTabs({
                         accountNumber={tab.claudeAccountNumber} />
                       <span>{tabName(tab, saved)}</span>
                       {tab.id === active && (
-                        <span className="current-tab-marker">当前</span>
+                        <span className="current-tab-marker">{tr("当前")}</span>
                       )}
                     </button>
                   ))}

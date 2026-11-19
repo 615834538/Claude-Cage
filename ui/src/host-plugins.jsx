@@ -6,6 +6,7 @@ import {
 import { api, writeClipboard } from "./api";
 import { runtimeURL } from "./client-context.mjs";
 import "./host-plugins.css";
+import { useTranslation } from "./interface-language.mjs";
 
 const permissions = {
   files: { title: "读写文件", text: "读取或修改这台电脑上的文件。", icon: FolderOpen },
@@ -236,18 +237,20 @@ function PluginPageIcon({ src }) {
 }
 
 export function PluginPagesNav({ pages, selected, onOpen }) {
+  const tr = useTranslation();
   return pages.map(page => (
     <button key={page.key} className={`sidebar-link ${selected === page.key ? "selected" : ""}`}
-      aria-current={selected === page.key ? "page" : undefined} onClick={() => onOpen(page)} aria-label={`打开 ${page.title}`}>
+      aria-current={selected === page.key ? "page" : undefined} onClick={() => onOpen(page)} aria-label={tr("打开 {0}", (page.title))}>
       <PluginPageIcon key={page.icon} src={page.icon} />{page.title}
     </button>
   ));
 }
 
 export function HostPluginsNav({ open, onOpen }) {
+  const tr = useTranslation();
   return (
     <button className="sidebar-link host-plugins-entry" onClick={onOpen} aria-expanded={open} aria-controls="plugin-sidebar">
-      <Blocks size={17} />插件<ChevronRight size={15} className="trailing-icon" />
+      <Blocks size={17} />{tr("插件")}<ChevronRight size={15} className="trailing-icon" />
     </button>
   );
 }
@@ -268,6 +271,7 @@ function SidebarSection({ title, count, open, onToggle, action, children }) {
 }
 
 function PluginRow({ entry, view, selected, busy, onSelect, onInstall }) {
+  const tr = useTranslation();
   const info = entryInfo(entry, view);
   const action = !entry.plugin ? info.item.supported && "安装" : entry.offer && "更新";
   const installing = busy === `install:${entry.name}`;
@@ -283,7 +287,7 @@ function PluginRow({ entry, view, selected, busy, onSelect, onInstall }) {
         </span>
       </button>
       {action && <button type="button" className="plugin-row-action" disabled={Boolean(busy)} onClick={onInstall}>
-        {installing ? <LoaderCircle size={12} className="spin" /> : null}{installing ? "正在安装" : action}
+        {installing ? <LoaderCircle size={12} className="spin" /> : null}{installing ? tr("正在安装") : action}
       </button>}
     </div>
   );
@@ -299,6 +303,7 @@ const matches = (entry, query) => {
 };
 
 export function HostPluginsSidebar({ visible, model, page, onPage, onBack, onConfirm }) {
+  const tr = useTranslation();
   const { view, error, busy, market } = model;
   const sidebar = useRef(null);
   const list = useRef(null);
@@ -331,41 +336,41 @@ export function HostPluginsSidebar({ visible, model, page, onPage, onBack, onCon
     return () => window.removeEventListener("keydown", leave);
   }, [visible, onBack]);
   return (
-    <aside ref={sidebar} id="plugin-sidebar" className="workspace-sidebar plugin-sidebar" aria-label="插件"
+    <aside ref={sidebar} id="plugin-sidebar" className="workspace-sidebar plugin-sidebar" aria-label={tr("插件")}
       data-open={visible} inert={!visible} tabIndex={-1}>
       <div className="sidebar-top">
         <span className="plugin-sidebar-title">
-          <button className="icon-button" onClick={onBack} aria-label="返回工作台侧栏" title="返回工作台侧栏（Esc）"><ArrowLeft size={16} /></button>
-          插件
+          <button className="icon-button" onClick={onBack} aria-label={tr("返回工作台侧栏")} title={tr("返回工作台侧栏（Esc）")}><ArrowLeft size={16} /></button>
+          {tr("插件")}
         </span>
         <span className="plugin-sidebar-tools">
           <button className="icon-button" disabled={!view?.enabled || Boolean(busy)} onClick={() => model.change({ reload: true }, "reload")}
-            aria-label="重新加载插件" title="重新加载插件"><RefreshCw size={15} className={busy === "reload" ? "spin" : undefined} /></button>
+            aria-label={tr("重新加载插件")} title={tr("重新加载插件")}><RefreshCw size={15} className={busy === "reload" ? "spin" : undefined} /></button>
           <button className={`icon-button ${page?.kind === "settings" ? "active" : ""}`} aria-current={page?.kind === "settings" ? "page" : undefined}
-            onClick={() => onPage({ kind: "settings" })} aria-label="插件设置" title="插件设置"><Settings size={16} /></button>
+            onClick={() => onPage({ kind: "settings" })} aria-label={tr("插件设置")} title={tr("插件设置")}><Settings size={16} /></button>
         </span>
       </div>
       <label className="plugin-search">
         <Search size={15} aria-hidden="true" />
-        <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索已安装的插件" aria-label="搜索已安装的插件" />
+        <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={tr("搜索已安装的插件")} aria-label={tr("搜索已安装的插件")} />
       </label>
       <div className="plugin-sidebar-body" ref={list}>
         <button type="button" className={`plugin-market-entry ${inMarket ? "selected" : ""}`} aria-current={inMarket ? "page" : undefined}
           onClick={() => onPage({ kind: "market" })}>
           <span className="plugin-market-entry-icon"><Store size={18} /></span>
-          <span><strong>插件市场</strong><small>{market.loading && !market.loaded ? "正在读取…" : market.error ? "暂时无法读取" : updates ? `${updates} 个可更新 · ${installable} 个可安装` : installable ? `${installable} 个可安装` : "浏览和安装插件"}</small></span>
+          <span><strong>{tr("插件市场")}</strong><small>{market.loading && !market.loaded ? tr("正在读取…") : market.error ? tr("暂时无法读取") : updates ? tr("{0} 个可更新 · {1} 个可安装", (updates), (installable)) : installable ? tr("{0} 个可安装", (installable)) : tr("浏览和安装插件")}</small></span>
           {updates > 0 && <em aria-hidden="true">{updates}</em>}
           <ChevronRight size={15} className="trailing-icon" />
         </button>
         {view && !view.enabled && view.available && <button type="button" className="plugin-sidebar-notice" onClick={() => onPage({ kind: "settings" })}>
-          <ShieldCheck size={17} /><span><strong>主机工具未开启</strong><small>插件不会运行。点此前往设置开启。</small></span>
+          <ShieldCheck size={17} /><span><strong>{tr("主机工具未开启")}</strong><small>{tr("插件不会运行。点此前往设置开启。")}</small></span>
         </button>}
-        {!view && <p className="plugin-sidebar-hint" role={error ? "alert" : "status"}>{error || "正在读取插件…"}</p>}
-        {view && <SidebarSection title="已安装" count={installed.length} open={open} onToggle={() => setOpen(value => !value)}>
+        {!view && <p className="plugin-sidebar-hint" role={error ? "alert" : "status"}>{error || tr("正在读取插件…")}</p>}
+        {view && <SidebarSection title={tr("已安装")} count={installed.length} open={open} onToggle={() => setOpen(value => !value)}>
           {shown.map(entry => <PluginRow key={entry.name} entry={entry} view={view} busy={busy}
             selected={page?.kind === "plugin" && page.name === entry.name}
             onSelect={() => onPage({ kind: "plugin", name: entry.name })} onInstall={() => installPlugin(model, entry, onConfirm)} />)}
-          {!shown.length && <p className="plugin-sidebar-hint">{query ? "没有匹配的插件" : "还没有安装插件"}</p>}
+          {!shown.length && <p className="plugin-sidebar-hint">{query ? tr("没有匹配的插件") : tr("还没有安装插件")}</p>}
         </SidebarSection>}
       </div>
       {error && view && <p className="plugin-sidebar-error" role="alert">{error}</p>}
@@ -374,13 +379,14 @@ export function HostPluginsSidebar({ visible, model, page, onPage, onBack, onCon
 }
 
 function MarketCard({ entry, view, busy, onOpen, onInstall }) {
+  const tr = useTranslation();
   const info = entryInfo(entry, view);
   const offer = entry.offer || entry.listing;
   const update = Boolean(entry.plugin && entry.offer);
   const installing = busy === `install:${entry.name}`;
   return (
     <article className="plugin-card-item">
-      <button type="button" className="plugin-card-main" onClick={onOpen} aria-label={`查看 ${info.title}`}>
+      <button type="button" className="plugin-card-main" onClick={onOpen} aria-label={tr("查看 {0}", (info.title))}>
         <PluginIcon name={entry.name} src={entry.icon} size={44} />
         <span className="plugin-card-text">
           <span className="plugin-row-title"><strong>{info.title}</strong><small>{update ? `${entry.plugin.version || "?"} → ${offer.version}` : offer.version}</small></span>
@@ -390,12 +396,12 @@ function MarketCard({ entry, view, busy, onOpen, onInstall }) {
       </button>
       <footer>
         <span className="plugin-card-permissions" title={permissionText(offer.permissions)}>
-          <ShieldCheck size={13} />{offer.permissions?.length ? permissionText(offer.permissions) : "无需额外权限"}
+          <ShieldCheck size={13} />{offer.permissions?.length ? permissionText(offer.permissions) : tr("无需额外权限")}
         </span>
-        {entry.plugin && !update ? <span className="plugin-state online"><i />已安装</span>
+        {entry.plugin && !update ? <span className="plugin-state online"><i />{tr("已安装")}</span>
           : !offer.supported ? <span className="plugin-state problem" title={offer.problem || undefined}><i />{unsupportedLabel(offer)}</span>
           : <button type="button" className="primary" disabled={Boolean(busy)} onClick={onInstall}>
-            {installing ? <LoaderCircle size={14} className="spin" /> : <Download size={14} />}{installing ? update ? "正在更新" : "正在安装" : update ? "更新" : "安装"}
+            {installing ? <LoaderCircle size={14} className="spin" /> : <Download size={14} />}{installing ? update ? tr("正在更新") : tr("正在安装") : update ? tr("更新") : tr("安装")}
           </button>}
       </footer>
     </article>
@@ -403,6 +409,7 @@ function MarketCard({ entry, view, busy, onOpen, onInstall }) {
 }
 
 function Market({ model, onConfirm, onPage }) {
+  const tr = useTranslation();
   const { view, busy, market } = model;
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
@@ -424,39 +431,39 @@ function Market({ model, onConfirm, onPage }) {
     <div className="plugin-market">
       <header className="plugin-market-head">
         <div>
-          <h2>插件市场</h2>
-          <p>来自社区插件仓库。安装前请查看插件声明的权限，只安装你信任的插件。</p>
+          <h2>{tr("插件市场")}</h2>
+          <p>{tr("来自社区插件仓库。安装前请查看插件声明的权限，只安装你信任的插件。")}</p>
         </div>
         <div className="plugin-market-tools">
           <label className="plugin-search large">
             <Search size={16} aria-hidden="true" />
-            <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索插件市场" aria-label="搜索插件市场" />
+            <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={tr("搜索插件市场")} aria-label={tr("搜索插件市场")} />
           </label>
           {!market.missing && <button type="button" disabled={market.loading} onClick={() => model.loadMarket(true)}>
-            <RefreshCw size={15} className={market.loading ? "spin" : undefined} />刷新
+            <RefreshCw size={15} className={market.loading ? "spin" : undefined} />{tr("刷新")}
           </button>}
         </div>
-        {fetched && !Number.isNaN(fetched.getTime()) && <small className="plugin-market-fetched">更新于 {fetched.toLocaleString()}</small>}
+        {fetched && !Number.isNaN(fetched.getTime()) && <small className="plugin-market-fetched">{tr("更新于") + " "}{fetched.toLocaleString()}</small>}
       </header>
-      {sections.length > 0 && <div className="plugin-categories" role="group" aria-label="按分类查看">
-        <button type="button" aria-pressed={!chosen} onClick={() => setCategory("")}>全部</button>
+      {sections.length > 0 && <div className="plugin-categories" role="group" aria-label={tr("按分类查看")}>
+        <button type="button" aria-pressed={!chosen} onClick={() => setCategory("")}>{tr("全部")}</button>
         {sections.map(name => <button key={name} type="button" aria-pressed={chosen === name} onClick={() => setCategory(name)}>{categoryNames[name]}</button>)}
       </div>}
-      {market.error && <div className="plugin-banner problem" role="alert"><TriangleAlert size={17} /><div><strong>暂时无法读取社区插件</strong><p>{market.error}</p></div>
-        <button type="button" onClick={() => model.loadMarket(true)}>重试</button></div>}
+      {market.error && <div className="plugin-banner problem" role="alert"><TriangleAlert size={17} /><div><strong>{tr("暂时无法读取社区插件")}</strong><p>{market.error}</p></div>
+        <button type="button" onClick={() => model.loadMarket(true)}>{tr("重试")}</button></div>}
       {updates.length > 0 && <section className="plugin-market-section">
-        <h3>可更新<em>{updates.length}</em></h3>
+        <h3>{tr("可更新")}<em>{updates.length}</em></h3>
         <div className="plugin-card-grid">{updates.map(card)}</div>
       </section>}
       <section className="plugin-market-section">
-        <h3>可安装<em>{offers.length}</em></h3>
+        <h3>{tr("可安装")}<em>{offers.length}</em></h3>
         {offers.length ? <div className="plugin-card-grid">{offers.map(card)}</div>
-          : market.loading ? <p className="plugin-loading" role="status"><LoaderCircle size={16} className="spin" />正在读取插件市场…</p>
+          : market.loading ? <p className="plugin-loading" role="status"><LoaderCircle size={16} className="spin" />{tr("正在读取插件市场…")}</p>
           : market.error && !query ? null
-          : <div className="plugin-empty compact"><Store size={22} /><p>{query ? "没有匹配的插件。" : chosen ? "这个分类下没有可安装的新插件。" : current.length ? "市场里的插件都已安装。" : "没有可安装的新插件。"}</p></div>}
+          : <div className="plugin-empty compact"><Store size={22} /><p>{query ? tr("没有匹配的插件。") : chosen ? tr("这个分类下没有可安装的新插件。") : current.length ? tr("市场里的插件都已安装。") : tr("没有可安装的新插件。")}</p></div>}
       </section>
       {current.length > 0 && <section className="plugin-market-section">
-        <h3>已安装<em>{current.length}</em></h3>
+        <h3>{tr("已安装")}<em>{current.length}</em></h3>
         <div className="plugin-card-grid">{current.map(card)}</div>
       </section>}
     </div>
@@ -464,6 +471,7 @@ function Market({ model, onConfirm, onPage }) {
 }
 
 function CopyField({ value, label }) {
+  const tr = useTranslation();
   const [copied, setCopied] = useState("");
   const copy = async () => {
     try { await writeClipboard(value); setCopied("已复制"); }
@@ -472,7 +480,7 @@ function CopyField({ value, label }) {
   return (
     <div className="plugin-copy-field">
       <code>{value}</code>
-      <button type="button" onClick={copy} aria-label={label}>{copied === "已复制" ? <Check size={15} /> : <Copy size={15} />}{copied || "复制"}</button>
+      <button type="button" onClick={copy} aria-label={label}>{copied === "已复制" ? <Check size={15} /> : <Copy size={15} />}{copied || tr("复制")}</button>
     </div>
   );
 }
@@ -482,6 +490,7 @@ function CopyField({ value, label }) {
 // plugin's own pages. Commands are allowed per open project, in the
 // confirmation window or here; Windows's window offers only allow and deny.
 function Grants({ model, plugin, onConfirm }) {
+  const tr = useTranslation();
   const { busy, change } = model;
   const [choice, setChoice] = useState("");
   const key = `always:${plugin.name}`;
@@ -499,23 +508,23 @@ function Grants({ model, plugin, onConfirm }) {
       await change({ plugin: plugin.name, always: true, project }, key);
     };
     return (
-      <section className="plugin-grants" aria-label="授权">
+      <section className="plugin-grants" aria-label={tr("授权")}>
         <div className="plugin-grants-head">
-          <div><strong>授权</strong><p>在确认窗口中选择“始终允许”，或在下方选择已打开的项目，在这些项目中运行命令就不再询问。</p></div>
-          {projects.length > 1 && <button type="button" disabled={Boolean(busy)} onClick={() => revoke("")}>全部撤销</button>}
+          <div><strong>{tr("授权")}</strong><p>{tr("在确认窗口中选择“始终允许”，或在下方选择已打开的项目，在这些项目中运行命令就不再询问。")}</p></div>
+          {projects.length > 1 && <button type="button" disabled={Boolean(busy)} onClick={() => revoke("")}>{tr("全部撤销")}</button>}
         </div>
         {open.length > 0 && <div className="plugin-grant-add">
-          <select value={project} disabled={Boolean(busy)} onChange={event => setChoice(event.target.value)} aria-label="选择项目">
+          <select value={project} disabled={Boolean(busy)} onChange={event => setChoice(event.target.value)} aria-label={tr("选择项目")}>
             {open.map(folder => <option key={folder} value={folder}>{folder}</option>)}
           </select>
-          <button type="button" disabled={Boolean(busy)} onClick={allow}>始终允许</button>
+          <button type="button" disabled={Boolean(busy)} onClick={allow}>{tr("始终允许")}</button>
         </div>}
         {projects.length ? <ul className="plugin-grant-projects">
           {projects.map(project => <li key={project}>
             <Folder size={15} aria-hidden="true" /><code title={project}>{project}</code>
-            <button type="button" disabled={Boolean(busy)} onClick={() => revoke(project)} aria-label={`撤销 ${project} 的授权`}>撤销</button>
+            <button type="button" disabled={Boolean(busy)} onClick={() => revoke(project)} aria-label={tr("撤销 {0} 的授权", (project))}>{tr("撤销")}</button>
           </li>)}
-        </ul> : <p className="plugin-grants-empty">还没有始终允许的项目，每次运行命令都会询问。</p>}
+        </ul> : <p className="plugin-grants-empty">{tr("还没有始终允许的项目，每次运行命令都会询问。")}</p>}
       </section>
     );
   }
@@ -523,11 +532,11 @@ function Grants({ model, plugin, onConfirm }) {
   // about, so there is nothing to choose.
   if (plugin.kind === "guest" && !(plugin.permissions || []).length) {
     return (
-      <section className="plugin-grants" aria-label="授权">
+      <section className="plugin-grants" aria-label={tr("授权")}>
         <div className="plugin-grants-head">
           <div>
-            <strong>授权</strong>
-            <p>这个插件在环境内运行，没有声明权限，调用它的工具不需要确认。</p>
+            <strong>{tr("授权")}</strong>
+            <p>{tr("这个插件在环境内运行，没有声明权限，调用它的工具不需要确认。")}</p>
           </div>
         </div>
       </section>
@@ -535,15 +544,15 @@ function Grants({ model, plugin, onConfirm }) {
   }
   const always = Boolean(plugin.always);
   return (
-    <section className="plugin-grants" aria-label="授权">
+    <section className="plugin-grants" aria-label={tr("授权")}>
       <div className="plugin-grants-head">
         <div>
-          <strong>授权</strong>
-          <p>{always ? "Claude 和插件页面调用它的工具时不再询问。插件更新后如果需要新的权限，会重新询问。" : "Claude 或插件页面每次调用它的工具前，都会弹窗询问。"}</p>
+          <strong>{tr("授权")}</strong>
+          <p>{always ? tr("Claude 和插件页面调用它的工具时不再询问。插件更新后如果需要新的权限，会重新询问。") : tr("Claude 或插件页面每次调用它的工具前，都会弹窗询问。")}</p>
         </div>
-        <div className="plugin-segmented" role="radiogroup" aria-label="调用工具时">
-          <button type="button" role="radio" aria-checked={!always} disabled={Boolean(busy)} onClick={() => always && change({ plugin: plugin.name, always: false }, key)}>每次询问</button>
-          <button type="button" role="radio" aria-checked={always} disabled={Boolean(busy)} onClick={() => !always && change({ plugin: plugin.name, always: true }, key)}>始终允许</button>
+        <div className="plugin-segmented" role="radiogroup" aria-label={tr("调用工具时")}>
+          <button type="button" role="radio" aria-checked={!always} disabled={Boolean(busy)} onClick={() => always && change({ plugin: plugin.name, always: false }, key)}>{tr("每次询问")}</button>
+          <button type="button" role="radio" aria-checked={always} disabled={Boolean(busy)} onClick={() => !always && change({ plugin: plugin.name, always: true }, key)}>{tr("始终允许")}</button>
         </div>
       </div>
     </section>
@@ -551,6 +560,7 @@ function Grants({ model, plugin, onConfirm }) {
 }
 
 function Detail({ model, name, onConfirm, onPage }) {
+  const tr = useTranslation();
   const { view, busy, change } = model;
   const [tab, setTab] = useState("tools");
   const { installed, available } = pluginEntries(model);
@@ -558,9 +568,9 @@ function Detail({ model, name, onConfirm, onPage }) {
   if (!entry) return (
     <div className="plugin-empty">
       <Blocks size={28} />
-      <strong>这个插件已不在清单中</strong>
-      <p>它可能已被卸载，或插件文件夹已被移走。</p>
-      <button type="button" onClick={() => onPage({ kind: "settings" })}>前往插件设置</button>
+      <strong>{tr("这个插件已不在清单中")}</strong>
+      <p>{tr("它可能已被卸载，或插件文件夹已被移走。")}</p>
+      <button type="button" onClick={() => onPage({ kind: "settings" })}>{tr("前往插件设置")}</button>
     </div>
   );
   const info = entryInfo(entry, view);
@@ -578,14 +588,14 @@ function Detail({ model, name, onConfirm, onPage }) {
   };
   return (
     <article className={`plugin-page ${plugin && !on ? "off" : ""}`}>
-      {!plugin && <button type="button" className="plugin-breadcrumb" onClick={() => onPage({ kind: "market" })}><ArrowLeft size={14} />插件市场</button>}
+      {!plugin && <button type="button" className="plugin-breadcrumb" onClick={() => onPage({ kind: "market" })}><ArrowLeft size={14} />{tr("插件市场")}</button>}
       <header className="plugin-hero">
         <PluginIcon name={name} src={entry.icon} builtIn={entry.source === "builtin"} size={96} />
         <div className="plugin-hero-text">
           <div className="plugin-hero-name"><h2>{info.title}</h2><code>{name}</code></div>
           <div className="plugin-hero-meta">
             <span>{sources[entry.source]}</span>
-            {info.version && <span>版本 {info.version}</span>}
+            {info.version && <span>{tr("版本") + " "}{info.version}</span>}
             {!plugin && offer?.bytes > 0 && <span>{size(offer.bytes)}</span>}
             {plugin && <StateChip state={info.state} />}
             <PurposeTags item={plugin || offer} />
@@ -594,76 +604,76 @@ function Detail({ model, name, onConfirm, onPage }) {
           <div className="plugin-hero-actions">
             {plugin && <label className={`plugin-enable ${on ? "on" : ""}`}>
               <span className="plugin-switch small">
-                <input role="switch" type="checkbox" checked={on} disabled={Boolean(busy)} aria-label={`启用 ${info.title}`}
+                <input role="switch" type="checkbox" checked={on} disabled={Boolean(busy)} aria-label={tr("启用 {0}", (info.title))}
                   onChange={() => change({ plugin: name, on: !on }, `switch:${name}`)} />
                 <span aria-hidden="true" />
               </span>
-              {switching ? on ? "正在停用…" : "正在启用…" : on ? "已启用" : "已停用"}
+              {switching ? on ? tr("正在停用…") : tr("正在启用…") : on ? tr("已启用") : tr("已停用")}
             </label>}
             {!plugin && <button type="button" className="primary" disabled={Boolean(busy) || !offer.supported} onClick={() => installPlugin(model, entry, onConfirm)}>
-              {installing ? <LoaderCircle size={15} className="spin" /> : <Download size={15} />}{!offer.supported ? unsupportedLabel(offer) : installing ? "正在安装…" : "安装"}
+              {installing ? <LoaderCircle size={15} className="spin" /> : <Download size={15} />}{!offer.supported ? unsupportedLabel(offer) : installing ? tr("正在安装…") : tr("安装")}
             </button>}
             {plugin && offer && <button type="button" className="primary" disabled={Boolean(busy)} onClick={() => installPlugin(model, entry, onConfirm)}>
-              {installing ? <LoaderCircle size={15} className="spin" /> : <Download size={15} />}{installing ? "正在更新…" : `更新到 ${offer.version}`}
+              {installing ? <LoaderCircle size={15} className="spin" /> : <Download size={15} />}{installing ? tr("正在更新…") : tr("更新到 {0}", (offer.version))}
             </button>}
             {plugin && !plugin.built_in && <button type="button" disabled={Boolean(busy)} onClick={remove}>
-              {removing ? <LoaderCircle size={15} className="spin" /> : <Trash2 size={15} />}{removing ? "正在卸载…" : "卸载"}
+              {removing ? <LoaderCircle size={15} className="spin" /> : <Trash2 size={15} />}{removing ? tr("正在卸载…") : tr("卸载")}
             </button>}
-            {plugin && !view.enabled && view.available && <button type="button" onClick={() => onPage({ kind: "settings" })}><Settings size={15} />开启主机工具</button>}
+            {plugin && !view.enabled && view.available && <button type="button" onClick={() => onPage({ kind: "settings" })}><Settings size={15} />{tr("开启主机工具")}</button>}
           </div>
         </div>
       </header>
       {plugin && !on && <div className="plugin-banner" role="status"><CircleAlert size={17} /><div>
-        <strong>{plugin.built_in && name === "commands" ? "命令已停用" : "插件已停用"}</strong>
-        <p>{plugin.built_in && name === "commands" ? "Claude 将不能在这台电脑上运行命令。打开上方开关即可恢复。" : "插件不会运行，Claude 也看不到它提供的工具。打开上方开关即可恢复。"}</p>
+        <strong>{plugin.built_in && name === "commands" ? tr("命令已停用") : tr("插件已停用")}</strong>
+        <p>{plugin.built_in && name === "commands" ? tr("Claude 将不能在这台电脑上运行命令。打开上方开关即可恢复。") : tr("插件不会运行，Claude 也看不到它提供的工具。打开上方开关即可恢复。")}</p>
       </div></div>}
-      {plugin?.problem && <div className="plugin-banner problem" role="alert"><TriangleAlert size={17} /><div><strong>插件无法加载</strong><p>{plugin.problem}</p></div></div>}
-      {!plugin && offer?.problem && <div className="plugin-banner problem" role="status"><TriangleAlert size={17} /><div><strong>暂时无法安装</strong><p>{offer.problem}</p></div></div>}
-      <nav className="plugin-tabs" role="tablist" aria-label={`${info.title} 的内容`}>
-        <button type="button" role="tab" aria-selected={tab === "tools"} onClick={() => setTab("tools")}>工具<em>{tools.length}</em></button>
-        <button type="button" role="tab" aria-selected={tab === "permissions"} onClick={() => setTab("permissions")}>{plugin ? "授权与权限" : "权限"}<em>{declared.length}</em></button>
-        {added.length > 0 && <button type="button" role="tab" aria-selected={tab === "contributions"} onClick={() => setTab("contributions")}>功能<em>{added.length}</em></button>}
+      {plugin?.problem && <div className="plugin-banner problem" role="alert"><TriangleAlert size={17} /><div><strong>{tr("插件无法加载")}</strong><p>{plugin.problem}</p></div></div>}
+      {!plugin && offer?.problem && <div className="plugin-banner problem" role="status"><TriangleAlert size={17} /><div><strong>{tr("暂时无法安装")}</strong><p>{offer.problem}</p></div></div>}
+      <nav className="plugin-tabs" role="tablist" aria-label={tr("{0} 的内容", (info.title))}>
+        <button type="button" role="tab" aria-selected={tab === "tools"} onClick={() => setTab("tools")}>{tr("工具")}<em>{tools.length}</em></button>
+        <button type="button" role="tab" aria-selected={tab === "permissions"} onClick={() => setTab("permissions")}>{plugin ? tr("授权与权限") : tr("权限")}<em>{declared.length}</em></button>
+        {added.length > 0 && <button type="button" role="tab" aria-selected={tab === "contributions"} onClick={() => setTab("contributions")}>{tr("功能")}<em>{added.length}</em></button>}
       </nav>
       <div className="plugin-page-body">
         <div className="plugin-page-main" role="tabpanel">
           {tab === "contributions" && added.length ? <>
-            <p className="plugin-page-lead">除了提供给 Claude 的工具，插件还会在应用中添加这些内容。</p>
+            <p className="plugin-page-lead">{tr("除了提供给 Claude 的工具，插件还会在应用中添加这些内容。")}</p>
             <ul className="plugin-permission-list">
               {added.map(({ key, icon: Icon, title, text }) => <li key={key}><span><Icon size={17} /></span><div><strong>{title}</strong><p>{text}</p></div></li>)}
             </ul>
           </> : tab !== "permissions" ? tools.length ? <ul className="plugin-tool-list">
             {tools.map(tool => <li key={tool.name}>
               <span className="plugin-tool-icon"><Wrench size={15} /></span>
-              <div><code>{tool.name}</code><p>{toolNotes[tool.name] || tool.description || "没有说明"}</p></div>
+              <div><code>{tool.name}</code><p>{toolNotes[tool.name] || tool.description || tr("没有说明")}</p></div>
             </li>)}
           </ul> : <div className="plugin-empty compact">
             <Wrench size={22} />
-            <p>{!plugin ? "安装并运行后，这里会列出插件提供给 Claude 的工具。" : plugin.problem ? "插件无法加载，没有可用的工具。" : !on ? "启用插件后，这里会列出它提供的工具。" : !view.enabled ? "开启主机工具后，这里会列出插件提供的工具。" : "插件运行后，这里会列出它提供的工具。"}</p>
+            <p>{!plugin ? tr("安装并运行后，这里会列出插件提供给 Claude 的工具。") : plugin.problem ? tr("插件无法加载，没有可用的工具。") : !on ? tr("启用插件后，这里会列出它提供的工具。") : !view.enabled ? tr("开启主机工具后，这里会列出插件提供的工具。") : tr("插件运行后，这里会列出它提供的工具。")}</p>
           </div> : <>
             {plugin && <Grants model={model} plugin={plugin} onConfirm={onConfirm} />}
-            <p className="plugin-page-lead">权限由插件自行声明，供你在安装前判断。</p>
+            <p className="plugin-page-lead">{tr("权限由插件自行声明，供你在安装前判断。")}</p>
             {declared.length ? <ul className="plugin-permission-list">
               {declared.map(key => {
                 const known = permissions[key] || { title: key, text: "插件声明的其他权限。", icon: ShieldCheck };
                 const Icon = known.icon;
                 return <li key={key}><span><Icon size={17} /></span><div><strong>{known.title}</strong><p>{known.text}</p></div></li>;
               })}
-            </ul> : <div className="plugin-empty compact"><ShieldCheck size={22} /><p>这个插件没有声明需要任何权限。</p></div>}
+            </ul> : <div className="plugin-empty compact"><ShieldCheck size={22} /><p>{tr("这个插件没有声明需要任何权限。")}</p></div>}
           </>}
         </div>
-        <aside className="plugin-page-aside" aria-label="插件信息">
-          <h3>信息</h3>
+        <aside className="plugin-page-aside" aria-label={tr("插件信息")}>
+          <h3>{tr("信息")}</h3>
           <dl>
-            <div><dt>标识符</dt><dd><code>{name}</code></dd></div>
-            {info.version && <div><dt>版本</dt><dd>{info.version}</dd></div>}
-            <div><dt>来源</dt><dd>{sources[entry.source]}</dd></div>
-            {(plugin || offer).kind && <div><dt>运行位置</dt><dd>{(plugin || offer).kind === "guest" ? "Cage 环境" : "这台电脑"}</dd></div>}
-            <div><dt>状态</dt><dd>{plugin ? info.state.label : offer.supported ? "未安装" : unsupportedLabel(offer)}</dd></div>
-            {!plugin && offer?.bytes > 0 && <div><dt>大小</dt><dd>{size(offer.bytes)}</dd></div>}
+            <div><dt>{tr("标识符")}</dt><dd><code>{name}</code></dd></div>
+            {info.version && <div><dt>{tr("版本")}</dt><dd>{info.version}</dd></div>}
+            <div><dt>{tr("来源")}</dt><dd>{sources[entry.source]}</dd></div>
+            {(plugin || offer).kind && <div><dt>{tr("运行位置")}</dt><dd>{(plugin || offer).kind === "guest" ? tr("Cage 环境") : tr("这台电脑")}</dd></div>}
+            <div><dt>{tr("状态")}</dt><dd>{plugin ? info.state.label : offer.supported ? tr("未安装") : unsupportedLabel(offer)}</dd></div>
+            {!plugin && offer?.bytes > 0 && <div><dt>{tr("大小")}</dt><dd>{size(offer.bytes)}</dd></div>}
           </dl>
           {plugin && !plugin.built_in && <>
-            <h3>位置</h3>
-            <CopyField value={`${view.directory}${separator}${name}`} label="复制插件位置" />
+            <h3>{tr("位置")}</h3>
+            <CopyField value={`${view.directory}${separator}${name}`} label={tr("复制插件位置")} />
           </>}
         </aside>
       </div>
@@ -672,6 +682,7 @@ function Detail({ model, name, onConfirm, onPage }) {
 }
 
 function SettingsPage({ model, status, onConfirm }) {
+  const tr = useTranslation();
   const { view, busy, change } = model;
   const waiting = view.enabled && !view.running;
   const toggle = async () => {
@@ -688,38 +699,38 @@ function SettingsPage({ model, status, onConfirm }) {
         <div className="plugin-master-row">
           <span className="plugin-master-icon"><Blocks size={24} /></span>
           <div>
-            <h2>允许 Claude 使用这台电脑</h2>
-            <p>插件通过 MCP 把这台电脑的能力提供给环境内的 Claude Code 和 Claude 桌面应用。</p>
+            <h2>{tr("允许 Claude 使用这台电脑")}</h2>
+            <p>{tr("插件通过 MCP 把这台电脑的能力提供给环境内的 Claude Code 和 Claude 桌面应用。")}</p>
           </div>
           {view.available && <label className="plugin-switch">
-            <input role="switch" type="checkbox" aria-label="允许 Claude 使用这台电脑" checked={view.enabled} disabled={Boolean(busy)} onChange={toggle} />
+            <input role="switch" type="checkbox" aria-label={tr("允许 Claude 使用这台电脑")} checked={view.enabled} disabled={Boolean(busy)} onChange={toggle} />
             <span aria-hidden="true" />
           </label>}
         </div>
         <div className="plugin-master-footer">
           <StateChip state={state} />
           {view.enabled && <button type="button" disabled={Boolean(busy) || !status?.ready} onClick={() => change({ reload: true }, "reload")}>
-            <RefreshCw size={15} className={busy === "reload" ? "spin" : undefined} />重新加载插件
+            <RefreshCw size={15} className={busy === "reload" ? "spin" : undefined} />{tr("重新加载插件")}
           </button>}
         </div>
       </section>
       <ul className="plugin-facts">
-        <li><ShieldCheck size={18} /><div><strong>每次操作都先征求同意</strong><p>系统会弹窗显示插件、工具和参数，你可以只允许一次，或在本次运行期间都允许。</p></div></li>
-        <li><TriangleAlert size={18} /><div><strong>不受环境隔离保护</strong><p>插件以你的系统账户权限运行。只安装你信任的插件。</p></div></li>
-        <li><CircleAlert size={18} /><div><strong>试验功能</strong><p>此功能仍在试验阶段，默认关闭。</p></div></li>
+        <li><ShieldCheck size={18} /><div><strong>{tr("每次操作都先征求同意")}</strong><p>{tr("系统会弹窗显示插件、工具和参数，你可以只允许一次，或在本次运行期间都允许。")}</p></div></li>
+        <li><TriangleAlert size={18} /><div><strong>{tr("不受环境隔离保护")}</strong><p>{tr("插件以你的系统账户权限运行。只安装你信任的插件。")}</p></div></li>
+        <li><CircleAlert size={18} /><div><strong>{tr("试验功能")}</strong><p>{tr("此功能仍在试验阶段，默认关闭。")}</p></div></li>
       </ul>
-      {view.problems?.length > 0 && <div className="plugin-banner problem" role="alert"><TriangleAlert size={17} /><div><strong>部分插件未能加载</strong>{view.problems.map(problem => <p key={problem}>{problem}</p>)}</div></div>}
+      {view.problems?.length > 0 && <div className="plugin-banner problem" role="alert"><TriangleAlert size={17} /><div><strong>{tr("部分插件未能加载")}</strong>{view.problems.map(problem => <p key={problem}>{problem}</p>)}</div></div>}
       <section className="plugin-card">
-        <h3>可操作的文件夹</h3>
-        <p className="plugin-card-lead">命令插件只能在这些已打开的项目文件夹中运行。</p>
+        <h3>{tr("可操作的文件夹")}</h3>
+        <p className="plugin-card-lead">{tr("命令插件只能在这些已打开的项目文件夹中运行。")}</p>
         {view.folders.length ? <ul className="plugin-folder-list">
           {view.folders.map(folder => <li key={folder}><Folder size={16} /><code>{folder}</code></li>)}
-        </ul> : <div className="plugin-empty compact"><FolderOpen size={22} /><p>还没有打开项目。打开项目后，它的文件夹会出现在这里。</p></div>}
+        </ul> : <div className="plugin-empty compact"><FolderOpen size={22} /><p>{tr("还没有打开项目。打开项目后，它的文件夹会出现在这里。")}</p></div>}
       </section>
       <section className="plugin-card">
-        <h3>手动安装插件</h3>
-        <p className="plugin-card-lead">把插件文件夹放进下面的位置，然后点击“重新加载插件”。每个插件是一个带有 plugin.json 的文件夹。</p>
-        <CopyField value={view.directory} label="复制插件文件夹路径" />
+        <h3>{tr("手动安装插件")}</h3>
+        <p className="plugin-card-lead">{tr("把插件文件夹放进下面的位置，然后点击“重新加载插件”。每个插件是一个带有 plugin.json 的文件夹。")}</p>
+        <CopyField value={view.directory} label={tr("复制插件文件夹路径")} />
       </section>
     </div>
   );
@@ -727,8 +738,9 @@ function SettingsPage({ model, status, onConfirm }) {
 
 // HostPluginsPanel shows, in the workspace, what the plugin sidebar chose.
 export function HostPluginsPanel({ model, page, status, onConfirm, onPage }) {
+  const tr = useTranslation();
   const { view, error } = model;
-  if (!view) return <div className="plugin-panel">{error ? <p role="alert" className="error-message">{error}</p> : <p role="status" className="plugin-loading"><LoaderCircle size={16} className="spin" />正在读取插件…</p>}</div>;
+  if (!view) return <div className="plugin-panel">{error ? <p role="alert" className="error-message">{error}</p> : <p role="status" className="plugin-loading"><LoaderCircle size={16} className="spin" />{tr("正在读取插件…")}</p>}</div>;
   return (
     <div className="plugin-panel">
       {error && <p role="alert" className="plugin-banner problem"><TriangleAlert size={17} /><span>{error}</span></p>}

@@ -23,6 +23,8 @@
 typedef struct {
     GtkApplication *application;
     GtkWidget *window, *stack, *status, *retry, *existing, *complete;
+    GMenu *menu;
+    JsonObject *messages;
     WebKitWebView *web;
     WebKitUserContentManager *content;
     char *backend, *profile, *token, *smoke_output, *web_data, *web_cache;
@@ -56,6 +58,7 @@ static guint64 clipboard_current_revision(void) {
 }
 static void bootstrap(const char *option);
 static void show_error(const char *message);
+static void update_menu(void);
 
 typedef void (*BackendCallback)(JsonObject *, const GError *, gpointer);
 typedef struct {
@@ -71,6 +74,29 @@ static const char *text_member(JsonObject *object, const char *name) {
     JsonNode *node = object ? json_object_get_member(object, name) : NULL;
     return node && JSON_NODE_HOLDS_VALUE(node) && json_node_get_value_type(node) == G_TYPE_STRING
         ? json_node_get_string(node) : "";
+}
+static const char *ui_text(const char *source) {
+    const char *message = text_member(app.messages, source);
+    return *message ? message : source;
+}
+static void set_messages(JsonObject *result) {
+    JsonNode *node = result ? json_object_get_member(result, "messages") : NULL;
+    if (!node || !JSON_NODE_HOLDS_OBJECT(node)) return;
+    g_clear_pointer(&app.messages, json_object_unref);
+    app.messages = json_object_ref(json_node_get_object(node));
+}
+static void load_language(void) {
+    char *arguments[] = {app.backend, "interface-language", "--json", NULL};
+    char *output = NULL;
+    int status = 0;
+    if (g_spawn_sync(NULL, arguments, NULL, G_SPAWN_STDERR_TO_DEV_NULL, NULL, NULL, &output, NULL, &status, NULL)
+            && g_spawn_check_wait_status(status, NULL)) {
+        JsonParser *parser = json_parser_new();
+        if (json_parser_load_from_data(parser, output, -1, NULL) && JSON_NODE_HOLDS_OBJECT(json_parser_get_root(parser)))
+            set_messages(json_node_get_object(json_parser_get_root(parser)));
+        g_object_unref(parser);
+    }
+    g_free(output);
 }
 static char *json_text(JsonNode *node) {
     JsonGenerator *generator = json_generator_new();
@@ -246,7 +272,7 @@ static gboolean quit_idle(gpointer data) {
 }
 static void show_error(const char *message) {
     diagnostic_event(message);
-    gtk_label_set_text(GTK_LABEL(app.status), message);
+    gtk_label_set_text(GTK_LABEL(app.status), ui_text(message));
     gtk_stack_set_visible_child_name(GTK_STACK(app.stack), "status");
     gtk_widget_show(app.retry);
 }
@@ -304,6 +330,20 @@ static void pending_free(PendingReply *pending) {
     g_object_unref(pending->context);
     g_free(pending->connection);
     g_free(pending);
+}
+static void language_refreshed(JsonObject *object, const GError *error, gpointer data) {
+    PendingReply *pending = data;
+    if (error) reply_error(pending->reply, error->message);
+    else {
+        set_messages(object);
+        update_menu();
+        gtk_button_set_label(GTK_BUTTON(app.retry), ui_text("重试连接"));
+        gtk_button_set_label(GTK_BUTTON(app.existing), ui_text("打开现有环境保存文件"));
+        gtk_button_set_label(GTK_BUTTON(app.complete), ui_text("保存后停止环境并完成更新"));
+        gtk_window_set_title(GTK_WINDOW(app.window), app.needs_update ? ui_text("Cage（更新待完成）") : "Cage");
+        reply_json(pending->reply, pending->context, "true");
+    }
+    pending_free(pending);
 }
 // Linux packages are installed by the system. The App only learns whether a
 // newer package was published, so the workbench can point to it.
@@ -1060,6 +1100,9 @@ static gboolean bridge_received(WebKitUserContentManager *manager, JSCValue *val
             g_free(path);
         }
         g_object_unref(theme_parser);
+    } else if (!strcmp(name, "refreshLanguage")) {
+        const char *args[] = {"interface-language", "--json", NULL};
+        backend_arguments_limited(args, 4, 64 * 1024, language_refreshed, pending_reply(reply, context));
     } else if (!strcmp(name, "refreshSession")) {
         backend("desktop", app.needs_update ? "--existing" : NULL, session_refreshed, pending_reply(reply, context));
     } else if (!strcmp(name, "reconnect")) {
@@ -1132,13 +1175,13 @@ static void bootstrapped(JsonObject *object, const GError *error, gpointer data)
     g_uri_unref(uri);
     app.ready = FALSE;
     install_bridge();
-    gtk_window_set_title(GTK_WINDOW(app.window), app.needs_update ? "Cage（更新待完成）" : "Cage");
+    gtk_window_set_title(GTK_WINDOW(app.window), app.needs_update ? ui_text("Cage（更新待完成）") : "Cage");
     webkit_web_view_load_uri(app.web, url);
 }
 static void bootstrap(const char *option) {
     if (app.bootstrapping) return;
     app.bootstrapping = TRUE;
-    gtk_label_set_text(GTK_LABEL(app.status), "正在连接 Cage 工作台…");
+    gtk_label_set_text(GTK_LABEL(app.status), ui_text("正在连接 Cage 工作台…"));
     gtk_stack_set_visible_child_name(GTK_STACK(app.stack), "status");
     gtk_widget_hide(app.retry); gtk_widget_hide(app.existing); gtk_widget_hide(app.complete);
     backend("desktop", option, bootstrapped, NULL);
@@ -1148,7 +1191,7 @@ static void existing_clicked(GtkButton *button, gpointer data) { (void)button; (
 static void complete_clicked(GtkButton *button, gpointer data) {
     (void)button; (void)data;
     GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(app.window), GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_OK_CANCEL,
-        "请先保存文件。继续后将停止 Cage 环境并完成后台更新，终端任务会结束，项目和登录状态会保留。");
+        "%s", ui_text("请先保存文件。继续后将停止 Cage 环境并完成后台更新，终端任务会结束，项目和登录状态会保留。"));
     gboolean accepted = gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK;
     gtk_widget_destroy(dialog);
     if (accepted) bootstrap("--complete-update");
@@ -1210,25 +1253,29 @@ static void menu_action(GSimpleAction *simple, GVariant *parameter, gpointer dat
         else g_application_quit(G_APPLICATION(app.application));
     } else if (!strcmp(name, "updates")) {
         GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(app.window), GTK_DIALOG_MODAL, GTK_MESSAGE_INFO, GTK_BUTTONS_CLOSE,
-            "Linux 版本通过安装包更新。请保存文件、停止环境并退出 Cage，再安装已核对摘要的官方新版本。");
+            "%s", ui_text("Linux 版本通过安装包更新。请保存文件、停止环境并退出 Cage，再安装已核对摘要的官方新版本。"));
         gtk_dialog_run(GTK_DIALOG(dialog)); gtk_widget_destroy(dialog);
     } else if (!strcmp(name, "about")) {
         gtk_show_about_dialog(GTK_WINDOW(app.window), "program-name", "Cage", "version", CAGE_VERSION,
-            "comments", "本机隔离编码工作区", "license-type", GTK_LICENSE_MIT_X11, NULL);
+            "comments", ui_text("本机隔离编码工作区"), "license-type", GTK_LICENSE_MIT_X11, NULL);
     } else action(name);
 }
-static void add_menu_action(GMenu *menu, const char *name, const char *label, const char *accelerator) {
-    GSimpleAction *simple = g_simple_action_new(name, NULL);
-    g_signal_connect(simple, "activate", G_CALLBACK(menu_action), NULL);
-    g_action_map_add_action(G_ACTION_MAP(app.application), G_ACTION(simple));
-    g_object_unref(simple);
-    char *full = g_strconcat("app.", name, NULL);
-    g_menu_append(menu, label, full);
-    if (accelerator) {
-        const char *accelerators[] = {accelerator, NULL};
-        gtk_application_set_accels_for_action(app.application, full, accelerators);
-    }
-    g_free(full);
+static void update_menu(void) {
+    GMenu *file = g_menu_new(), *settings = g_menu_new(), *help = g_menu_new();
+    g_menu_append(file, ui_text("打开项目…"), "app.openProject");
+    g_menu_append(file, ui_text("新建网页"), "app.newTab");
+    g_menu_append(file, ui_text("新建终端"), "app.newTerminal");
+    g_menu_append(file, ui_text("关闭当前标签"), "app.closeTab");
+    g_menu_append(file, ui_text("关闭窗口（保留环境）"), "app.closeWindow");
+    g_menu_append(file, ui_text("退出 Cage…"), "app.quit");
+    g_menu_append(settings, ui_text("打开设置"), "app.settings");
+    g_menu_append(settings, ui_text("应用更新…"), "app.updates");
+    g_menu_append(help, ui_text("关于 Cage"), "app.about");
+    g_menu_remove_all(app.menu);
+    g_menu_append_submenu(app.menu, ui_text("文件"), G_MENU_MODEL(file));
+    g_menu_append_submenu(app.menu, ui_text("设置"), G_MENU_MODEL(settings));
+    g_menu_append_submenu(app.menu, ui_text("帮助"), G_MENU_MODEL(help));
+    g_object_unref(file); g_object_unref(settings); g_object_unref(help);
 }
 static void create_window(void) {
     app.window = gtk_application_window_new(app.application);
@@ -1243,34 +1290,31 @@ static void create_window(void) {
     g_object_get(gtk_settings_get_default(), "gtk-application-prefer-dark-theme", &app.initial_dark, NULL);
     GtkWidget *layout = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_container_add(GTK_CONTAINER(app.window), layout);
-    GMenu *menu = g_menu_new(), *file = g_menu_new(), *settings = g_menu_new(), *help = g_menu_new();
+    app.menu = g_menu_new();
     /* Workbench shortcuts stay in JavaScript so terminal/browser focus rules apply. */
-    add_menu_action(file, "openProject", "打开项目…", NULL);
-    add_menu_action(file, "newTab", "新建网页", NULL);
-    add_menu_action(file, "newTerminal", "新建终端", NULL);
-    add_menu_action(file, "closeTab", "关闭当前标签", NULL);
-    add_menu_action(file, "closeWindow", "关闭窗口（保留环境）", NULL);
-    add_menu_action(file, "quit", "退出 Cage…", "<Primary>q");
-    add_menu_action(settings, "settings", "打开设置", NULL);
-    add_menu_action(settings, "updates", "应用更新…", NULL);
-    add_menu_action(help, "about", "关于 Cage", NULL);
-    g_menu_append_submenu(menu, "文件", G_MENU_MODEL(file));
-    g_menu_append_submenu(menu, "设置", G_MENU_MODEL(settings));
-    g_menu_append_submenu(menu, "帮助", G_MENU_MODEL(help));
-    gtk_box_pack_start(GTK_BOX(layout), gtk_menu_bar_new_from_model(G_MENU_MODEL(menu)), FALSE, FALSE, 0);
-    g_object_unref(menu); g_object_unref(file); g_object_unref(settings); g_object_unref(help);
+    const char *actions[] = {"openProject", "newTab", "newTerminal", "closeTab", "closeWindow", "quit", "settings", "updates", "about"};
+    for (guint i = 0; i < G_N_ELEMENTS(actions); i++) {
+        GSimpleAction *simple = g_simple_action_new(actions[i], NULL);
+        g_signal_connect(simple, "activate", G_CALLBACK(menu_action), NULL);
+        g_action_map_add_action(G_ACTION_MAP(app.application), G_ACTION(simple));
+        g_object_unref(simple);
+    }
+    const char *quit_accels[] = {"<Primary>q", NULL};
+    gtk_application_set_accels_for_action(app.application, "app.quit", quit_accels);
+    update_menu();
+    gtk_box_pack_start(GTK_BOX(layout), gtk_menu_bar_new_from_model(G_MENU_MODEL(app.menu)), FALSE, FALSE, 0);
     app.stack = gtk_stack_new();
     gtk_box_pack_start(GTK_BOX(layout), app.stack, TRUE, TRUE, 0);
     GtkWidget *status_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_start(status_box, 48); gtk_widget_set_margin_end(status_box, 48);
     gtk_widget_set_margin_top(status_box, 48); gtk_widget_set_valign(status_box, GTK_ALIGN_START);
-    app.status = gtk_label_new("正在启动 Cage 工作台…");
+    app.status = gtk_label_new(ui_text("正在启动 Cage 工作台…"));
     gtk_label_set_line_wrap(GTK_LABEL(app.status), TRUE);
     gtk_label_set_xalign(GTK_LABEL(app.status), 0);
     gtk_box_pack_start(GTK_BOX(status_box), app.status, FALSE, FALSE, 0);
-    app.retry = gtk_button_new_with_label("重试连接");
-    app.existing = gtk_button_new_with_label("打开现有环境保存文件");
-    app.complete = gtk_button_new_with_label("保存后停止环境并完成更新");
+    app.retry = gtk_button_new_with_label(ui_text("重试连接"));
+    app.existing = gtk_button_new_with_label(ui_text("打开现有环境保存文件"));
+    app.complete = gtk_button_new_with_label(ui_text("保存后停止环境并完成更新"));
     GtkWidget *buttons[] = {app.retry, app.existing, app.complete};
     for (guint i = 0; i < G_N_ELEMENTS(buttons); i++) {
         gtk_widget_set_halign(buttons[i], GTK_ALIGN_START);
@@ -1384,6 +1428,7 @@ int main(int argc, char **argv) {
         : CAGE_CLIENT_ONLY ? g_build_filename(g_get_home_dir(), ".claude-cage", "client", "config.json", NULL)
         : g_build_filename(g_get_home_dir(), ".claude-cage", "config.json", NULL);
     g_setenv("CLAUDE_CAGE_CONFIG", app.profile, TRUE);
+    load_language();
     g_log_set_default_handler(diagnostic_glib, NULL);
     if (!prepare_web_storage()) {
         g_printerr("无法创建 Cage 私有界面数据目录，请检查配置目录的所有者、权限或符号链接。\n");
@@ -1404,5 +1449,7 @@ int main(int argc, char **argv) {
     g_free(app.backend); g_free(app.profile); g_free(app.token); g_free(app.smoke_output);
     g_free(app.web_data); g_free(app.web_cache);
     g_clear_object(&app.content);
+    g_clear_object(&app.menu);
+    g_clear_pointer(&app.messages, json_object_unref);
     return status ? status : app.result;
 }

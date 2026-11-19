@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import { AudioOutput } from "./audio-output";
+import { useTranslation } from "./interface-language.mjs";
 
 function savedAudio() {
   try {
@@ -44,6 +45,7 @@ export function useAudioOutput(enabled) {
 }
 
 export function AudioControls({ audio }) {
+  const tr = useTranslation();
   const [open, setOpen] = useState(false);
   const controls = useRef(null);
   const keyboardOpened = useRef(false);
@@ -70,7 +72,7 @@ export function AudioControls({ audio }) {
       {silent ? <VolumeX size={15} /> : <Volume2 size={15} />}
     </button>
     {open && <div className="audio-volume-panel">
-      <input type="range" aria-label="环境音量" title={`环境音量 ${Math.round(audio.volume * 100)}%`} min="0" max="100" step="1" value={Math.round(audio.volume * 100)} style={{ "--volume-level": `${Math.round(audio.volume * 100)}%` }} disabled={!audio.enabled} autoFocus={keyboardOpened.current} onChange={e => audio.volumeChange(Number(e.target.value) / 100)} onKeyDown={event => {
+      <input type="range" aria-label={tr("环境音量")} title={tr("环境音量 {0}%", (Math.round(audio.volume * 100)))} min="0" max="100" step="1" value={Math.round(audio.volume * 100)} style={{ "--volume-level": `${Math.round(audio.volume * 100)}%` }} disabled={!audio.enabled} autoFocus={keyboardOpened.current} onChange={e => audio.volumeChange(Number(e.target.value) / 100)} onKeyDown={event => {
         const value = Math.round(audio.volume * 100);
         const next = { ArrowUp: value + 1, ArrowRight: value + 1, ArrowDown: value - 1, ArrowLeft: value - 1, Home: 0, End: 100, PageUp: value + 10, PageDown: value - 10 }[event.key];
         if (next !== undefined) { event.preventDefault(); audio.volumeChange(Math.max(0, Math.min(100, next)) / 100); }

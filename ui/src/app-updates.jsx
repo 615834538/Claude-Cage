@@ -4,6 +4,7 @@ import { api, native, nativeAvailable } from "./api";
 import { getClientContext } from "./client-context.mjs";
 import { Modal } from "./modal";
 import { stopAndExit } from "./quit";
+import { useTranslation } from "./interface-language.mjs";
 
 const activePhases = new Set(["checking", "downloading", "downloaded", "verifying", "installing"]);
 const checkInterval = 6 * 60 * 60 * 1000;
@@ -99,6 +100,7 @@ export function useAppUpdates() {
 }
 
 export function AppUpdateDialog({ updates, onStatus }) {
+  const tr = useTranslation();
   const { installationPrompt, setInstallationPrompt, run } = updates;
   const [stopping, setStopping] = useState(false);
   const [error, setError] = useState("");
@@ -140,22 +142,23 @@ export function AppUpdateDialog({ updates, onStatus }) {
     }
   };
   if (!installationPrompt) return null;
-  return <Modal title="停止环境并安装更新？" onClose={close} footer={<>
-    <button onClick={close}>{stopping ? "稍后安装" : "取消"}</button>
+  return <Modal title={tr("停止环境并安装更新？")} onClose={close} footer={<>
+    <button onClick={close}>{stopping ? tr("稍后安装") : tr("取消")}</button>
     <button className="primary" disabled={stopping} onClick={install}>
-      {stopping ? "正在停止环境…" : error ? "重试停止并安装" : "保存并停止环境后安装"}
+      {stopping ? tr("正在停止环境…") : error ? tr("重试停止并安装") : tr("保存并停止环境后安装")}
     </button>
   </>}>
     <div className="modal-body">
-      <p>更新已下载并验证。请先保存文件，点击下方按钮停止环境后安装并重启 Cage。当前终端任务会结束，项目、账户和登录状态会保留。</p>
-      <p>取消可稍后安装，已下载的更新会保留。停止开始后，取消只推迟安装，环境仍会停止。</p>
-      {stopping && <p role="status"><LoaderCircle size={16} className="spin" /> 正在等待环境停止，完成后继续安装…</p>}
-      {error && <p className="error-message" role="alert">{error}</p>}
+      <p>{tr("更新已下载并验证。请先保存文件，点击下方按钮停止环境后安装并重启 Cage。当前终端任务会结束，项目、账户和登录状态会保留。")}</p>
+      <p>{tr("取消可稍后安装，已下载的更新会保留。停止开始后，取消只推迟安装，环境仍会停止。")}</p>
+      {stopping && <p role="status"><LoaderCircle size={16} className="spin" />{" " + tr("正在等待环境停止，完成后继续安装…")}</p>}
+      {error && <p className="error-message" role="alert">{tr(error)}</p>}
     </div>
   </Modal>;
 }
 
 export function AppUpdateButton({ updates }) {
+  const tr = useTranslation();
   const { state, run, available, startupFailure, coolingDown } = updates;
   const busy = activePhases.has(state.phase);
   const failed = state.phase === "failed";
@@ -197,7 +200,7 @@ export function AppUpdateButton({ updates }) {
     <>
       {visible && <button
         className={`app-update-button${busy ? " busy" : ""}${failed ? " failed" : ""}`}
-        aria-label={label}
+        aria-label={tr(label)}
         title={hint}
         disabled={busy || coolingDown}
         onClick={() => {
@@ -209,7 +212,7 @@ export function AppUpdateButton({ updates }) {
         {busy ? (
           <>
             <svg className={`app-update-ring${downloading && percent !== null ? "" : " indeterminate"}`}
-              viewBox="0 0 36 36" role="progressbar" aria-label={downloading ? "更新下载进度" : label}
+              viewBox="0 0 36 36" role="progressbar" aria-label={downloading ? tr("更新下载进度") : label}
               aria-valuemin={0} aria-valuemax={100} aria-valuenow={downloading && percent !== null ? percent : undefined}>
               <circle className="app-update-ring-track" cx="18" cy="18" r="15" />
               <circle className="app-update-ring-value" cx="18" cy="18" r="15"
@@ -219,7 +222,7 @@ export function AppUpdateButton({ updates }) {
           </>
         ) : failed ? <RefreshCw size={20} /> : <ArrowDownToLine size={20} />}
       </button>}
-      {(failure || startupFailure) && <div className="app-update-error" role="alert">{failure || startupFailure}{visible ? coolingDown ? "。请等待更新源恢复后重试。" : "。可点击更新按钮重试。" : ""}</div>}
+      {(failure || startupFailure) && <div className="app-update-error" role="alert">{failure || startupFailure}{visible ? coolingDown ? tr("。请等待更新源恢复后重试。") : tr("。可点击更新按钮重试。") : ""}</div>}
     </>
   );
 }

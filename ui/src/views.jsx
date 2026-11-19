@@ -25,6 +25,7 @@ import { guestKeys } from "./guest-keys.mjs";
 import { RefreshCw, Clipboard, ArrowUpRight } from "lucide-react";
 import { SessionAccount } from "./session-account";
 import "@xterm/xterm/css/xterm.css";
+import { useTranslation, translate } from "./interface-language.mjs";
 
 const terminalAccountRequest = (path, options) => api("/cli" + path, options.body);
 
@@ -271,23 +272,23 @@ export const RemoteView = forwardRef(function RemoteView(
       <div className="remote-canvas" ref={box} />
       {sizeError && connection === "connected" && (
         <div className="remote-size-warning connection-banner" role="alert">
-          画面尺寸未能同步，显示比例可能不准确。
-          <button onClick={() => displayResize.current?.retry()}>重试调整</button>
+          {translate("画面尺寸未能同步，显示比例可能不准确。")}
+          <button onClick={() => displayResize.current?.retry()}>{translate("重试调整")}</button>
         </div>
       )}
       {connection !== "connected" && (
         <div className="view-overlay">
           <RefreshCw className={connection === "connecting" ? "spin" : ""} />
           <h3>
-            {connection === "connecting" ? "正在连接画面" : "画面连接已断开"}
+            {connection === "connecting" ? translate("正在连接画面") : translate("画面连接已断开")}
           </h3>
-          <p>后台任务不会因画面断开而自动结束。</p>
+          <p>{translate("后台任务不会因画面断开而自动结束。")}</p>
           {connection === "disconnected" && (
             <button
               className="primary"
               onClick={() => setAttempt((v) => v + 1)}
             >
-              重新连接画面
+              {translate("重新连接画面")}
             </button>
           )}
         </div>
@@ -297,6 +298,7 @@ export const RemoteView = forwardRef(function RemoteView(
 });
 
 export function TerminalView({ session, visible, focused = true, onStatus, onControls, onAccountChanged, onLoginTab }) {
+  const tr = useTranslation();
   const { appearance, theme, variant } = useAppearance();
   const box = useRef(),
     instance = useRef(),
@@ -615,19 +617,19 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
       <div className={`terminal-host ${preparing ? "terminal-preparing" : ""}`} ref={box} aria-hidden={preparing || undefined} />
       {preparing && (
         <div className="terminal-startup" role="status">
-          <span>正在准备 Claude 会话…</span>
-          <button onClick={() => revealStartup.current?.()}>显示启动过程</button>
+          <span>{tr("正在准备 Claude 会话…")}</span>
+          <button onClick={() => revealStartup.current?.()}>{tr("显示启动过程")}</button>
         </div>
       )}
       {!connected && (
         <div className="terminal-note">
           {session.closed
-            ? session.login_notice || "终端会话已结束。可点击项目右侧的终端图标新建终端。"
-            : "正在连接终端…"}
+            ? session.login_notice || tr("终端会话已结束。可点击项目右侧的终端图标新建终端。")
+            : tr("正在连接终端…")}
           {!session.closed && (
             <button onClick={() => setAttempt((v) => v + 1)}>
               <RefreshCw size={13} />
-              重新连接
+              {tr("重新连接")}
             </button>
           )}
         </div>

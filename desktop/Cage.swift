@@ -86,6 +86,7 @@ final class CageApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNaviga
             verifyCodexDecision("授权 Codex 查看和操作「\(label)」(\(bundleID))。\(scope) 请求项目：\(project)")
         }
         CageProfile.pinEnvironment()
+        CageLanguage.refresh()
         NSSetUncaughtExceptionHandler { exception in CageDiagnostics.record("Uncaught native exception: \(exception.name.rawValue): \(exception.reason ?? "")\n\(exception.callStackSymbols.joined(separator: "\n"))") }
         let app = NSApplication.shared
         let delegate = CageApp()
@@ -139,24 +140,24 @@ final class CageApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNaviga
         nativeInput.configure(web: webView)
         content.addSubview(nativeInput)
         NSLayoutConstraint.activate([webView.leadingAnchor.constraint(equalTo: content.leadingAnchor), webView.trailingAnchor.constraint(equalTo: content.trailingAnchor), webView.topAnchor.constraint(equalTo: content.topAnchor), webView.bottomAnchor.constraint(equalTo: content.bottomAnchor)])
-        loading = NSTextField(labelWithString: "正在启动 Cage 工作台…")
+        loading = NSTextField(labelWithString: CageLanguage.text("正在启动 Cage 工作台…"))
         loading.font = NSFont.systemFont(ofSize: 16, weight: .medium)
         loading.textColor = NSColor(srgbRed: 54.0/255, green: 54.0/255, blue: 54.0/255, alpha: 1)
         loading.alignment = .center
         loading.maximumNumberOfLines = 4
         loading.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(loading)
-        retry = NSButton(title: "重试连接", target: self, action: #selector(retryConnection))
+        retry = NSButton(title: CageLanguage.text("重试连接"), target: self, action: #selector(retryConnection))
         retry.bezelStyle = .rounded
         retry.translatesAutoresizingMaskIntoConstraints = false
         retry.isHidden = true
         content.addSubview(retry)
-        completeUpdateButton = NSButton(title: "保存后停止环境并完成更新", target: self, action: #selector(completePendingUpdate))
+        completeUpdateButton = NSButton(title: CageLanguage.text("保存后停止环境并完成更新"), target: self, action: #selector(completePendingUpdate))
         completeUpdateButton.bezelStyle = .rounded
         completeUpdateButton.translatesAutoresizingMaskIntoConstraints = false
         completeUpdateButton.isHidden = true
         content.addSubview(completeUpdateButton)
-        existingEnvironmentButton = NSButton(title: "打开现有环境保存文件", target: self, action: #selector(openExistingEnvironment))
+        existingEnvironmentButton = NSButton(title: CageLanguage.text("打开现有环境保存文件"), target: self, action: #selector(openExistingEnvironment))
         existingEnvironmentButton.bezelStyle = .rounded
         existingEnvironmentButton.translatesAutoresizingMaskIntoConstraints = false
         existingEnvironmentButton.isHidden = true
@@ -179,42 +180,42 @@ final class CageApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNaviga
         main.addItem(appItem)
         let appMenu = NSMenu(title: "Cage")
         appItem.submenu = appMenu
-        appMenu.addItem(withTitle: "关于 Cage", action: #selector(about), keyEquivalent: "")
-        appMenu.addItem(withTitle: "检查应用更新…", action: #selector(checkApplicationUpdate), keyEquivalent: "")
-        completeUpdateMenu = appMenu.addItem(withTitle: "完成待安装更新…", action: #selector(completePendingUpdate), keyEquivalent: "")
-        completeUpdateMenu.isHidden = true
+        appMenu.addItem(withTitle: CageLanguage.text("关于 Cage"), action: #selector(about), keyEquivalent: "")
+        appMenu.addItem(withTitle: CageLanguage.text("检查应用更新…"), action: #selector(checkApplicationUpdate), keyEquivalent: "")
+        completeUpdateMenu = appMenu.addItem(withTitle: CageLanguage.text("完成待安装更新…"), action: #selector(completePendingUpdate), keyEquivalent: "")
+        completeUpdateMenu.isHidden = !controllerNeedsUpdate
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "设置…", action: #selector(settings), keyEquivalent: ",")
+        appMenu.addItem(withTitle: CageLanguage.text("设置…"), action: #selector(settings), keyEquivalent: ",")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "隐藏 Cage", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
-        appMenu.addItem(withTitle: "显示全部", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: CageLanguage.text("隐藏 Cage"), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        appMenu.addItem(withTitle: CageLanguage.text("显示全部"), action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "退出 Cage…", action: #selector(requestQuit), keyEquivalent: "q")
-        let file = NSMenu(title: "文件")
-        file.addItem(withTitle: "打开项目…", action: #selector(openProject), keyEquivalent: "o")
+        appMenu.addItem(withTitle: CageLanguage.text("退出 Cage…"), action: #selector(requestQuit), keyEquivalent: "q")
+        let file = NSMenu(title: CageLanguage.text("文件"))
+        file.addItem(withTitle: CageLanguage.text("打开项目…"), action: #selector(openProject), keyEquivalent: "o")
         file.addItem(.separator())
-        file.addItem(withTitle: "新建网页", action: #selector(newTab), keyEquivalent: "t")
-        let terminal = file.addItem(withTitle: "新建终端", action: #selector(newTerminal), keyEquivalent: "\r")
+        file.addItem(withTitle: CageLanguage.text("新建网页"), action: #selector(newTab), keyEquivalent: "t")
+        let terminal = file.addItem(withTitle: CageLanguage.text("新建终端"), action: #selector(newTerminal), keyEquivalent: "\r")
         terminal.keyEquivalentModifierMask = [.command, .shift]
-        file.addItem(withTitle: "关闭当前标签", action: #selector(closeTab), keyEquivalent: "w")
+        file.addItem(withTitle: CageLanguage.text("关闭当前标签"), action: #selector(closeTab), keyEquivalent: "w")
         file.addItem(.separator())
-        file.addItem(withTitle: "关闭窗口（保留环境）", action: #selector(closeWindow), keyEquivalent: "")
-        let fileItem = NSMenuItem(title: "文件", action: nil, keyEquivalent: "")
+        file.addItem(withTitle: CageLanguage.text("关闭窗口（保留环境）"), action: #selector(closeWindow), keyEquivalent: "")
+        let fileItem = NSMenuItem(title: CageLanguage.text("文件"), action: nil, keyEquivalent: "")
         fileItem.submenu = file; main.addItem(fileItem)
-        let edit = NSMenu(title: "编辑")
-        edit.addItem(withTitle: "撤销", action: #selector(editUndo), keyEquivalent: "z")
-        let redo = edit.addItem(withTitle: "重做", action: #selector(editRedo), keyEquivalent: "z"); redo.keyEquivalentModifierMask = [.command, .shift]
+        let edit = NSMenu(title: CageLanguage.text("编辑"))
+        edit.addItem(withTitle: CageLanguage.text("撤销"), action: #selector(editUndo), keyEquivalent: "z")
+        let redo = edit.addItem(withTitle: CageLanguage.text("重做"), action: #selector(editRedo), keyEquivalent: "z"); redo.keyEquivalentModifierMask = [.command, .shift]
         edit.addItem(.separator())
-        edit.addItem(withTitle: "剪切", action: #selector(editCut), keyEquivalent: "x")
-        edit.addItem(withTitle: "复制", action: #selector(editCopy), keyEquivalent: "c")
-        edit.addItem(withTitle: "粘贴", action: #selector(editPaste), keyEquivalent: "v")
-        edit.addItem(withTitle: "全选", action: #selector(editSelectAll), keyEquivalent: "a")
-        let editItem = NSMenuItem(title: "编辑", action: nil, keyEquivalent: ""); editItem.submenu = edit; main.addItem(editItem)
-        let view = NSMenu(title: "窗口")
-        view.addItem(withTitle: "最小化", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
-        view.addItem(withTitle: "缩放", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
-        view.addItem(withTitle: "进入全屏", action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "")
-        let viewItem = NSMenuItem(title: "窗口", action: nil, keyEquivalent: ""); viewItem.submenu = view; main.addItem(viewItem)
+        edit.addItem(withTitle: CageLanguage.text("剪切"), action: #selector(editCut), keyEquivalent: "x")
+        edit.addItem(withTitle: CageLanguage.text("复制"), action: #selector(editCopy), keyEquivalent: "c")
+        edit.addItem(withTitle: CageLanguage.text("粘贴"), action: #selector(editPaste), keyEquivalent: "v")
+        edit.addItem(withTitle: CageLanguage.text("全选"), action: #selector(editSelectAll), keyEquivalent: "a")
+        let editItem = NSMenuItem(title: CageLanguage.text("编辑"), action: nil, keyEquivalent: ""); editItem.submenu = edit; main.addItem(editItem)
+        let view = NSMenu(title: CageLanguage.text("窗口"))
+        view.addItem(withTitle: CageLanguage.text("最小化"), action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        view.addItem(withTitle: CageLanguage.text("缩放"), action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        view.addItem(withTitle: CageLanguage.text("进入全屏"), action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "")
+        let viewItem = NSMenuItem(title: CageLanguage.text("窗口"), action: nil, keyEquivalent: ""); viewItem.submenu = view; main.addItem(viewItem)
         NSApp.mainMenu = main
     }
     @objc private func editUndo(){edit("undo",fallback:"undo:")}
@@ -249,10 +250,10 @@ final class CageApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNaviga
     @objc private func openExistingEnvironment() { bootstrap(options: ["--existing"]) }
     @objc private func completePendingUpdate() {
         let alert = NSAlert()
-        alert.messageText = "保存文件后完成更新"
-        alert.informativeText = "这会停止现有环境和终端任务，再切换到新版后台。项目文件和登录状态会保留。请先保存编辑器中的修改。"
-        alert.addButton(withTitle: "已保存，停止并更新")
-        alert.addButton(withTitle: "继续当前工作")
+        alert.messageText = CageLanguage.text("保存文件后完成更新")
+        alert.informativeText = CageLanguage.text("这会停止现有环境和终端任务，再切换到新版后台。项目文件和登录状态会保留。请先保存编辑器中的修改。")
+        alert.addButton(withTitle: CageLanguage.text("已保存，停止并更新"))
+        alert.addButton(withTitle: CageLanguage.text("继续当前工作"))
         alert.beginSheetModal(for: window) { response in
             if response == .alertFirstButtonReturn { self.bootstrap(options: ["--complete-update"]) }
         }
@@ -285,7 +286,7 @@ final class CageApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNaviga
         }
     }
     private func bootstrap(options: [String] = []) {
-        loading.stringValue = options.contains("--complete-update") ? "正在停止环境并切换到新版后台…" : "正在启动 Cage 工作台…"
+        loading.stringValue = options.contains("--complete-update") ? CageLanguage.text("正在停止环境并切换到新版后台…") : CageLanguage.text("正在启动 Cage 工作台…")
         loading.isHidden = false; retry.isHidden = true; webView.isHidden = true
         completeUpdateButton.isHidden = true; existingEnvironmentButton.isHidden = true
         requestEntry(options: options) { result in
@@ -294,7 +295,7 @@ final class CageApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNaviga
                 self.controllerNeedsUpdate = entry.status != "ready"
                 self.completeUpdateMenu.isHidden = !self.controllerNeedsUpdate
                 let appTitle = "Cage"
-                self.window.title = self.controllerNeedsUpdate ? "\(appTitle)（更新待完成）" : appTitle
+                self.window.title = self.controllerNeedsUpdate ? CageLanguage.text("Cage（更新待完成）") : appTitle
                 if let url = entry.url { self.expectedPort = url.port!; self.webView.load(URLRequest(url: url)) }
                 else { self.showError(entry.message); self.completeUpdateButton.isHidden = false; self.existingEnvironmentButton.isHidden = false }
             case .failure(let error):
@@ -393,7 +394,7 @@ final class CageApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNaviga
         fileSelections[id] = (urls.map(\.path), now.addingTimeInterval(600))
         return ["fileSelection": id, "count": urls.count]
     }
-    private func showError(_ text: String) { CageDiagnostics.record(text); loading.stringValue = text; loading.isHidden = false; retry.isHidden = false; webView.isHidden = true }
+    private func showError(_ text: String) { CageDiagnostics.record(text); loading.stringValue = CageLanguage.text(text); loading.isHidden = false; retry.isHidden = false; webView.isHidden = true }
     private func applyAppearance(_ value: [String:Any]) {
         let mode = value["mode"] as? String ?? "system"
         NSApp.appearance = mode == "system" ? nil : NSAppearance(named: mode == "dark" ? .darkAqua : .aqua)
@@ -476,6 +477,14 @@ final class CageApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNaviga
         case "appUpdate":
             guard let operation = body["operation"] as? String, ["status", "check", "install", "complete", "cancel"].contains(operation) else { replyHandler(nil,"更新操作无效"); return }
             replyHandler(appUpdater.handle(operation),nil)
+        case "refreshLanguage":
+            CageLanguage.refresh()
+            makeMenus()
+            retry.title = CageLanguage.text("重试连接")
+            existingEnvironmentButton.title = CageLanguage.text("打开现有环境保存文件")
+            completeUpdateButton.title = CageLanguage.text("保存后停止环境并完成更新")
+            window.title = controllerNeedsUpdate ? CageLanguage.text("Cage（更新待完成）") : "Cage"
+            replyHandler(true, nil)
         case "appearance":
             guard let mode = body["mode"] as? String, ["system", "light", "dark"].contains(mode), let background = body["background"] as? String, background.range(of: "^#[0-9a-fA-F]{6}$", options: .regularExpression) != nil else { replyHandler(nil,"外观参数无效"); return }
             let value: [String:Any] = ["mode":mode,"background":background,"translucent":body["translucent"] as? Bool ?? false]
@@ -706,7 +715,7 @@ final class CageApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNaviga
             completionHandler(response == .OK ? panel.urls : nil)
         }
     }
-    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) { let alert = NSAlert(); alert.messageText = message; alert.addButton(withTitle:"确定"); alert.addButton(withTitle:"取消"); alert.beginSheetModal(for:window){completionHandler($0 == .alertFirstButtonReturn)} }
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) { let alert = NSAlert(); alert.messageText = message; alert.addButton(withTitle:CageLanguage.text("确定")); alert.addButton(withTitle:CageLanguage.text("取消")); alert.beginSheetModal(for:window){completionHandler($0 == .alertFirstButtonReturn)} }
     private func publishWindowVisibility(forceHidden: Bool = false) {
         guard window != nil, webView != nil else { return }
         let visible = !forceHidden && window.isVisible && !window.isMiniaturized && window.occlusionState.contains(.visible)

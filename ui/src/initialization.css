@@ -2,7 +2,7 @@
 .initialization-brand { display: flex; align-items: center; gap: 10px; padding: 24px 32px; }
 .initialization-brand img { width: 28px; height: 28px; }
 .initialization-brand strong { font-size: 18px; color: var(--strong); }
-.initialization-brand > span { margin-left: 8px; color: var(--muted); font-size: 14px; }
+.initialization-brand > span { margin-inline-start: 8px; color: var(--muted); font-size: 14px; }
 .initialization-content { width: min(720px, calc(100% - 64px)); margin: 32px auto 60px; line-height: 1.65; animation: initialization-enter 180ms ease-out; }
 .initialization-steps { display: flex; gap: 24px; list-style: none; padding: 0; margin: 0 0 36px; color: var(--muted); font-size: 14px; }
 .initialization-steps li { display: flex; align-items: center; gap: 8px; }
@@ -40,7 +40,7 @@
 .initialization .settings-group { margin-top: 22px; }
 .initialization-notice { padding: 16px; margin: 16px 0; border: 1px solid var(--line); border-radius: 10px; overflow-wrap: anywhere; }
 .initialization-notice h2 { font-size: 17px; margin: 0 0 8px; }
-.initialization-notice button { margin-top: 10px; margin-right: 10px; }
+.initialization-notice button { margin-top: 10px; margin-inline-end: 10px; }
 .initialization-notice pre, .initialization .job-log { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; }
 .initialization-operation { padding: 24px; background: var(--chrome); border-radius: 12px; }
 .initialization-operation p { margin: 8px 0 16px; }
@@ -52,7 +52,8 @@
 @keyframes initialization-enter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
 @media (max-width: 600px) { .initialization-brand { padding: 18px 20px; } .initialization-content { width: calc(100% - 40px); margin-top: 20px; } .initialization-steps { gap: 12px; flex-wrap: wrap; font-size: 13px; margin-bottom: 26px; } .initialization h1 { font-size: 25px; } .initialization .guest-system-picker { grid-template-columns: 1fr; } .initialization .storage-actions { flex-wrap: wrap; } }
 @media (prefers-reduced-motion: reduce) { .initialization-content, .initialization-stage { animation: none; } .initialization button { transition: none; } }
-.initialization-checks { padding-left: 22px; font-size: 14px; }
+.initialization-checks { padding-inline-start: 22px; font-size: 14px; }
+.initialization-actions:dir(rtl) .lucide-chevron-left { transform: scaleX(-1); }
 .initialization-checks li { margin: 10px 0; }
 .initialization-checks p { margin: 4px 0; }
 .guest-profile-options { margin: 1rem 0; }

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "./api";
 import "./guest-system-picker.css";
+import { useTranslation } from "./interface-language.mjs";
 
 // New environments always use Debian 13. The other names only label an
 // installation that an earlier version recorded.
@@ -12,6 +13,7 @@ const newEnvironment = { guest_system: "debian-13" };
 // version it shows that record and, while nothing was created for it, lets
 // the user withdraw it.
 export function GuestSystemPicker({ system, onChange, onReselect, preserveOnUnmount = false }) {
+  const tr = useTranslation();
   const [view, setView] = useState(null);
   const [error, setError] = useState("");
   const [attempt, retry] = useState(0);
@@ -30,14 +32,14 @@ export function GuestSystemPicker({ system, onChange, onReselect, preserveOnUnmo
     });
     return () => { active = false; if (!preserveOnUnmount) onChange(undefined); };
   }, [onChange, attempt, preserveOnUnmount]);
-  if (!view || !system) return error ? <div className="guest-system-picker"><span role="alert">{error}</span>
-    <button type="button" onClick={() => retry((n) => n + 1)}>重新检查安装状态</button></div> : null;
+  if (!view || !system) return error ? <div className="guest-system-picker"><span role="alert">{tr(error)}</span>
+    <button type="button" onClick={() => retry((n) => n + 1)}>{tr("重新检查安装状态")}</button></div> : null;
   if (!view.pending) return null;
   return (
     <div className="guest-system-picker">
-      <span>原安装选择</span>
+      <span>{tr("原安装选择")}</span>
       <strong>{names[view.pending.system] || view.pending.system}</strong>
-      {view.available && <small className="guest-install-fields">此环境保留着早期版本选择的系统镜像，可以继续原安装。镜像通过主机网络下载，遵循主机系统代理或 TUN 设置，不使用 Cage 的客机代理。</small>}
+      {view.available && <small className="guest-install-fields">{tr("此环境保留着早期版本选择的系统镜像，可以继续原安装。镜像通过主机网络下载，遵循主机系统代理或 TUN 设置，不使用 Cage 的客机代理。")}</small>}
       {view.reason && <small className="guest-install-fields">{view.reason}</small>}
       {view.reselect && <button type="button" className="guest-install-fields" onClick={async () => {
         try {
@@ -47,8 +49,8 @@ export function GuestSystemPicker({ system, onChange, onReselect, preserveOnUnmo
           onChange(next.fresh ? newEnvironment : null);
           onReselect?.();
         } catch (e) { setError(e.message); }
-      }}>撤销原安装选择，改用 Debian 13</button>}
-      {error && <p role="alert" className="guest-install-fields">{error}</p>}
+      }}>{tr("撤销原安装选择，改用 Debian 13")}</button>}
+      {error && <p role="alert" className="guest-install-fields">{tr(error)}</p>}
     </div>
   );
 }

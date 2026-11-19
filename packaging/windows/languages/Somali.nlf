@@ -1,0 +1,191 @@
+﻿# Header, don't edit
+NLF v6
+# Start editing here
+# Language ID
+1143
+# Font and size - dash (-) means default
+-
+-
+# Codepage - dash (-) means ASCII code page
+-
+# RTL - anything else than RTL means LTR
+-
+# Somali installer strings
+# ^Branding
+Nullsoft Ku rakib Nidaamka %s
+# ^SetupCaption
+$(^Name) Dejinta
+# ^UninstallCaption
+$(^Name) ka saar
+# ^LicenseSubCaption
+: Heshiiska shatiga
+# ^ComponentsSubCaption
+: Xulashada Rakibaadda
+# ^DirSubCaption
+: Galka Rakibaadda
+# ^InstallingSubCaption
+: Rakibaadda
+# ^CompletedSubCaption
+: Dhammaystiran
+# ^UnComponentsSubCaption
+: Uninstallation Options
+# ^UnDirSubCaption
+: Folder uninstallation
+# ^ConfirmSubCaption
+: Xaqiijinta
+# ^UninstallingSubCaption
+: Dejinta
+# ^UnCompletedSubCaption
+: Dhammaystiran
+# ^BackBtn
+< &Dib u noqo
+# ^NextBtn
+& Xiga >
+# ^AgreeBtn
+waan & waafaqay
+# ^AcceptBtn
+Waxaan & aqbalay shuruudaha Heshiiska Shatiga
+# ^DontAcceptBtn
+Anigu &ma aqbalin shuruudaha Heshiiska Shatiga
+# ^InstallBtn
+&Rakib
+# ^UninstallBtn
+&Ka saar
+# ^CancelBtn
+Jooji
+# ^CloseBtn
+&Xir
+# ^BrowseBtn
+B&roos...
+# ^ShowDetailsBtn
+Muuji & faafaahin
+# ^ClickNext
+Guji Xiga si aad u sii wadato
+# ^ClickInstall
+Guji Ku rakib si aad u bilowdo rakibidda.
+# ^ClickUninstall
+Guji Uninstall si aad u bilowdo uninstall-ka.
+# ^Name
+Magaca
+# ^Completed
+Dhammaystiran
+# ^LicenseText
+Fadlan dib u eeg heshiiska shatiga ka hor intaadan rakibin $(^NameDA). Haddii aad aqbasho dhammaan shuruudaha heshiiska, dhagsii I Agree.
+# ^LicenseTextCB
+Fadlan dib u eeg heshiiska shatiga ka hor intaadan rakibin $(^NameDA). Haddii aad aqbasho dhammaan shuruudaha heshiiska, dhagsii sanduuqa calaamadaynta ee hoose. $_CLICK
+# ^LicenseTextRB
+Fadlan dib u eeg heshiiska shatiga ka hor intaadan rakibin $(^NameDA). Haddii aad aqbasho dhammaan shuruudaha heshiiska, dooro doorashada koowaad ee hoose. $_CLICK
+# ^UnLicenseText
+Fadlan dib u eeg heshiiska shatiga ka hor intaanad dajin $(^NameDA). Haddii aad aqbasho dhammaan shuruudaha heshiiska, dhagsii I Agree.
+# ^UnLicenseTextCB
+Fadlan dib u eeg heshiiska shatiga ka hor intaanad dajin $(^NameDA). Haddii aad aqbasho dhammaan shuruudaha heshiiska, dhagsii sanduuqa calaamadaynta ee hoose. $_CLICK
+# ^UnLicenseTextRB
+Fadlan dib u eeg heshiiska shatiga ka hor intaanad dajin $(^NameDA). Haddii aad aqbasho dhammaan shuruudaha heshiiska, dooro doorashada koowaad ee hoose. $_CLICK
+# ^Custom
+Caadiyan
+# ^ComponentsText
+Hubi qaybaha aad rabto inaad rakibto oo ka saar qaybaha aanad doonayn inaad rakibto. $_CLICK
+# ^ComponentsSubText1
+Dooro nooca rakibida:
+# ^ComponentsSubText2_NoInstTypes
+Dooro qaybaha si aad u rakibto:
+# ^ComponentsSubText2
+Ama, dooro qaybaha ikhtiyaariga ah ee aad rabto inaad ku rakibto:
+# ^UnComponentsText
+Hubi qaybaha aad rabto in aad uninstall ka saarto oo ka saar qaybaha aanad doonayn in aad uninstall ka saarto. $_CLICK
+# ^UnComponentsSubText1
+Dooro nooca uninstall:
+# ^UnComponentsSubText2_NoInstTypes
+Dooro qaybaha si aad isaga saarto:
+# ^UnComponentsSubText2
+Ama, dooro qaybaha ikhtiyaariga ah ee aad rabto inaad ka saarto:
+# ^DirText
+Dejintu waxay ku rakibi doontaa $(^NameDA) galka soo socda. Si aad ugu rakibto gal kale, dhagsii Baadh oo dooro gal kale. $_CLICK
+# ^DirSubText
+Faylka Meesha
+# ^DirBrowseText
+Dooro galka si aad ugu rakibto $(^NameDA) gudaha:
+# ^UnDirText
+Dejinta ayaa $(^NameDA) ka saari doonta galka soo socda. Si aad uga saarto gal kale, dhagsii Baadh oo dooro gal kale. $_CLICK
+# ^UnDirSubText
+""
+# ^UnDirBrowseText
+Ka dooro galka si aad uga saarto $(^NameDA):
+# ^SpaceAvailable
+"Boos diyaar ah:"
+# ^SpaceRequired
+"Boos loo baahan yahay:"
+# ^UninstallingText
+$(^NameDA) waa laga saarayaa galka soo socda. $_CLICK
+# ^UninstallingSubText
+Ka dajinta:
+# ^FileError
+Cilad furitaanka faylka qoritaanka: \r\n\r\n$0\r\n\r\n Guji Jooji si aad u joojiso rakibaadda, \r\n Isku day inaad mar kale isku daydo, ama \ r\n Iska daa inaad ka boodo faylkan.
+# ^FileError_NoIgnore
+Cillad furitaanka faylka qoraalka: \r\n\r\n$0\r\n\r\nRiix ku celi isku day inaad mar kale isku daydo, ama\r\n Jooji si aad u joojiso rakibidda.
+# ^CantWrite
+"Ma qori karo:"
+# ^CopyFailed
+nuqulku wuu fashilmay
+# ^CopyTo
+"Koobi u noqo"
+# ^Registering
+"Diiwaangelinta:"
+# ^Unregistering
+"Diiwaangelin la'aan:"
+# ^SymbolNotFound
+"Waa la heli waayay calaamad:"
+# ^CouldNotLoad
+" Waa la rari karaa:"
+# ^CreateFolder
+"Samee gal:"
+# ^CreateShortcut
+"Samee jidka gaaban:"
+# ^CreatedUninstaller
+"Urinstaller la sameeyay:"
+# ^Delete
+"Tirtir faylka:"
+# ^DeleteOnReboot
+"Tirtir dib-u-kicinta:"
+# ^ErrorCreatingShortcut
+"Cillad abuurista marin-gaabeedka:"
+# ^ErrorCreating
+"Cillad abuurista:"
+# ^ErrorDecompressing
+Khalad kala saarida xogta! Rakibadihii musuqmaasuqay?
+# ^ErrorRegistering
+Khalad diiwaangelinta DLL
+# ^ExecShell
+"ExecShell:"
+# ^Exec
+"ful:"
+# ^Extract
+"Ka soo saar:"
+# ^ErrorWriting
+"Ka saar: khalad qorista si loo fayl gareeyo"
+# ^InvalidOpcode
+Rakibadihii ayaa xumaaday: opcode aan sax ahayn
+# ^NoOLE
+"No OLE for:"
+# ^OutputFolder
+Galka wax soo saarka:"
+# ^RemoveFolder
+"Ka saar faylka:"
+# ^RenameOnReboot
+"Magac dib u bilow:"
+# ^Rename
+"Dib u magacow:"
+# ^Skipped
+"Waa la booday:"
+# ^CopyDetails
+Ku koobbi Faahfaahinta Kiliboodhka
+# ^LogInstall
+Log habka rakibida
+# ^Byte
+B
+# ^Kilo
+K
+# ^Mega
+M
+# ^Giga
+G

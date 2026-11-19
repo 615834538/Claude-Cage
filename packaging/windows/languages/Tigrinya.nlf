@@ -1,0 +1,191 @@
+﻿# Header, don't edit
+NLF v6
+# Start editing here
+# Language ID
+1139
+# Font and size - dash (-) means default
+-
+-
+# Codepage - dash (-) means ASCII code page
+-
+# RTL - anything else than RTL means LTR
+-
+# Tigrinya installer strings
+# ^Branding
+Nullsoft ስርዓት ምትካል %s።
+# ^SetupCaption
+$(^Name) ምድላው
+# ^UninstallCaption
+$(^Name) ምእላይ
+# ^LicenseSubCaption
+: ስምምዕ ፍቓድ
+# ^ComponentsSubCaption
+: ናይ ምትካል ኣማራጺታት
+# ^DirSubCaption
+: ናይ ምትካል ማህደር
+# ^InstallingSubCaption
+: ምትካል
+# ^CompletedSubCaption
+: ፦ ተዛዚሙ
+# ^UnComponentsSubCaption
+: ናይ ምእላይ ኣማራጺታት
+# ^UnDirSubCaption
+: ናይ ምእላይ ኣቃፊራ
+# ^ConfirmSubCaption
+: ምርግጋጽ
+# ^UninstallingSubCaption
+: ምእላይ
+# ^UnCompletedSubCaption
+: ፦ ተዛዚሙ
+# ^BackBtn
+< &ምምላስ
+# ^NextBtn
+&ቀጺሉ >
+# ^AgreeBtn
+ኣነ &ይሰማማዕ እየ
+# ^AcceptBtn
+ኣነ &ንውዕላት ናይቲ ስምምዕ ፍቓድ እቕበል
+# ^DontAcceptBtn
+ኣነ &ንውዕል ፍቓድ ኣይቅበልን እየ
+# ^InstallBtn
+&ምትካል
+# ^UninstallBtn
+&ምእላይ
+# ^CancelBtn
+ስርዝ ድልዝ
+# ^CloseBtn
+&ዕጸው
+# ^BrowseBtn
+B&rowse...
+# ^ShowDetailsBtn
+&ዝርዝር ኣርእዩ
+# ^ClickNext
+ንምቕጻል Next ዝብል ጠውቕ።
+# ^ClickInstall
+ምትካል ንምጅማር Install ዝብል ጠውቕ።
+# ^ClickUninstall
+Uninstall ብምጥዋቕ ምእላይ ንምጅማር።
+# ^Name
+ስም
+# ^Completed
+ተዛዚሙ
+# ^LicenseText
+በጃኻ ቅድሚ $(^NameDA) ምትካልካ ነቲ ናይ ፍቓድ ስምምዕ ርአ። ኩሉ ውዕላት ናይቲ ስምምዕ እንተተቐቢልካዮ፡ ይሰማማዕ እየ ዝብል ጠውቕ።
+# ^LicenseTextCB
+በጃኻ ቅድሚ $(^NameDA) ምትካልካ ነቲ ናይ ፍቓድ ስምምዕ ርአ። ኩሉ ውዕላት ናይቲ ስምምዕ እንተተቐቢልካዮ፡ ኣብ ታሕቲ ዘሎ ምልክት ሳጹን ጠውቕ። $_CLICK ዝብል ጽሑፍ ኣሎ።
+# ^LicenseTextRB
+በጃኻ ቅድሚ $(^NameDA) ምትካልካ ነቲ ናይ ፍቓድ ስምምዕ ርአ። ኩሉ ውዕላት ናይቲ ስምምዕ እንተተቐቢልካዮ፡ ኣብ ታሕቲ ዘሎ ቀዳማይ ኣማራጺ ምረጽ። $_CLICK ዝብል ጽሑፍ ኣሎ።
+# ^UnLicenseText
+በጃኻ ቅድሚ $(^NameDA) ምእላይካ ነቲ ናይ ፍቓድ ስምምዕ ርአ። ኩሉ ውዕላት ናይቲ ስምምዕ እንተተቐቢልካዮ፡ ይሰማማዕ እየ ዝብል ጠውቕ።
+# ^UnLicenseTextCB
+በጃኻ ቅድሚ $(^NameDA) ምእላይካ ነቲ ናይ ፍቓድ ስምምዕ ርአ። ኩሉ ውዕላት ናይቲ ስምምዕ እንተተቐቢልካዮ፡ ኣብ ታሕቲ ዘሎ ምልክት ሳጹን ጠውቕ። $_CLICK ዝብል ጽሑፍ ኣሎ።
+# ^UnLicenseTextRB
+በጃኻ ቅድሚ $(^NameDA) ምእላይካ ነቲ ናይ ፍቓድ ስምምዕ ርአ። ኩሉ ውዕላት ናይቲ ስምምዕ እንተተቐቢልካዮ፡ ኣብ ታሕቲ ዘሎ ቀዳማይ ኣማራጺ ምረጽ። $_CLICK ዝብል ጽሑፍ ኣሎ።
+# ^Custom
+ልምዲ
+# ^ComponentsText
+እቶም ክትተኽሎም እትደሊ ክፍልታት ምፍታሽ፡ ነቶም ክትተኽሎም ዘይትደሊ ክፍልታት ድማ ምልክት ምውጻእ። $_CLICK ዝብል ጽሑፍ ኣሎ።
+# ^ComponentsSubText1
+ዓይነት ምትካል ምረጽ፤
+# ^ComponentsSubText2_NoInstTypes
+ክትተክል ዝግበኣካ ኣካላት ምረጽ፤
+# ^ComponentsSubText2
+ወይ ድማ፡ እቶም ክትተኽሎም እትደሊ ኣማራጺ ክፍልታት ምረጽ፤
+# ^UnComponentsText
+ነቶም ክትኣልዮም እትደሊ ኣካላት ምፍታሽ፡ ነቶም ክትኣልዮ ዘይትደሊ ኣካላት ድማ ምፍታሽ። $_CLICK ዝብል ጽሑፍ ኣሎ።
+# ^UnComponentsSubText1
+ዓይነት ምእላይ ምረጽ፤
+# ^UnComponentsSubText2_NoInstTypes
+ንምእላይ ዝሕግዙ ኣካላት ምረጽ፤
+# ^UnComponentsSubText2
+ወይ ድማ፡ ነቶም ክትኣልዮም እትደሊ ኣማራጺ ክፍልታት ምረጽ፤
+# ^DirText
+Setup ኣብዚ ዝስዕብ ፎልደር $(^NameDA) ክተክል እዩ። ኣብ ዝተፈላለየ ፎልደር ንምትካል፡ Browse ጠውቕ እሞ ካልእ ፎልደር ምረጽ። $_CLICK ዝብል ጽሑፍ ኣሎ።
+# ^DirSubText
+መዕለቢ ማህደር
+# ^DirBrowseText
+$(^NameDA) ክትተኽለሉ እትደሊ ማህደር ምረጽ፤
+# ^UnDirText
+Setup ካብዚ ዝስዕብ ፎልደር $(^NameDA) ከውጽኦ እዩ። ካብ ዝተፈላለየ ፎልደር ንምእላይ፡ Browse ጠውቕ እሞ ካልእ ፎልደር ምረጽ። $_CLICK ዝብል ጽሑፍ ኣሎ።
+# ^UnDirSubText
+""
+# ^UnDirBrowseText
+ካብዚ $(^NameDA) ንምእላይ ዝሕግዝ ፎልደር ምረጽ፤
+# ^SpaceAvailable
+"ቦታ ኣሎ: "
+# ^SpaceRequired
+"ቦታ ዘድሊ: "
+# ^UninstallingText
+$(^NameDA) ካብዚ ዝስዕብ ፎልደር ክእለ እዩ። $_CLICK ዝብል ጽሑፍ ኣሎ።
+# ^UninstallingSubText
+ካብ ምእላይ፤
+# ^FileError
+ፋይል ንምጽሓፍ ኣብ ምኽፋት ጌጋ: \r\n\r\n$0\r\n\r\nምትካል ደው ንምባል Abort ጠውቕ፣\r\nደጊምካ ክትፍትን ፈትን፣ ወይ\r\nነዚ ፋይል ንምዝላል ሸለል በል።
+# ^FileError_NoIgnore
+ፋይል ንምጽሓፍ ኣብ ምኽፋት ጌጋ: \r\n\r\n$0\r\n\r\nደጊምካ ክትፍትን ዳግማይ ፈትን፣ ወይ\r\nምትካል ደው ንምባል ስረዝ ጠውቕ።
+# ^CantWrite
+"ክጽሕፍ ኣይክእልን እዩ: "
+# ^CopyFailed
+ቅዳሕ ኣይተዓወተን
+# ^CopyTo
+"ናብ " ቅዳሕ።
+# ^Registering
+"ምምዝጋብ: "
+# ^Unregistering
+"ምውጋድ ምዝገባ: "
+# ^SymbolNotFound
+"ምልክት ክረክብ ኣይከኣለን: "
+# ^CouldNotLoad
+"ክጽዕን ኣይከኣለን: "
+# ^CreateFolder
+"ማህደር ምፍጣር: "
+# ^CreateShortcut
+"ኣቋራጭ ምፍጣር: "
+# ^CreatedUninstaller
+"ተፈጢሩ uninstaller: "
+# ^Delete
+"ፋይል ምድምሳስ: "
+# ^DeleteOnReboot
+"ኣብ ዳግማይ ምጅማር ምድምሳስ: "
+# ^ErrorCreatingShortcut
+"ኣቋራጭ ኣብ ምፍጣር ጌጋ: "
+# ^ErrorCreating
+"ጌጋ ኣብ ምፍጣር: "
+# ^ErrorDecompressing
+ዳታ ኣብ ምውጋድ ጌጋ! ዝተበላሸወ ኢንስታለር?
+# ^ErrorRegistering
+DLL ኣብ ምምዝጋብ ጌጋ
+# ^ExecShell
+"ኤክሰክሸል: "
+# ^Exec
+"ምፍጻም: "
+# ^Extract
+"ምውጻእ: "
+# ^ErrorWriting
+"ኣውጽእ: ጌጋ ምጽሓፍ ናብ ፋይል "
+# ^InvalidOpcode
+ኢንስታለር ተበላሽዩ: ዘይሕጋዊ ኦፕኮድ
+# ^NoOLE
+"ንዝኸውን OLE የለን: "
+# ^OutputFolder
+"ውጽኢት ኣቃፊራ: "
+# ^RemoveFolder
+"ኣቃፊራ ኣውጽእ: "
+# ^RenameOnReboot
+"ኣብ ሪቦት ዳግማይ ስም ምቕያር: "
+# ^Rename
+"ዳግማይ ስም: "
+# ^Skipped
+"ዝዘለለ: "
+# ^CopyDetails
+ዝርዝር ናብ ቅንጥብጣብ ሰሌዳ ቅዳሕ
+# ^LogInstall
+መስርሕ ምትካል ምዝገባ
+# ^Byte
+ለ
+# ^Kilo
+ኬ
+# ^Mega
+መ
+# ^Giga
+ሰ

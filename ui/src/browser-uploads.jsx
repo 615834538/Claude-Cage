@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api, uploadFile, native, nativeAvailable } from "./api";
 import { Modal } from "./views";
+import { useTranslation } from "./interface-language.mjs";
 
 export function BrowserUploads({ requests = [], onStatus }) {
+  const tr = useTranslation();
   const [hidden, setHidden] = useState("");
   const request = requests.find((item) => !item.directory && item.id !== hidden && (!item.kind || item.kind === "chooser"));
   const [progress, setProgress] = useState("");
@@ -83,17 +85,17 @@ export function BrowserUploads({ requests = [], onStatus }) {
   };
   return (
     <Modal
-      title="上传本机文件"
+      title={tr("上传本机文件")}
       onClose={cancel}
-      footer={<button onClick={cancel}>取消上传</button>}
+      footer={<button onClick={cancel}>{tr("取消上传")}</button>}
     >
       <div className="modal-body browser-upload-body">
         <p>
-          选择要上传的图片、视频或文档。仅传递所选文件，目标网页或应用负责处理附件。
+          {tr("选择要上传的图片、视频或文档。仅传递所选文件，目标网页或应用负责处理附件。")}
         </p>
-        <p className="field-help">支持的格式自动清理定位、时区等元数据。无法安全清理时，可在设置→通用中明确开启“允许未支持格式原样传递”；原样文件可能保留元数据。</p>
-        {nativeAvailable() ? <button className="primary" disabled={Boolean(progress)} onClick={() => void choose()}>选择本机文件</button> : <label className="field">
-          选择本机文件
+        <p className="field-help">{tr("支持的格式自动清理定位、时区等元数据。无法安全清理时，可在设置→通用中明确开启“允许未支持格式原样传递”；原样文件可能保留元数据。")}</p>
+        {nativeAvailable() ? <button className="primary" disabled={Boolean(progress)} onClick={() => void choose()}>{tr("选择本机文件")}</button> : <label className="field">
+          {tr("选择本机文件")}
           <input
             type="file"
             multiple={request.multiple}
@@ -108,7 +110,7 @@ export function BrowserUploads({ requests = [], onStatus }) {
             <p role="status">
               {progress}{nativeAvailable() ? "" : ` · ${percent}%`}
             </p>
-            <progress aria-label="文件传递进度" max="100" value={nativeAvailable() ? undefined : percent} />
+            <progress aria-label={tr("文件传递进度")} max="100" value={nativeAvailable() ? undefined : percent} />
           </>
         )}
         {error && <p role="alert">{error}</p>}

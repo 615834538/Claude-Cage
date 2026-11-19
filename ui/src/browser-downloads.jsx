@@ -20,6 +20,7 @@ import {
   isRemoteClient,
   runtimeURL,
 } from "./client-context.mjs";
+import { useTranslation } from "./interface-language.mjs";
 
 export function useDownloadNotifications(
   downloads = [],
@@ -212,6 +213,7 @@ export function BrowserDownloads({
   menu = false,
   anchorRef,
 }) {
+  const tr = useTranslation();
   const remote = isRemoteClient();
   const panelId = useId();
   const trigger = useRef(),
@@ -311,16 +313,16 @@ export function BrowserDownloads({
             : "icon-button browser-download-button"
         }
         role={menu ? "menuitem" : undefined}
-        aria-label="浏览器下载"
+        aria-label={tr("浏览器下载")}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        title={failed ? "有下载需要处理，点击查看" : "下载文件"}
+        title={failed ? tr("有下载需要处理，点击查看") : tr("下载文件")}
         onClick={() => setOpen((value) => !value)}
       >
         <ArrowDownToLine size={16} />
         {failed && !menu && <span className="browser-download-warning" aria-hidden="true" />}
-        {menu && <span>下载</span>}
+        {menu && <span>{tr("下载")}</span>}
       </button>
       {open &&
         createPortal(
@@ -329,15 +331,15 @@ export function BrowserDownloads({
             id={panelId}
             className="browser-download-panel"
             role="dialog"
-            aria-label="下载文件"
+            aria-label={tr("下载文件")}
             data-browser-dialog
           >
             <header className="browser-download-heading">
-              <h2>下载</h2>
+              <h2>{tr("下载")}</h2>
               <button
                 className="icon-button"
-                aria-label="关闭面板"
-                title="关闭下载"
+                aria-label={tr("关闭面板")}
+                title={tr("关闭下载")}
                 onClick={() => {
                   setOpen(false);
                   (anchorRef?.current || trigger.current)?.focus();
@@ -350,8 +352,8 @@ export function BrowserDownloads({
               {!items.length && (
                 <div className="browser-download-empty">
                   <ArrowDownToLine size={28} />
-                  <strong>暂无下载</strong>
-                  <p>下载的文件会显示在这里。</p>
+                  <strong>{tr("暂无下载")}</strong>
+                  <p>{tr("下载的文件会显示在这里。")}</p>
                 </div>
               )}
               {items.map((item) => (
@@ -366,8 +368,8 @@ export function BrowserDownloads({
                     <p className="download-status">
                       <span className="download-state">
                         {item.localSaved
-                          ? "已保存到本机"
-                          : labels[item.state] || "状态待确认"}
+                          ? tr("已保存到本机")
+                          : labels[item.state] || tr("状态待确认")}
                         {item.state === "downloading" &&
                           item.totalBytes > 0 &&
                           ` · ${Math.min(100, Math.floor((item.receivedBytes / item.totalBytes) * 100))}%`}
@@ -376,8 +378,8 @@ export function BrowserDownloads({
                         <span className="download-path" title={item.path}>
                           {remote
                             ? item.localSaved
-                              ? "本机："
-                              : "云端："
+                              ? tr("本机：")
+                              : tr("云端：")
                             : ""}
                           {item.path}
                         </span>
@@ -385,7 +387,7 @@ export function BrowserDownloads({
                     </p>
                     {item.state === "downloading" && (
                       <progress
-                        aria-label={`${item.name} 下载进度`}
+                        aria-label={tr("{0} 下载进度", (item.name))}
                         value={
                           item.totalBytes > 0 ? item.receivedBytes : undefined
                         }
@@ -413,7 +415,7 @@ export function BrowserDownloads({
                             }}
                           >
                             <Save size={13} />
-                            {retrying === item.id ? "正在保存…" : "另存为…"}
+                            {retrying === item.id ? tr("正在保存…") : tr("另存为…")}
                           </button>
                         )}
                         {nativeAvailable() &&
@@ -475,7 +477,7 @@ export function BrowserDownloads({
                               }
                             }}
                           >
-                            {retrying === item.id ? "正在重试…" : "重试保存"}
+                            {retrying === item.id ? tr("正在重试…") : tr("重试保存")}
                           </button>
                         )}
                       </div>
