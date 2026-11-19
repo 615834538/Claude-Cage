@@ -28,7 +28,8 @@ typedef struct {
     char *backend, *profile, *token, *smoke_output, *web_data, *web_cache;
     const char *storage_phase, *storage_marker;
     int port, result;
-    gboolean bootstrapping, needs_update, ready, picker_open, smoke_started, navigation_failed;
+    guint backend_commands;
+    gboolean bootstrapping, needs_update, ready, picker_open, smoke_started, smoke_finishing, navigation_failed;
     gboolean initial_dark;
 } Cage;
 static Cage app;
@@ -156,6 +157,7 @@ static void command_finished(GObject *source, GAsyncResult *result, gpointer dat
     JsonParser *parser = json_parser_new();
     JsonObject *object = NULL;
     if (command->deadline) g_source_remove(command->deadline);
+    app.backend_commands--;
     if (g_subprocess_communicate_utf8_finish(G_SUBPROCESS(source), result, &output, NULL, &error)) {
         if (!output || strlen(output) > command->output_limit || !json_parser_load_from_data(parser, output, -1, NULL) ||
             !JSON_NODE_HOLDS_OBJECT(json_parser_get_root(parser))) {
@@ -200,6 +202,7 @@ static void backend_arguments_limited(const char *const *args, guint seconds, gs
     command->data = data;
     command->output_limit = output_limit;
     command->deadline = g_timeout_add_seconds(seconds, command_timeout, command);
+    app.backend_commands++;
     g_subprocess_communicate_utf8_async(process, NULL, command->cancel, command_finished, command);
 }
 static void backend_arguments(const char *const *args, guint seconds, BackendCallback callback, gpointer data) {
@@ -705,11 +708,25 @@ static void smoke_report(char *evidence) {
     g_application_quit(G_APPLICATION(app.application));
 }
 static void smoke_stopped(JsonObject *object, const GError *error, gpointer data) {
-    if (error || g_strcmp0(text_member(object, "status"), "prepared") != 0) {
-        g_printerr("Linux smoke: controller cleanup failed.\n");
+    const char *status = text_member(object, "status");
+    if (error || g_strcmp0(status, "prepared") != 0) {
+        /* prepare-update returns only status and message, never a session URL. */
+        const char *message = text_member(object, "message");
+        g_printerr("Linux smoke: controller cleanup failed (error: %.500s; status: %s; message: %.500s).\n",
+            error ? error->message : "none", *status ? status : "none", *message ? message : "none");
         g_free(data);
         g_application_quit(G_APPLICATION(app.application));
     } else smoke_report(data);
+}
+/* The page can still ask the bridge to refresh its session, which runs
+ * "desktop" and may start a new connection service while prepare-update is
+ * retiring the old one. Refuse new bridge requests, then let commands already
+ * running finish before the smoke reports or stops the services. */
+static gboolean smoke_finish_when_idle(gpointer data) {
+    if (app.backend_commands) return G_SOURCE_CONTINUE;
+    if (g_strcmp0(app.storage_phase, "seed") == 0) smoke_report(data);
+    else backend("prepare-update", NULL, smoke_stopped, data);
+    return G_SOURCE_REMOVE;
 }
 static void smoke_snapshot(GObject *source, GAsyncResult *result, gpointer data) {
     char *report = data;
@@ -719,9 +736,10 @@ static void smoke_snapshot(GObject *source, GAsyncResult *result, gpointer data)
     gboolean saved = surface && cairo_surface_write_to_png(surface, path) == CAIRO_STATUS_SUCCESS;
     if (surface) cairo_surface_destroy(surface);
     g_free(path); g_clear_error(&error);
-    if (saved && g_strcmp0(app.storage_phase, "seed") == 0) smoke_report(report);
-    else if (saved) backend("prepare-update", NULL, smoke_stopped, report);
-    else {
+    if (saved) {
+        app.smoke_finishing = TRUE;
+        if (smoke_finish_when_idle(report) == G_SOURCE_CONTINUE) g_timeout_add(50, smoke_finish_when_idle, report);
+    } else {
         g_printerr("Linux smoke: could not capture rendered workbench.\n");
         g_free(report);
         g_application_quit(G_APPLICATION(app.application));
@@ -808,6 +826,10 @@ static gboolean bridge_received(WebKitUserContentManager *manager, JSCValue *val
     JsonNode *request_node = json_object_get_member(envelope, "request");
     if (!request_node || !JSON_NODE_HOLDS_OBJECT(request_node)) {
         reply_error(reply, "原生请求格式无效。");
+        goto done;
+    }
+    if (app.smoke_finishing) {
+        reply_error(reply, "自检正在结束，未执行新的原生操作。");
         goto done;
     }
     JsonObject *request = json_node_get_object(request_node);
