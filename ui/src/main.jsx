@@ -1429,7 +1429,7 @@ function App() {
               <button onClick={cancelAutomaticExit}>
                 {quitting.error ? tr("留在 Cage") : tr("取消自动退出")}
               </button>
-              <button onClick={quitDesktopOnly}>仅退出桌面应用</button>
+              <button onClick={quitDesktopOnly}>{tr("仅退出桌面应用")}</button>
               {quitting.error && (
                 <button className="primary" onClick={stopAndQuit}>
                   {tr("重试停止并退出")}
