@@ -12,41 +12,41 @@ NLF v6
 -
 # Somali installer strings
 # ^Branding
-Nullsoft Ku rakib Nidaamka %s
+Nidaamka Rakibaadda ee Nullsoft %s
 # ^SetupCaption
-$(^Name) Dejinta
+Dejinta $(^Name)
 # ^UninstallCaption
-$(^Name) ka saar
+Ka saaridda $(^Name)
 # ^LicenseSubCaption
 : Heshiiska shatiga
 # ^ComponentsSubCaption
-: Xulashada Rakibaadda
+: Doorashooyinka Rakibaadda
 # ^DirSubCaption
 : Galka Rakibaadda
 # ^InstallingSubCaption
-: Rakibaadda
+: Waa la rakibayaa
 # ^CompletedSubCaption
-: Dhammaystiran
+: Waa dhammaatay
 # ^UnComponentsSubCaption
-: Uninstallation Options
+: Doorashooyinka Ka saaridda
 # ^UnDirSubCaption
-: Folder uninstallation
+: Galka Ka saaridda
 # ^ConfirmSubCaption
 : Xaqiijinta
 # ^UninstallingSubCaption
-: Dejinta
+: Waa laga saarayaa
 # ^UnCompletedSubCaption
-: Dhammaystiran
+: Waa dhammaatay
 # ^BackBtn
 < &Dib u noqo
 # ^NextBtn
-& Xiga >
+&Xiga >
 # ^AgreeBtn
-waan & waafaqay
+&Waan aqbalay
 # ^AcceptBtn
-Waxaan & aqbalay shuruudaha Heshiiska Shatiga
+Waxaan &aqbalay shuruudaha Heshiiska Shatiga
 # ^DontAcceptBtn
-Anigu &ma aqbalin shuruudaha Heshiiska Shatiga
+Ma &aqbalin shuruudaha Heshiiska Shatiga
 # ^InstallBtn
 &Rakib
 # ^UninstallBtn
@@ -56,131 +56,131 @@ Jooji
 # ^CloseBtn
 &Xir
 # ^BrowseBtn
-B&roos...
+&Baadh...
 # ^ShowDetailsBtn
-Muuji & faafaahin
+Muuji &faahfaahinta
 # ^ClickNext
-Guji Xiga si aad u sii wadato
+Guji Xiga si aad u sii wadato.
 # ^ClickInstall
-Guji Ku rakib si aad u bilowdo rakibidda.
+Guji Rakib si aad u bilowdo rakibaadda.
 # ^ClickUninstall
-Guji Uninstall si aad u bilowdo uninstall-ka.
+Guji Ka saar si aad u bilowdo ka saaridda.
 # ^Name
 Magaca
 # ^Completed
-Dhammaystiran
+Waa dhammaatay
 # ^LicenseText
-Fadlan dib u eeg heshiiska shatiga ka hor intaadan rakibin $(^NameDA). Haddii aad aqbasho dhammaan shuruudaha heshiiska, dhagsii I Agree.
+Fadlan dib u eeg heshiiska shatiga ka hor intaadan rakibin $(^NameDA). Haddii aad aqbasho dhammaan shuruudaha heshiiska, guji Waan aqbalay.
 # ^LicenseTextCB
-Fadlan dib u eeg heshiiska shatiga ka hor intaadan rakibin $(^NameDA). Haddii aad aqbasho dhammaan shuruudaha heshiiska, dhagsii sanduuqa calaamadaynta ee hoose. $_CLICK
+Fadlan dib u eeg heshiiska shatiga ka hor intaadan rakibin $(^NameDA). Haddii aad aqbasho dhammaan shuruudaha heshiiska, calaamadee sanduuqa hoose. $_CLICK
 # ^LicenseTextRB
 Fadlan dib u eeg heshiiska shatiga ka hor intaadan rakibin $(^NameDA). Haddii aad aqbasho dhammaan shuruudaha heshiiska, dooro doorashada koowaad ee hoose. $_CLICK
 # ^UnLicenseText
-Fadlan dib u eeg heshiiska shatiga ka hor intaanad dajin $(^NameDA). Haddii aad aqbasho dhammaan shuruudaha heshiiska, dhagsii I Agree.
+Fadlan dib u eeg heshiiska shatiga ka hor intaadan ka saarin $(^NameDA). Haddii aad aqbasho dhammaan shuruudaha heshiiska, guji Waan aqbalay.
 # ^UnLicenseTextCB
-Fadlan dib u eeg heshiiska shatiga ka hor intaanad dajin $(^NameDA). Haddii aad aqbasho dhammaan shuruudaha heshiiska, dhagsii sanduuqa calaamadaynta ee hoose. $_CLICK
+Fadlan dib u eeg heshiiska shatiga ka hor intaadan ka saarin $(^NameDA). Haddii aad aqbasho dhammaan shuruudaha heshiiska, calaamadee sanduuqa hoose. $_CLICK
 # ^UnLicenseTextRB
-Fadlan dib u eeg heshiiska shatiga ka hor intaanad dajin $(^NameDA). Haddii aad aqbasho dhammaan shuruudaha heshiiska, dooro doorashada koowaad ee hoose. $_CLICK
+Fadlan dib u eeg heshiiska shatiga ka hor intaadan ka saarin $(^NameDA). Haddii aad aqbasho dhammaan shuruudaha heshiiska, dooro doorashada koowaad ee hoose. $_CLICK
 # ^Custom
-Caadiyan
+Gaar ah
 # ^ComponentsText
-Hubi qaybaha aad rabto inaad rakibto oo ka saar qaybaha aanad doonayn inaad rakibto. $_CLICK
+Calaamadee qaybaha aad rabto inaad rakibto, calaamaddana ka qaad qaybaha aadan rabin inaad rakibto. $_CLICK
 # ^ComponentsSubText1
-Dooro nooca rakibida:
+Dooro nooca rakibaadda:
 # ^ComponentsSubText2_NoInstTypes
-Dooro qaybaha si aad u rakibto:
+Dooro qaybaha aad rakibayso:
 # ^ComponentsSubText2
-Ama, dooro qaybaha ikhtiyaariga ah ee aad rabto inaad ku rakibto:
+Ama, dooro qaybaha ikhtiyaariga ah ee aad rabto inaad rakibto:
 # ^UnComponentsText
-Hubi qaybaha aad rabto in aad uninstall ka saarto oo ka saar qaybaha aanad doonayn in aad uninstall ka saarto. $_CLICK
+Calaamadee qaybaha aad rabto inaad ka saarto, calaamaddana ka qaad qaybaha aadan rabin inaad ka saarto. $_CLICK
 # ^UnComponentsSubText1
-Dooro nooca uninstall:
+Dooro nooca ka saaridda:
 # ^UnComponentsSubText2_NoInstTypes
-Dooro qaybaha si aad isaga saarto:
+Dooro qaybaha aad ka saarayso:
 # ^UnComponentsSubText2
 Ama, dooro qaybaha ikhtiyaariga ah ee aad rabto inaad ka saarto:
 # ^DirText
-Dejintu waxay ku rakibi doontaa $(^NameDA) galka soo socda. Si aad ugu rakibto gal kale, dhagsii Baadh oo dooro gal kale. $_CLICK
+Dejintu waxay $(^NameDA) ku rakibi doontaa galka soo socda. Si aad ugu rakibto gal kale, guji Baadh oo dooro gal kale. $_CLICK
 # ^DirSubText
-Faylka Meesha
+Galka Loo Rakibayo
 # ^DirBrowseText
-Dooro galka si aad ugu rakibto $(^NameDA) gudaha:
+Dooro galka aad $(^NameDA) ku rakibayso:
 # ^UnDirText
-Dejinta ayaa $(^NameDA) ka saari doonta galka soo socda. Si aad uga saarto gal kale, dhagsii Baadh oo dooro gal kale. $_CLICK
+Dejintu waxay $(^NameDA) ka saari doontaa galka soo socda. Si aad uga saarto gal kale, guji Baadh oo dooro gal kale. $_CLICK
 # ^UnDirSubText
 ""
 # ^UnDirBrowseText
-Ka dooro galka si aad uga saarto $(^NameDA):
+Dooro galka aad $(^NameDA) ka saarayso:
 # ^SpaceAvailable
-"Boos diyaar ah:"
+"Boos diyaar ah: "
 # ^SpaceRequired
-"Boos loo baahan yahay:"
+"Boos loo baahan yahay: "
 # ^UninstallingText
-$(^NameDA) waa laga saarayaa galka soo socda. $_CLICK
+Tani waxay $(^NameDA) ka saari doontaa nidaamkaaga. $_CLICK
 # ^UninstallingSubText
-Ka dajinta:
+Waxaa laga saarayaa:
 # ^FileError
-Cilad furitaanka faylka qoritaanka: \r\n\r\n$0\r\n\r\n Guji Jooji si aad u joojiso rakibaadda, \r\n Isku day inaad mar kale isku daydo, ama \ r\n Iska daa inaad ka boodo faylkan.
+Cillad ayaa ka dhacday furitaanka faylka si wax loogu qoro: \r\n\r\n$0\r\n\r\nGuji Jooji si aad u joojiso rakibaadda,\r\nIsku day mar kale si aad mar kale isugu daydo, ama\r\nIska dhaaf si aad faylkan uga booddo.
 # ^FileError_NoIgnore
-Cillad furitaanka faylka qoraalka: \r\n\r\n$0\r\n\r\nRiix ku celi isku day inaad mar kale isku daydo, ama\r\n Jooji si aad u joojiso rakibidda.
+Cillad ayaa ka dhacday furitaanka faylka si wax loogu qoro: \r\n\r\n$0\r\n\r\nGuji Isku day mar kale si aad mar kale isugu daydo, ama\r\nJooji si aad u joojiso rakibaadda.
 # ^CantWrite
-"Ma qori karo:"
+"Lama qori karo: "
 # ^CopyFailed
-nuqulku wuu fashilmay
+Koobiyeyntu way fashilantay
 # ^CopyTo
-"Koobi u noqo"
+"Ku koobiyee "
 # ^Registering
-"Diiwaangelinta:"
+"Diiwaangelinta: "
 # ^Unregistering
-"Diiwaangelin la'aan:"
+"Tirtirista diiwaangelinta: "
 # ^SymbolNotFound
-"Waa la heli waayay calaamad:"
+"Calaamadda lama helin: "
 # ^CouldNotLoad
-" Waa la rari karaa:"
+"Lama soo rari karo: "
 # ^CreateFolder
-"Samee gal:"
+"Samee gal: "
 # ^CreateShortcut
-"Samee jidka gaaban:"
+"Samee jid-gaab: "
 # ^CreatedUninstaller
-"Urinstaller la sameeyay:"
+"Waa la sameeyay barnaamijka ka saaridda: "
 # ^Delete
-"Tirtir faylka:"
+"Tirtir faylka: "
 # ^DeleteOnReboot
-"Tirtir dib-u-kicinta:"
+"Tirtir marka dib loo bilaabo: "
 # ^ErrorCreatingShortcut
-"Cillad abuurista marin-gaabeedka:"
+"Cillad samaynta jid-gaabka: "
 # ^ErrorCreating
-"Cillad abuurista:"
+"Cillad samaynta: "
 # ^ErrorDecompressing
-Khalad kala saarida xogta! Rakibadihii musuqmaasuqay?
+Cillad furfurista xogta! Barnaamijka rakibaadda ma xumaaday?
 # ^ErrorRegistering
-Khalad diiwaangelinta DLL
+Cillad diiwaangelinta DLL
 # ^ExecShell
-"ExecShell:"
+"ExecShell: "
 # ^Exec
-"ful:"
+"Fuli: "
 # ^Extract
-"Ka soo saar:"
+"Soo saar: "
 # ^ErrorWriting
-"Ka saar: khalad qorista si loo fayl gareeyo"
+"Soo saar: cillad ku qoridda faylka "
 # ^InvalidOpcode
-Rakibadihii ayaa xumaaday: opcode aan sax ahayn
+Barnaamijka rakibaadda wuu xumaaday: opcode aan sax ahayn
 # ^NoOLE
-"No OLE for:"
+"OLE looma hayo: "
 # ^OutputFolder
-Galka wax soo saarka:"
+"Galka wax-soo-saarka: "
 # ^RemoveFolder
-"Ka saar faylka:"
+"Tirtir galka: "
 # ^RenameOnReboot
-"Magac dib u bilow:"
+"Magac-beddel marka dib loo bilaabo: "
 # ^Rename
-"Dib u magacow:"
+"Magac-beddel: "
 # ^Skipped
-"Waa la booday:"
+"Waa la booday: "
 # ^CopyDetails
-Ku koobbi Faahfaahinta Kiliboodhka
+Ku koobiyee Faahfaahinta Kilibboodhka
 # ^LogInstall
-Log habka rakibida
+Diiwaangeli habka rakibaadda
 # ^Byte
 B
 # ^Kilo
