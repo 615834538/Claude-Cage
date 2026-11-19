@@ -1,4 +1,5 @@
 // Store each turn separately so typing a draft doesn't rewrite earlier screenshots.
+import type { LogAttachment } from "./log-archive";
 export type Photo = { name: string; url: string };
 export type Source = { title: string; url: string };
 export type Draft = {
@@ -11,9 +12,12 @@ export type SavedChat = {
   id: string;
   updated: number;
   title: string;
+  summaryTitle?: string;
+  customTitle?: string;
   draft: string;
   web: boolean;
   photo?: Photo;
+  log?: LogAttachment;
 };
 export type SavedTurn = {
   id: string;
@@ -21,6 +25,7 @@ export type SavedTurn = {
   created: number;
   question: string;
   photo?: Photo;
+  log?: LogAttachment;
   web: boolean;
   answer?: string;
   observation?: string;

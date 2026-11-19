@@ -66,12 +66,12 @@ func loadIndex(archive, rev string) (*index, error) {
 			return nil, err
 		}
 		p := strings.TrimPrefix(h.Name, "source/")
-		doc := p == "README.md" || strings.HasPrefix(p, "docs/guide/")
+		doc := path.Base(p) == "README.md" || strings.HasPrefix(p, "docs/guide/")
 		if h.Typeflag != tar.TypeReg || h.Size > 512000 || strings.Contains(strings.ToLower(p), "test") {
 			continue
 		}
 		switch path.Ext(p) {
-		case ".go", ".swift", ".cs", ".ts", ".tsx", ".js", ".sh", ".kt":
+		case ".go", ".swift", ".cs", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".sh", ".kt", ".java", ".ps1", ".m", ".h", ".c", ".py":
 		case ".md":
 			if !doc {
 				continue
@@ -113,7 +113,7 @@ func loadIndex(archive, rev string) (*index, error) {
 			if len(body) > 35 {
 				id := len(ix.sections)
 				ix.sections = append(ix.sections, section{source{title, url, body}, doc})
-				for w := range tokens(p + " " + title + " " + body) {
+				for w := range tokens(strings.NewReplacer("_", " ", "-", " ", ".", " ").Replace(p) + " " + p + " " + title + " " + body) {
 					ix.terms[w] = append(ix.terms[w], id)
 				}
 			}
@@ -125,18 +125,36 @@ func loadIndex(archive, rev string) (*index, error) {
 	}
 	return ix, nil
 }
-func (ix *index) search(q string) []source {
+
+var implementationQuestion = regexp.MustCompile(`源码|代码|实现|底层|重试|退避|阈值|优先级|超时|implementation|source code`)
+
+var codeName = regexp.MustCompile(`[a-z]+[A-Z][a-zA-Z0-9]+|[a-zA-Z][a-zA-Z0-9]+(?:[-_.][a-zA-Z0-9]+)+`)
+
+func (ix *index) search(q, hints string) []source {
+	named := map[string]bool{}
+	for _, name := range codeName.FindAllString(q, -1) {
+		named[strings.ToLower(name)] = true
+	}
 	scores := map[int]float64{}
-	for w := range tokens(q) {
+	for w := range tokens(q + " " + hints) {
 		ids := ix.terms[w]
 		idf := math.Log(1 + float64(len(ix.sections))/float64(len(ids)+1))
 		for _, id := range ids {
-			scores[id] += idf
+			weight := idf
+			// A rare literal from a log, header or function is stronger evidence
+			// than several common two-character matches in the handbook.
+			if !ix.sections[id].doc && len(w) >= 4 && w[0] < 128 {
+				weight *= 4
+				if named[w] {
+					weight *= 4
+				}
+			}
+			scores[id] += weight
 		}
 	}
 	ids := make([]int, 0, len(scores))
 	for id := range scores {
-		if ix.sections[id].doc {
+		if ix.sections[id].doc && !implementationQuestion.MatchString(q) {
 			scores[id] *= 1.8
 		}
 		ids = append(ids, id)
@@ -150,14 +168,24 @@ func (ix *index) search(q string) []source {
 	})
 	result := []source{}
 	seen := map[string]int{}
+	included := map[int]bool{}
 	for _, id := range ids {
 		s := ix.sections[id]
-		if seen[s.URL] >= 2 {
+		if included[id] || seen[s.URL] >= 2 {
 			continue
 		}
 		seen[s.URL]++
 		result = append(result, s.source)
-		if len(result) == 6 {
+		included[id] = true
+		// Branches and return values often fall in the next excerpt.
+		if !s.doc && len(result) <= 3 && id+1 < len(ix.sections) {
+			next := ix.sections[id+1]
+			if next.Title == s.Title && !included[id+1] {
+				result = append(result, next.source)
+				included[id+1] = true
+			}
+		}
+		if len(result) >= 6 {
 			break
 		}
 	}

@@ -51,12 +51,10 @@ try: manifest=json.loads(p.read_text())
 except (OSError,ValueError): manifest=None
 versions={}
 env={**os.environ,'DISABLE_AUTOUPDATER':'1','PATH':str(Path.home()/'.local/bin')+':'+os.environ.get('PATH','')}
-browser='/usr/local/lib/workbench-browser/chromium'
-if not os.path.isfile(browser): browser='/usr/bin/chromium'
 code_server_version=re.compile(r'^v?[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.+-]+)?(?:\s|$)')
 # code-server reads a config even for --version. Use an existing, empty file
 # so a version query neither creates nor depends on the user's config.
-for name,args in {'chromium':[browser,'--version'],'code_server':['code-server','--version','--config','/dev/null'],'claude':['claude','--version'],'gh':['gh','--version'],'git':['git','--version'],'mise':[str(Path.home()/'.local/bin/mise'),'--version']}.items():
+for name,args in {'chromium':['/usr/bin/chromium','--version'],'code_server':['code-server','--version','--config','/dev/null'],'claude':['claude','--version'],'gh':['gh','--version'],'git':['git','--version'],'mise':[str(Path.home()/'.local/bin/mise'),'--version']}.items():
  try:
   result=subprocess.run(args,env=env,capture_output=True,text=True,timeout=4)
   lines=result.stdout.strip().splitlines() if result.returncode==0 else []
@@ -70,10 +68,6 @@ CAGE_VERSIONS`
 
 // Version commands run only for this explicit request, never in status polling.
 func (s *Server) environmentVersions(w http.ResponseWriter, r *http.Request) {
-	if s.macosGuest != nil || s.windowsGuest != nil {
-		s.nativeEnvironmentVersions(w, r)
-		return
-	}
 	ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
 	defer cancel()
 	running := s.vmRunning()
@@ -134,24 +128,13 @@ func (s *Server) environmentVersions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateEnvironment(w http.ResponseWriter, r *http.Request) {
-	if err := s.nativeMaintenancePreflight(); err != nil {
-		http.Error(w, err.Error(), http.StatusConflict)
-		return
-	}
 	s.launch(w, "environment-update", s.synchronizeEnvironment)
 }
 func (s *Server) updateEnvironmentTools(w http.ResponseWriter, r *http.Request) {
-	if err := s.nativeMaintenancePreflight(); err != nil {
-		http.Error(w, err.Error(), http.StatusConflict)
-		return
-	}
 	s.launch(w, "environment-tools", s.upgradeEnvironmentTools)
 }
 
 func (s *Server) synchronizeEnvironment() error {
-	if s.macosGuest != nil || s.windowsGuest != nil {
-		return s.maintainNativeComponents(false)
-	}
 	if !s.vmRunning() {
 		return errors.New("请先启动 Cage 环境。")
 	}
@@ -188,9 +171,6 @@ func (s *Server) toolsNetworkAllowedLocked() bool {
 	return !s.closing
 }
 func (s *Server) upgradeEnvironmentTools() error {
-	if s.macosGuest != nil || s.windowsGuest != nil {
-		return s.maintainNativeComponents(true)
-	}
 	if !s.vmRunning() {
 		return errors.New("请先启动 Cage 环境。")
 	}

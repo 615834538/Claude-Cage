@@ -109,7 +109,7 @@ func (f feishu) directTarget(chat, previous string) lesson {
 	defer f.store.RUnlock()
 	var pending lesson
 	for _, l := range f.store.items {
-		if l.Chat != chat || l.Message == "" || l.Reply != "" {
+		if l.Chat != chat || l.Message == "" || l.Reply != "" || l.Ignored {
 			continue
 		}
 		if pending.ID != "" {

@@ -11,7 +11,7 @@ runs:
   steps:
     - uses: actions/setup-go@v5
       with:
-        # The guest payload's module requires the newer of the two Go versions.
+        # tools/tailnet requires the newer of the two Go versions.
         go-version-file: tools/tailnet/go.mod
         cache-dependency-path: |
           go.sum

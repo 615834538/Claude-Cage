@@ -178,7 +178,7 @@ func (s *lessons) next() (queued lesson, chat string, first int64) {
 				first = l.Created
 			}
 		}
-		if l.Message == "" && (queued.ID == "" || l.Created < queued.Created || (l.Created == queued.Created && l.ID < queued.ID)) {
+		if !l.Ignored && l.Message == "" && (queued.ID == "" || l.Created < queued.Created || (l.Created == queued.Created && l.ID < queued.ID)) {
 			queued = l
 		}
 	}

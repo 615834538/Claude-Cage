@@ -799,7 +799,7 @@ dialog header {
   flex: 1;
   min-width: 0;
 }
-.history-delete {
+.history-action {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -811,21 +811,21 @@ dialog header {
   border-radius: 6px;
   margin-right: 3px;
 }
-.history-delete:hover,
-.history-delete:focus-visible {
+.history-action:hover,
+.history-action:focus-visible {
   color: var(--accent);
   background: #dfd5c9;
 }
 @media (hover: hover) {
-  .history-delete {
+  .history-action {
     opacity: 0;
   }
-  .history-row:hover .history-delete,
-  .history-row:focus-within .history-delete {
+  .history-row:hover .history-action,
+  .history-row:focus-within .history-action {
     opacity: 1;
   }
 }
-#delete-chat {
+.history-dialog {
   inset: 0;
   margin: auto;
   height: fit-content;
@@ -834,7 +834,7 @@ dialog header {
   border: 1px solid var(--line);
   border-radius: 15px;
 }
-#delete-chat h2 {
+.history-dialog h2 {
   font-size: 19px;
   margin: 0 0 8px;
 }
@@ -844,18 +844,19 @@ dialog header {
   line-height: 1.65;
   overflow-wrap: anywhere;
 }
-#delete-chat div {
+.history-dialog div {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
 }
-#delete-chat button {
+.history-dialog button {
   border-radius: 7px;
   border: 1px solid var(--line);
   padding: 8px 14px;
   font-size: 13px;
 }
-#delete-chat #confirm-delete {
+#delete-chat #confirm-delete,
+.history-dialog .primary {
   background: var(--accent);
   color: white;
   border-color: var(--accent);
@@ -867,4 +868,79 @@ dialog header {
 }
 #storage-warning:empty {
   display: none;
+}
+
+#rename-form label {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  margin: 16px 0 6px;
+}
+#new-title {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  padding: 9px;
+  margin-bottom: 16px;
+}
+@media (hover: hover) {
+  .history-row:not(:hover):not(:focus-within) .history-action {
+    width: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+}
+.log-attachment,
+.sent-log {
+  padding: 8px 10px;
+  background: #f5f1e9;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  font-size: 13px;
+  margin-bottom: 9px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.log-attachment > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.log-attachment > div span {
+  flex: 1;
+}
+.log-attachment summary,
+.sent-log summary {
+  cursor: pointer;
+}
+.log-attachment details {
+  margin-top: 4px;
+}
+.log-attachment p,
+.sent-log p {
+  color: var(--muted);
+  font-size: 12px;
+}
+#log-excerpt,
+.sent-log pre {
+  width: 100%;
+  max-height: 210px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font:
+    12px/1.5 ui-monospace,
+    monospace;
+}
+#log-excerpt {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 7px;
+  background: #fff;
+  resize: vertical;
+}
+.sent-log {
+  width: fit-content;
+  max-width: min(100%, 580px);
 }

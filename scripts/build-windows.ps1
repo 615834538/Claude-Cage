@@ -4,23 +4,29 @@ param(
     [switch]$Release,
     [switch]$Sign,
     [switch]$SkipUI,
-    [switch]$SkipGuestClipboardAnalysis,
     [string]$OutputDirectory,
     [string]$DependencyCache
 )
 . (Join-Path $PSScriptRoot 'windows-common.ps1')
-$repository = Split-Path $PSScriptRoot -Parent
-$signed = $Release -or $Sign
-$requireGuestClipboardAnalysis = $signed -or $env:CI -in @('true', '1')
-if ($requireGuestClipboardAnalysis -and $SkipGuestClipboardAnalysis) {
-    throw 'Signed and CI builds require full Cage.GuestClipboard analysis.'
+
+function Assert-NoCageDataInBuildOutput {
+    param([string]$Directory)
+
+    $dataPath = Join-Path $Directory 'CageData'
+    if (Test-Path -LiteralPath $dataPath) {
+        throw "Build output contains CageData user data at '$dataPath'. Choose a separate -OutputDirectory or move the storage using Cage Settings."
+    }
 }
+
+$repository = Split-Path $PSScriptRoot -Parent
 if (-not $OutputDirectory) { $OutputDirectory = Join-Path $repository '_output/windows-amd64/app' }
 if (-not $DependencyCache) { $DependencyCache = Join-Path $repository '_output/windows-deps' }
 $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
 if (Test-Path -LiteralPath (Join-Path $OutputDirectory 'Uninstall.exe')) { throw 'Do not build over an installed application. Choose a separate output directory and use the installer to upgrade.' }
+Assert-NoCageDataInBuildOutput $OutputDirectory
 Assert-WindowsWorkbenchTestBase
 $version = Get-CageVersion $repository
+$signed = $Release -or $Sign
 if ($signed) { Assert-WindowsSigningConfiguration }
 $requiredTools = [ordered]@{
     'Go' = @('go')
@@ -87,22 +93,6 @@ try {
     $resources = Join-Path $app 'resources'
     New-Item -ItemType Directory -Path $resources -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $resources 'runtime') -Force | Out-Null
-    $guestSetup = New-Item -ItemType Directory -Path (Join-Path $resources 'guest-os')
-    Copy-Item -LiteralPath 'scripts/guest-os/new-windows-test-vm.ps1' -Destination (Join-Path $guestSetup.FullName 'new-windows-guest.ps1')
-    Copy-Item -LiteralPath 'scripts/guest-os/windows-host-image.ps1' -Destination $guestSetup.FullName
-    foreach ($file in @('windows-guest-media.ps1', 'install-guest-powershell.cmd', 'setup-windows-guest.ps1', 'complete-windows-guest.ps1', 'install-windows-host-manager.ps1', 'install-windows-workbench-components.ps1', 'initialize-windows-workbench-user.ps1', 'windows-host-enrollment.ps1', 'maintain-windows-workbench.ps1', 'update-windows-workbench-components.ps1', 'publish-windows-component-manifest.ps1', 'windows-workbench-packages.ps1')) {
-        Copy-Item -LiteralPath (Join-Path 'scripts/guest-os' $file) -Destination $guestSetup.FullName
-    }
-    $bridgeSetup = New-Item -ItemType Directory -Path (Join-Path $guestSetup.FullName 'guest-clipboard-windows')
-    foreach ($file in @('install.ps1', 'install-network.ps1')) {
-        Copy-Item -LiteralPath (Join-Path 'scripts/guest-os/guest-clipboard-windows' $file) -Destination $bridgeSetup.FullName
-    }
-    $guestPayload = @{
-        Destination = Join-Path $guestSetup.FullName 'payload'
-        SkipAnalysis = $SkipGuestClipboardAnalysis
-        RequireAnalysis = $requireGuestClipboardAnalysis
-    }
-    & (Join-Path $PSScriptRoot 'guest-os/build-windows-workbench-payload.ps1') @guestPayload
     $tailnetAssets = Join-Path $repository 'internal/tailnetassets/assets'
     New-Item -ItemType Directory -Path $tailnetAssets -Force | Out-Null
     foreach ($tailnetArch in @('amd64','arm64')) {
@@ -204,10 +194,6 @@ try {
     if ($signed) {
         $signTool = Get-SigningTool
         foreach ($file in @('Cage.exe', 'resources/cage.exe', 'resources/mihomo.exe')) { Sign-CageFile (Join-Path $app $file) $signTool }
-        # Only a fresh publish with full analysis reaches this signing step.
-        $clipboard = Join-Path $app 'resources/guest-os/payload/Cage.GuestClipboard.exe'
-        Sign-CageFile $clipboard $signTool
-        Assert-CageReleaseSignature $clipboard
         foreach ($file in (Get-WindowsQemuBinaries $qemuTarget)) {
             Sign-CageFile $file.FullName $signTool
             Assert-CageReleaseSignature $file.FullName
@@ -230,6 +216,8 @@ try {
         Write-Warning "Workbench acceptance failed. Build candidate retained at $app"
         throw
     }
+    # Cage may have initialized storage in the old build while this build was running.
+    Assert-NoCageDataInBuildOutput $OutputDirectory
     $previousOutput = $null
     if (Test-Path -LiteralPath $OutputDirectory) {
         $marker = Join-Path $OutputDirectory 'Cage.install-id'

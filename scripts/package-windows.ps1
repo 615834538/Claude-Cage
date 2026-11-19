@@ -31,8 +31,6 @@ if ($signed) {
     Assert-WindowsSigningConfiguration
     if ($env:CAGE_WINDOWS_CERT_SHA1 -notmatch '^[0-9A-Fa-f]{40}$') { throw 'Build and verify the signed app before packaging.' }
     if (Test-Path -LiteralPath (Join-Path $AppDirectory 'DEVELOPMENT-BUILD.txt')) { throw 'Rebuild with build-windows.ps1 -Sign or -Release before packaging a signed installer.' }
-    try { Assert-CageReleaseSignature (Join-Path $AppDirectory 'resources/guest-os/payload/Cage.GuestClipboard.exe') }
-    catch { throw "Rebuild with build-windows.ps1 -Sign or -Release to publish Cage.GuestClipboard with full analysis and a valid signature. $($_.Exception.Message)" }
     if ($Release -and (-not $QemuSourceArchive -or -not (Test-Path -LiteralPath $QemuSourceArchive -PathType Leaf))) {
         throw 'Release packaging requires -QemuSourceArchive containing the exact QEMU, firmware and linked library sources. Generate it from the built runtime with bundle-qemu-sources.sh.'
     }
