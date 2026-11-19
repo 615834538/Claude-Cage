@@ -5,30 +5,26 @@ import { createWorkbench } from "./workbench-fixture.mjs";
 const evidence = process.env.CAGE_INITIALIZATION_EVIDENCE;
 if (evidence) await fs.mkdir(evidence, { recursive: true });
 
+// A changed exit or environment configuration needs a full restart. The page
+// must offer that as the only next action, keep the save-work confirmation and
+// start only after the accepted stop has finished.
 {
-  const ip = "203.0.113.10";
-  let bindings = 0, stops = 0, starts = 0;
-  let rejectBinding = true, disconnectOnStop = false, disconnected = false;
-  const savedMessage = "已保存固定出口。请重启 macOS 客机，登录后重新检测。";
+  const restartMessage = "出口地址或环境设置变化需要重启环境";
+  let stops = 0, starts = 0, disconnectOnStop = false, disconnected = false;
   const f = await createWorkbench({
     initialization: { required: true, tracked: true, started: true },
     beforeNavigate: async (page, state) => {
-      state.account.guest_system = "macos";
-      Object.assign(state.status, { guest_system: "macos", ready: true, vm_running: true, safety: { gate: { mode: "closed" } } });
+      state.account.guest_system = "debian-13";
+      Object.assign(state.status, { guest_system: "debian-13", ready: true, vm_running: true,
+        job: { id: "proxy-1", kind: "proxy", running: false, error: restartMessage },
+        safety: { error: restartMessage, gate: { mode: "closed" } } });
       await page.route("**/api/status", route => disconnected
         ? route.fulfill({ status: 503, contentType: "text/plain; charset=utf-8", body: "测试：停止后连接中断" })
         : route.fulfill({ json: { ...state.status, workspace: state.settings.workspace } }));
-      await page.route("**/api/macos/exit-policy", route => {
-        assert.equal(route.request().method(), "POST");
-        assert.deepEqual(route.request().postDataJSON(), { ip });
-        bindings++;
-        if (rejectBinding) return route.fulfill({ status: 409, contentType: "text/plain; charset=utf-8", body: "出口采样已过期，请重新运行联网检查" });
-        state.status.job = { id: `bind-${bindings}`, kind: "settings", running: true, message: "正在保存固定出口" };
-        return route.fulfill({ json: state.status.job });
-      });
+      await page.route("**/api/safety/check", () => assert.fail("a required restart must not be replaced by a network retry"));
       await page.route("**/api/stop", route => {
         stops++;
-        state.status.job = { id: `stop-${stops}`, kind: "stop", running: true, message: "正在停止客机" };
+        state.status.job = { id: `stop-${stops}`, kind: "stop", running: true, message: "正在停止环境" };
         if (disconnectOnStop) disconnected = true;
         return route.fulfill({ json: state.status.job });
       });
@@ -38,7 +34,8 @@ if (evidence) await fs.mkdir(evidence, { recursive: true });
         assert.equal(state.status.job.running, false);
         assert.ok(!state.status.job.error);
         starts++;
-        Object.assign(state.status, { ready: true, vm_running: true, job: { id: `start-${starts}`, kind: "start", running: true, message: "正在启动并检查客机" } });
+        Object.assign(state.status, { ready: true, vm_running: true, safety: { gate: { mode: "closed" } },
+          job: { id: `start-${starts}`, kind: "start", running: true, message: "正在启动并检查环境" } });
         // The backend accepted the start, but its response did not reach the UI.
         return route.fulfill({ status: 502, contentType: "text/plain; charset=utf-8", body: "启动请求的响应传输中断" });
       });
@@ -46,60 +43,36 @@ if (evidence) await fs.mkdir(evidence, { recursive: true });
   });
   const { page, state } = f;
   page.setDefaultTimeout(5000);
-  const bind = page.getByRole("button", { name: `绑定检测到的固定出口 ${ip}`, exact: true });
-  const restart = () => page.getByRole("button", { name: /^(重启客机|启动客机)并重新检测$/ });
+  const restart = () => page.getByRole("button", { name: /^(重启环境|启动环境)并重新检测$/ });
   const confirm = async (name) => {
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("button", { name, exact: true }).click();
   };
   try {
-    await page.getByRole("heading", { name: "系统已安装，完成使用检查", exact: true }).waitFor();
-    assert.equal(await bind.count(), 0, "no candidate must offer no binding");
-    state.status.safety.macos_exit_candidate = { ip };
-    await bind.waitFor(); // Red against the original initialization screen: the entry is missing.
-    if (evidence) await page.screenshot({ path: `${evidence}/macos-exit-candidate.png`, fullPage: true });
-    await bind.click();
-    await page.getByRole("dialog").getByText(/保存后请重启客机并重新检测/).waitFor();
-    await confirm("取消");
-    assert.equal(bindings, 0, "cancel must not bind an exit");
-    await bind.click(); await confirm("绑定固定出口");
-    await page.getByRole("alert").filter({ hasText: "出口采样已过期" }).first().waitFor();
-    assert.equal(bindings, 1);
-    assert.equal(stops + starts, 0);
+    await page.getByRole("heading", { name: "下一步：重启环境并重新检测", exact: true }).waitFor();
+    assert.equal(await restart().count(), 1);
+    assert.equal(await page.getByRole("button", { name: /^(重试|运行)网络与隔离检查$/ }).count(), 0,
+      "a retry must not compete with the required restart");
+    assert.equal(await page.getByRole("button", { name: /^(继续安装|重新启动并检查)$/ }).count(), 0);
+    assert.equal(await page.getByRole("button", { name: "进入工作台", exact: true }).count(), 0);
+    if (evidence) await page.screenshot({ path: `${evidence}/environment-restart.png`, fullPage: true });
 
-    rejectBinding = false;
-    await bind.click(); await confirm("绑定固定出口");
-    await page.getByText("正在保存固定出口", { exact: true }).waitFor();
-    assert.ok(await bind.isDisabled());
-    assert.equal(await restart().count(), 0, "an accepted settings job is not a saved exit");
-    state.status.job = { ...state.status.job, running: false, error: "固定出口未保存：定位服务暂不可用" };
-    await page.getByRole("alert").filter({ hasText: "固定出口未保存" }).first().waitFor();
-    assert.equal(stops + starts, 0, "save failure must not restart");
-
-    await bind.evaluate(button => { button.click(); button.click(); });
-    await confirm("绑定固定出口");
-    await page.getByText("正在保存固定出口", { exact: true }).waitFor();
-    await bind.evaluate(button => { button.click(); button.click(); });
-    assert.equal(bindings, 3, "duplicate clicks must not submit another binding");
-    state.status.job = { ...state.status.job, running: false, message: "已完成" };
-    delete state.status.safety.macos_exit_candidate;
-    state.status.safety.error = savedMessage;
-    await restart().waitFor();
-    assert.equal(stops, 0, "an existing guest must wait for the user");
     await restart().click();
-    assert.equal(stops, 0, "opening the confirmation must not stop the guest");
-    await confirm("重启并检查");
-    await page.getByText("正在停止客机", { exact: true }).waitFor();
+    await page.getByRole("dialog").getByText(/请先保存文件/).waitFor();
+    await confirm("取消");
+    assert.equal(stops + starts, 0, "cancel must not stop the environment");
+
+    await restart().click(); await confirm("重启并检查");
+    await page.getByText("正在停止环境", { exact: true }).waitFor();
     assert.equal(stops, 1);
     assert.equal(await page.getByRole("button", { name: "进入工作台", exact: true }).count(), 0);
     await page.setViewportSize({ width: 600, height: 650 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-    if (evidence) await page.screenshot({ path: `${evidence}/macos-exit-saved-compact.png`, fullPage: true });
     await page.setViewportSize({ width: 1280, height: 850 });
-    assert.equal(starts, 0, "a running stop job must not start the guest");
-    state.status.job = { ...state.status.job, running: false, error: "停止客机失败" };
-    await page.getByRole("alert").filter({ hasText: "停止客机失败" }).first().waitFor();
-    assert.equal(starts, 0, "stop failure must not start the guest");
+    assert.equal(starts, 0, "a running stop job must not start the environment");
+    state.status.job = { ...state.status.job, running: false, error: "停止环境失败" };
+    await page.getByRole("alert").filter({ hasText: "停止环境失败" }).first().waitFor();
+    assert.equal(starts, 0, "stop failure must not start the environment");
 
     disconnectOnStop = true;
     await restart().click(); await confirm("重启并检查");
@@ -107,25 +80,24 @@ if (evidence) await fs.mkdir(evidence, { recursive: true });
     assert.equal(starts, 0, "lost status must not authorize a start");
     disconnected = false;
     disconnectOnStop = false;
-    state.status.job = { id: "stop-2", kind: "stop", running: false, error: "停止请求中断，客机仍在运行" };
-    await page.waitForFunction(() => [...document.querySelectorAll("button")].some(button => button.textContent === "重启客机并重新检测" && !button.disabled));
+    state.status.job = { id: "stop-2", kind: "stop", running: false, error: "停止请求中断，环境仍在运行" };
+    await page.waitForFunction(() => [...document.querySelectorAll("button")].some(button => button.textContent === "重启环境并重新检测" && !button.disabled));
     await restart().click(); await confirm("重启并检查");
-    await page.getByText("正在停止客机", { exact: true }).waitFor();
+    await page.getByText("正在停止环境", { exact: true }).waitFor();
     assert.equal(starts, 0);
     Object.assign(state.status, { ready: false, vm_running: false, job: { id: "stop-3", kind: "stop", running: false } });
-    await page.getByText("正在启动并检查客机", { exact: true }).waitFor();
+    await page.getByText("正在启动并检查环境", { exact: true }).waitFor();
     assert.equal(starts, 1);
     assert.equal(stops, 3);
     await page.getByRole("alert").filter({ hasText: "响应传输中断" }).first().waitFor();
     assert.equal(await page.getByRole("button", { name: "进入工作台", exact: true }).count(), 0);
     state.status.job = { ...state.status.job, running: false };
     state.status.safety = { gate: { mode: "open", until: new Date(Date.now() + 3600000).toISOString() } };
+    await page.getByRole("button", { name: "进入工作台", exact: true }).click();
     await page.getByRole("complementary", { name: "项目与终端" }).waitFor();
-    assert.equal(await restart().count(), 0, "a lost start response must not hide a later verified open gate");
-    await page.reload();
-    await page.getByRole("complementary", { name: "项目与终端" }).waitFor();
+    assert.equal(await restart().count(), 0, "a verified open gate must not keep the restart action");
     assert.deepEqual(f.errors, []);
-    console.log("PASS macOS exit: explicit binding, cancellation, save failures, stop-before-start, disconnect recovery, lost start response and network completion gate");
+    console.log("PASS environment restart: single next action, save-work confirmation, cancellation, stop-before-start, stop failure, disconnect recovery, lost start response and completion gate");
   } finally { await f.browser.close(); }
 }
 
