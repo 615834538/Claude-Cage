@@ -65,7 +65,9 @@ func TestGuestRunnerDistinguishesRequestedStopFromFailure(t *testing.T) {
 			if err := os.WriteFile(runner, []byte(GuestRunner()), 0600); err != nil {
 				t.Fatal(err)
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			// Only a hang guard: a loaded CI host can take seconds to start two
+			// interpreters, and a timeout would report exit -1 instead of the result.
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			interpreter := strings.TrimSpace(string(python))
 			cmd := exec.CommandContext(ctx, interpreter, runner, interpreter, "-c", tc.child)
