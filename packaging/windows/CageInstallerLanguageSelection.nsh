@@ -2,52 +2,54 @@
 !macro CageSelectInstallerLanguage
   Push $0
   System::Call 'kernel32::GetUserDefaultUILanguage() i .r0'
+  IntOp $0 $0 & 0xffff
   StrCpy $LANGUAGE ${LANG_SIMPCHINESE}
-  ${If} $0 == 0x0404
-  ${OrIf} $0 == 0x0c04
-  ${OrIf} $0 == 0x1404
-  ${OrIf} $0 == 0x7c04
+  ${If} $0 = 0x0404
+  ${OrIf} $0 = 0x0c04
+  ${OrIf} $0 = 0x1404
+  ${OrIf} $0 = 0x7c04
     StrCpy $LANGUAGE ${LANG_TRADCHINESE}
   ${Else}
     IntOp $0 $0 & 0x03ff
+    ; IntOp writes decimal text, and the LogicLib switch compares strings.
     ${Switch} $0
-      ${Case} 0x19
+      ${Case} 25
         StrCpy $LANGUAGE ${LANG_RUSSIAN}
         ${Break}
-      ${Case} 0x01
+      ${Case} 1
         StrCpy $LANGUAGE ${LANG_ARABIC}
         ${Break}
-      ${Case} 0x29
+      ${Case} 41
         StrCpy $LANGUAGE ${LANG_FARSI}
         ${Break}
-      ${Case} 0x12
+      ${Case} 18
         StrCpy $LANGUAGE ${LANG_KOREAN}
         ${Break}
-      ${Case} 0x0a
+      ${Case} 10
         StrCpy $LANGUAGE ${LANG_SPANISH}
         ${Break}
-      ${Case} 0x55
+      ${Case} 85
         StrCpy $LANGUAGE ${LANG_BURMESE}
         ${Break}
-      ${Case} 0x23
+      ${Case} 35
         StrCpy $LANGUAGE ${LANG_BELARUSIAN}
         ${Break}
-      ${Case} 0x63
+      ${Case} 99
         StrCpy $LANGUAGE ${LANG_PASHTO}
         ${Break}
-      ${Case} 0x8c
+      ${Case} 140
         StrCpy $LANGUAGE ${LANG_DARI}
         ${Break}
-      ${Case} 0x5e
+      ${Case} 94
         StrCpy $LANGUAGE ${LANG_AMHARIC}
         ${Break}
-      ${Case} 0x77
+      ${Case} 119
         StrCpy $LANGUAGE ${LANG_SOMALI}
         ${Break}
-      ${Case} 0x73
+      ${Case} 115
         StrCpy $LANGUAGE ${LANG_TIGRINYA}
         ${Break}
-      ${Case} 0x0c
+      ${Case} 12
         StrCpy $LANGUAGE ${LANG_FRENCH}
         ${Break}
     ${EndSwitch}
