@@ -102,13 +102,6 @@ assets:
 		-ldflags "-s -w -X github.com/lima-vm/lima/v2/pkg/version.Version=$(LIMA_VERSION)" \
 		-o $(ASSETS)/lima-guestagent.Linux-$(GUEST_ARCH) github.com/lima-vm/lima/v2/cmd/lima-guestagent
 	gzip -9 -n -f $(ASSETS)/lima-guestagent.Linux-$(GUEST_ARCH)
-ifeq ($(GOOS)/$(GOARCH),darwin/arm64)
-	mkdir -p $(ASSETS)/Darwin
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GO) build -trimpath -tags $(TAGS) \
-		-ldflags "-s -w -X github.com/lima-vm/lima/v2/pkg/version.Version=$(LIMA_VERSION)" \
-		-o $(ASSETS)/Darwin/lima-guestagent.Darwin-aarch64 github.com/lima-vm/lima/v2/cmd/lima-guestagent
-	gzip -9 -n -f $(ASSETS)/Darwin/lima-guestagent.Darwin-aarch64
-endif
 	rm -rf $(ASSETS)/templates && cp -R third_party/lima/templates $(ASSETS)/templates
 
 test: test-go

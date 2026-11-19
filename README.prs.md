@@ -6,9 +6,13 @@
 
 <img src="assets/claude-cage-character.png" alt="Claude Cage" width="320" />
 
-[![Release](https://img.shields.io/github/v/release/Lee-xeo/Claude-Cage?include_prereleases)](https://github.com/Lee-xeo/Claude-Cage/releases) [![CI](https://github.com/Lee-xeo/Claude-Cage/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Lee-xeo/Claude-Cage/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/Lee-xeo/Claude-Cage?include_prereleases)](https://github.com/Lee-xeo/Claude-Cage/releases) [![MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**[وب سایت پروژه](https://lee-xeo.github.io/Claude-Cage/) · [دانلود برنامه](https://lee-xeo.github.io/Claude-Cage/prs/#download) · [شروع کردن](docs/getting-started.md) · [سوالات متداول](docs/troubleshooting.md) · [رهنمای استفاده (چینی)](https://lee-xeo.github.io/Claude-Cage/docs/)**
+<a href="https://trendshift.io/repositories/339051#achievements"><img src="https://trendshift.io/api/badge/trendshift/repositories/339051/daily?language=Go" alt="Trendshift — Go Repository of the Day" width="250" height="55" /></a> <a href="https://trendshift.io/repositories/339051#achievements"><img src="https://trendshift.io/api/badge/trendshift/repositories/339051/weekly?language=Go" alt="Trendshift — Go Repository of the Week" width="250" height="55" /></a>
+
+<a href="https://trendshift.io/repositories/339051#achievements"><img src="https://trendshift.io/api/badge/trendshift/repositories/339051/daily" alt="Trendshift — Repository of the Day" width="250" height="55" /></a> <a href="https://trendshift.io/repositories/339051#achievements"><img src="https://trendshift.io/api/badge/trendshift/repositories/339051/weekly" alt="Trendshift — Repository of the Week" width="250" height="55" /></a>
+
+**[وب سایت پروژه](https://claude-cage.com/) · [دانلود برنامه](https://claude-cage.com/prs/#download) · [شروع کردن](docs/getting-started.md) · [سوالات متداول](docs/troubleshooting.md) · [رهنمای استفاده (چینی)](https://claude-cage.com/docs/)**
 
 [简体中文](README.md) · [繁體中文](README.zh-TW.md) · [Русский](README.ru.md) · [العربية](README.ar.md) · [فارسی](README.fa.md) · [한국어](README.ko.md) · [Español](README.es.md) · [မြန်မာဘာသာ](README.my.md) · [Беларуская](README.be.md) · [پښتو](README.ps.md) · [دری](README.prs.md) · [አማርኛ](README.am.md) · [Soomaali](README.so.md) · [ትግርኛ](README.ti.md) · [Français](README.fr.md)
 
@@ -18,7 +22,7 @@
 
 به عنوان کاربران عادی که فقط می‌خواهیم با Claude صحبت و همکاری کنیم، از پیکربندی نمونه‌های VPS، نمایه‌های اثر انگشت مرورگر و بررسی‌های محیطی خسته شده‌ایم، در حالی که نگران ممنوعیت حساب‌ها و ضررهای مالی هستیم. ارائه می کنیم **Claude Cage** -**یک برنامه دسکتاپ آماده برای استفاده: پروکسی شبکه خود را پیکربندی کنید و بررسی های محیط ایزوله، منطقه زمانی، زبان و محیط را در یک مکان مدیریت کنید.**
 
-Claude Cage ترمینل، مرورگر، ویرایشگر و برنامۀ رسمی Claude Desktop را در یک محیط کاری جدا یکجا می‌کند. در Mac از ماشین مجازی macOS، در کمپیوتر Windows سازگار از Windows، یا از محیط سبک Linux استفاده کنید. پروژه‌های دلخواه را شریک سازید، شبکه را جداگانه مدیریت کنید، با SSH به سرور خود وصل شوید و کارها را از تیلفون ادامه دهید. قابلیت‌های اصلی:
+Claude Cage ترمینل، مرورگر، ویرایشگر و برنامۀ رسمی Claude Desktop را در یک محیط کاری جدا یکجا می‌کند. در macOS، Windows و Linux از همان محیط کوچک Debian 13 استفاده می‌شود. پروژه‌های دلخواه را شریک سازید، شبکه را جداگانه مدیریت کنید، با SSH به سرور خود وصل شوید و کارها را از تیلفون ادامه دهید. قابلیت‌های اصلی:
 
 - تنظیمات شبکه جدا شده از میزبان؛ Cage تمام ترافیک شبکه را در داخل محیط خود از طریق پراکسی شبکه خود هدایت می کند
 - تنظیمات اثر انگشت مرورگر جدا شده از میزبان، از جمله منطقه زمانی و زبان، با همگام‌سازی خودکار با مکان IP پروکسی شبکه
@@ -31,6 +35,8 @@ Claude Cage ترمینل، مرورگر، ویرایشگر و برنامۀ رس�
 | :---: | :---: |
 | <a href="assets/network-checks.png"><img src="assets/network-checks.png" alt="بررسی شبکه و جداسازی" width="400" /></a> | <a href="assets/community-browser-check.png"><img src="assets/community-browser-check-cropped.png" alt="بررسی مرورگر توسط جامعۀ کاربران" width="400" /></a> |
 
+[FuckClaude](https://fuck-claude.vercel.app/) · [LinXiaoTao / GitHub](https://github.com/LinXiaoTao/FuckClaude)
+
 **رابط اصلی Cage:**
 
 ![Cage](www/public/workbench-2026-11.jpg)
@@ -38,7 +44,7 @@ Claude Cage ترمینل، مرورگر، ویرایشگر و برنامۀ رس�
 ## کاری که می توانید با Cage انجام دهید
 
 - **در یک پنجره واحد کار کنید.** Claude Code را در ترمینال اجرا کنید، تغییرات ویرایشگر را بررسی کنید و از مرورگر Cage برای پیش نمایش خدمات و ورود به سیستم استفاده کنید.
-- **در سیستم آشنا توسعه دهید.** سیستم مهمان macOS، Windows یا Linux را با ابزارهای همان پلتفرم انتخاب کنید، یا سیستم میزبان را برای ساخت محیط مستقل و پاک تکثیر کنید. [انتخاب سیستم مهمان](docs/guide/guest-systems.md)
+- **یک محیط در همۀ پلتفرم‌ها.** Cage در macOS، Windows و Linux از همان محیط Debian 13 با همان ابزارها و همان روش کار استفاده می‌کند. [محیط Debian](docs/guide/guest-systems.md)
 - **آنچه را که به اشتراک می گذارید کنترل کنید.** فقط فضای کاری پیش‌فرض و فولدر‌های پروژه به‌صراحت باز شده به اشتراک گذاشته می‌شوند. وضعیت ورود به سیستم Claude میزبان، نمایه‌های مرورگر و کلیدهای SSH به‌طور خودکار وارد نمی‌شوند.
 - **وضعیت شبکه خود را ببینید.** مدیریت پروکسی شبکه داخلی به شما امکان می‌دهد اشتراک‌ها را وارد کنید، نقاط پایانی را انتخاب کنید و IP خروجی را بررسی کنید. محیط آفلاین می‌ماند تا زمانی که بررسی‌های حیاتی با موفقیت انجام شوند. اگر پراکسی شبکه در دسترس نباشد، هیچ بازگشتی به اتصال مستقیم وجود ندارد.
 - **دفعه بعد ادامه بده** ابزارها، فایل‌ها و وضعیت ورود به سیستم روی دیسک مجازی باقی می‌مانند. وقتی پنجره را می‌بندید، کارهای پس‌زمینه می‌توانند همچنان اجرا شوند.
@@ -46,13 +52,14 @@ Claude Cage ترمینل، مرورگر، ویرایشگر و برنامۀ رس�
 - **از تیلفون ادامه دهید.** Android یا iPhone را با کود QR یا کود جفت‌سازی به کمپیوتر وصل کنید. همان گفتگوهای Claude Code را ادامه دهید، پیام بفرستید، ابزارها را تأیید کنید و مرورگر از راه دور یا پنجرۀ Claude Desktop کمپیوتر را به کار ببرید.
 - **Cage را در فضای ابری اجرا کنید.** از طریق SSH به Cage مستقر روی VPS سازگار با Linux x86_64 وصل شوید؛ KVM لازم نیست. داده‌ها و خروجی شبکه روی سرور قرار دارند.
 - **از شبکهٔ خصوصی وصل شوید.** در Cage وارد Tailscale شوید تا میزبان و محیط از هر دو جهت با SSH به هم وصل شوند. [Tailscale / SSH](docs/guide/tailscale.md)
+- **ابزارهای میزبان (آزمایشی).** به‌صورت پیش‌فرض خاموش است. پس از فعال‌سازی، Claude در داخل محیط می‌تواند در پوشه‌های پروژۀ شریک‌شده فرمان‌ها را در کمپیوتر شما اجرا کند؛ هر فراخوانی باید در یک پنجرۀ سیستم تأیید شود. [افزونه‌ها](docs/plugins.md)
 
 ## شروع سریع
 
 این درخواست را برای عامل هوش مصنوعی خود (codex، dsh، workbuddy - احتمالاً Claude Code) ارسال کنید:
 
 ```markdown
-کمکم کن نصب کنم https://github.com/Lee-xeo/Claude-Cage و پروکسی شبکه Cage را برای استفاده از نقطه پایانی xxx در نصب محلی Clash من پیکربندی کنید.
+آخرین کد منبع https://github.com/Lee-xeo/Claude-Cage را دریافت کن، بساز، بسته‌بندی و نصب کن. پراکسی Cage را طوری تنظیم کن که از گره xx در Clash محلی من و خروجی IP من یعنی xx استفاده کند. تمام روند را زیر نظر بگیر، مشکلات را مستقیماً رفع کن و در صورت نیاز برای بهبود سازگاری در پروژه issue ثبت کن.
 ```
 
 تنها چیزی که نیاز دارید یک نقطه پایانی پروکسی شبکه قابل اعتماد است. این پروژه هیچ ارائه دهنده پروکسی را تبلیغ نمی کند. می توانید خودتان یک ارائه دهنده پیدا کنید، برای مثال با جستجوی وب سایت Black Error.
@@ -61,11 +68,11 @@ Claude Cage ترمینل، مرورگر، ویرایشگر و برنامۀ رس�
 
 Cage از macOS، Windows و Linux پشتیبانی می‌کند: Apple Silicon با macOS 14+، Windows 10 22H2 / 11 x64 و Debian 12 / Ubuntu 22.04 / 24.04 x86_64. Intel Mac، Windows ARM64 و Linux ARM64 فعلاً پشتیبانی نمی‌شوند. [macOS](docs/getting-started.md) · [Windows](docs/windows.md) · [Linux](docs/linux.md).
 
-1. دانلود برنامه: [macOS / Windows / Linux](https://lee-xeo.github.io/Claude-Cage/prs/#download).
+1. دانلود برنامه: [macOS / Windows / Linux](https://claude-cage.com/prs/#download).
 2. macOS: بسته نصب را باز کرده و بکشید **Cage** به **برنامه های کاربردی**; سپس آن را از Applications اجرا کنید. Windows: [راهنمای نصب](docs/windows.md#安装并开始工作) · Linux: [راهنمای نصب](docs/linux.md#安装并开始工作).
 3. دستورالعمل های درون برنامه را دنبال کنید تا پروکسی شبکه خود را پیکربندی کنید، محیط را راه اندازی کنید و یک پروژه را باز کنید.
 
-بستۀ نصب شامل محیط کاری و موتور پراکسی است. نصب قبلی Go، Node.js، Docker یا Clash لازم نیست. هنگام ایجاد محیط، سیستم مهمان و محل ذخیره را انتخاب و تصویر رسمی و ابزارها را آماده کنید. Cage جواز سیستم‌عامل، خدمت پراکسی یا حساب Claude فراهم نمی‌کند.
+بستۀ نصب شامل محیط کاری و موتور پراکسی است. نصب قبلی Go، Node.js، Docker یا Clash لازم نیست. هنگام ایجاد محیط، محل ذخیره را انتخاب کنید؛ Cage تصویر Debian 13 و ابزارهای توسعه را دانلود می‌کند. Cage خدمت پراکسی یا حساب Claude فراهم نمی‌کند.
 
 کد منبع و بسته‌های نصب عمومی هستند. یادداشت نسخه‌ها و فایل‌های بررسی صحت در [Releases](https://github.com/Lee-xeo/Claude-Cage/releases) قرار دارند.
 
@@ -81,7 +88,7 @@ macOS و نسخه‌های امضاشدهٔ Windows از پراکسی انتخا
 
 ### 2. محیط را شروع کنید
 
-در ساخت نخست، سیستم مهمان یا تکثیر سیستم میزبان و محل ذخیره را انتخاب کنید. محیط Cage را راه‌اندازی کرده و مراحل نصب و مجوزها را دنبال کنید. پیشرفت و خطاها در جزئیات عملیات دیده می‌شوند. راه‌اندازی‌های بعدی همان محیط را به کار می‌برند.
+در ساخت نخست، محل ذخیره را انتخاب کنید. محیط Cage را راه‌اندازی کرده و مراحل نصب و مجوزها را دنبال کنید. پیشرفت و خطاها در جزئیات عملیات دیده می‌شوند. راه‌اندازی‌های بعدی همان محیط را به کار می‌برند.
 
 ### 3. یک پروژه را باز کنید و Claude را اجرا کنید
 
@@ -102,17 +109,20 @@ macOS و نسخه‌های امضاشدهٔ Windows از پراکسی انتخا
 
 | وظیفه شماست | از اینجا شروع کنید |
 |---|---|
-| macOS / Windows / Debian / Ubuntu 22.04 | [انتخاب سیستم مهمان](https://lee-xeo.github.io/Claude-Cage/docs/guest-systems/) |
+| Debian 13 | [محیط Debian](https://claude-cage.com/docs/guest-systems/) |
 | یک پروکسی شبکه را نصب کنید، پیکربندی کنید و اولین پروژه خود را باز کنید | [شروع کردن](docs/getting-started.md) |
 | عیب‌یابی دانلود، راه‌اندازی، اتصال و ورود به سیستم | [سوالات متداول و بازیابی](docs/troubleshooting.md) |
 | کنترل های صفحه کلید، ظاهر، ماندگاری داده ها و رفتار خروج را بیاموزید | [استفاده روزانه](docs/getting-started.md#日常使用) |
 | یک مشکل قابل تکرار را گزارش کنید | [GitHub Issues](https://github.com/Lee-xeo/Claude-Cage/issues) |
+| مشارکت در اصلاح، قابلیت یا مستندات: بررسی Issue ← دعوت همکار ← PR | [راهنمای مشارکت (چینی)](.github/CONTRIBUTING.md) |
 
 این پروژه به سرعت در حال پیشرفت است. برای به اشتراک گذاشتن بازخورد به گروه جامعه بپیوندید. از نگهبانان جامعه استقبال می شود.
 
-<p align="center">
-  <a href="assets/community-qq.png"><img src="assets/community-qq.png" alt="QQ · 1134250870" width="240" /></a>
-</p>
+| QQ group · 273237690 | WeChat |
+| :---: | :---: |
+| <a href="assets/community-qq.png"><img src="assets/community-qq.png" alt="QQ group · 273237690" width="240" /></a> | <a href="www/src/assets/community-wechat.png"><img src="www/src/assets/community-wechat.png" alt="WeChat" width="240" /></a> |
+
+[Telegram](https://t.me/claude_cage)
 
 ## مبدا و مجوز
 
@@ -135,6 +145,7 @@ Cage یک پروژه اجتماعی مستقل است و به آنتروپیک �
 - [code-server](https://github.com/coder/code-server): ویرایشگر کد مبتنی بر مرورگر.
 - [AIO Sandbox](https://github.com/agent-infra/sandbox): مراجع برای طراحی محیط کار و تعامل.
 - [claude-switcher](https://github.com/YOURSJEYO/claude-switcher) و [Claude-Guardian](https://github.com/DUNHKpcc/Claude-Guardian): مراجع برای بررسی شبکه و تشخیص امنیتی.
+- [claude-post-ban-cleanup](https://github.com/l2461090/claude-post-ban-cleanup): مرجع برای فهرست‌برداری دقیق، حفاظت از داده‌ها و پاک‌سازی قابل‌بازیابی حافظهٔ نهان؛ پیاده‌سازی مستقل در Cage.
 
 
 <a href="https://www.star-history.com/?repos=Lee-xeo%2FClaude-Cage&amp;type=date">

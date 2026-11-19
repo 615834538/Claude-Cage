@@ -29,10 +29,21 @@ func (s *Server) refreshInstalledTailnet() error {
 	return nil
 }
 
-func (s *Server) installTailnet() error {
-	if s.macosGuest != nil || s.windowsGuest != nil {
-		return errTailnetNativeInstall
+// installTailnetNow installs Tailscale at the user's request and starts it.
+func (s *Server) installTailnetNow() error {
+	if err := s.installTailnet(); err != nil {
+		return err
 	}
+	s.mu.Lock()
+	ready := s.ready
+	s.mu.Unlock()
+	if ready {
+		s.ensureHostTools()
+	}
+	return nil
+}
+
+func (s *Server) installTailnet() error {
 	if !s.vmRunning() {
 		return errors.New("请先启动 Cage 环境")
 	}
@@ -58,13 +69,26 @@ func (s *Server) installTailnet() error {
 		return err
 	}
 	defer reader.Close()
-	cmd := s.sshCommand(ctx, "-T", s.sshTarget(), "--", "/bin/bash -c "+shellescape.Quote(tailnetInstallScript))
+	script, err := s.linuxTemplate(tailnetInstallScript)
+	if err != nil {
+		return err
+	}
+	cmd := s.sshCommand(ctx, "-T", s.sshTarget(), "--", "/bin/bash -c "+shellescape.Quote(script))
 	cmd.Stdin = reader
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
 	s.setMessage("正在安装 Tailscale，已有终端和浏览器保持运行…")
 	if err := cmd.Run(); err != nil {
 		return errors.New("Tailscale 安装未完成，请检查客机连接后重试")
+	}
+	// A node started from the program that was there before makes way for
+	// the new one; its identity and settings are in its own folder. The
+	// plugins are started again by whoever called: at once for an
+	// installation the user asked for, after the environment's components
+	// are back for an update of them.
+	s.closeHostTools()
+	if _, err := s.ensureTailnetPlugin(); err != nil {
+		return errors.New("Tailscale 已安装，但未能登记为插件：" + err.Error())
 	}
 	return nil
 }

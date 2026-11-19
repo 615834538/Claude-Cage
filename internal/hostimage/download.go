@@ -99,12 +99,6 @@ func verify(ctx context.Context, path string, plan Plan, output io.Writer) (stri
 	if plan.Digest != "" && actual != plan.Digest {
 		return "", errors.New("系统镜像摘要不匹配，请重新选择或重新下载")
 	}
-	if plan.Format == "ipsw" {
-		version, build, err := macImageIdentity(path)
-		if err != nil || version != plan.Version || build != plan.Build {
-			return "", errors.New("恢复镜像内容与已选择的 macOS 版本不一致")
-		}
-	}
 	return actual, nil
 }
 
@@ -113,6 +107,9 @@ func verify(ctx context.Context, path string, plan Plan, output io.Writer) (stri
 func Prepare(ctx context.Context, cache string, plan Plan, output io.Writer, transport http.RoundTripper) (Plan, error) {
 	if err := plan.Validate(); err != nil {
 		return Plan{}, err
+	}
+	if abandonedSystem(plan.Host.System) {
+		return Plan{}, errors.New("Cage 已不再支持安装此系统的客机，原有安装材料未被改动")
 	}
 	if output == nil {
 		output = io.Discard
@@ -201,7 +198,8 @@ func Prepare(ctx context.Context, cache string, plan Plan, output io.Writer, tra
 	if err = file.Close(); err != nil {
 		return Plan{}, err
 	}
-	if _, err = verify(ctx, filepath.Join(cache, partial), plan, output); err != nil {
+	digest, err := verify(ctx, filepath.Join(cache, partial), plan, output)
+	if err != nil {
 		// Preserve the failed download for diagnosis. A new attempt can resume
 		// into a new partial file, without reusing corrupt bytes.
 		if ctx.Err() == nil {
@@ -209,6 +207,7 @@ func Prepare(ctx context.Context, cache string, plan Plan, output io.Writer, tra
 		}
 		return Plan{}, err
 	}
+	plan.Digest = digest
 	if err = root.Rename(partial, final); err != nil {
 		return Plan{}, err
 	}

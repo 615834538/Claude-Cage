@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"reflect"
 	"sync"
 	"time"
 
@@ -38,21 +39,20 @@ type GateCounters struct {
 }
 
 type GateStatus struct {
-	IPv6LinkProbeCheck string        `json:"ipv6_link_probe_check,omitempty"`
-	Epoch              uint64        `json:"epoch"`
-	PolicyVerified     bool          `json:"policy_verified"`
-	Policy             string        `json:"policy"`
-	RunID              string        `json:"run_id"`
-	CheckID            string        `json:"check_id,omitempty"`
-	CheckStartedAt     time.Time     `json:"check_started_at,omitempty"`
-	Configuration      string        `json:"configuration"`
-	Mode               string        `json:"mode"`
-	Fault              bool          `json:"fault"`
-	Until              time.Time     `json:"until"`
-	Reason             string        `json:"reason,omitempty"`
-	Counters           GateCounters  `json:"counters"`
-	Connections        int           `json:"connections"`
-	Report             *SafetyReport `json:"report,omitempty"`
+	Epoch          uint64        `json:"epoch"`
+	PolicyVerified bool          `json:"policy_verified"`
+	Policy         string        `json:"policy"`
+	RunID          string        `json:"run_id"`
+	CheckID        string        `json:"check_id,omitempty"`
+	CheckStartedAt time.Time     `json:"check_started_at,omitempty"`
+	Configuration  string        `json:"configuration"`
+	Mode           string        `json:"mode"`
+	Fault          bool          `json:"fault"`
+	Until          time.Time     `json:"until"`
+	Reason         string        `json:"reason,omitempty"`
+	Counters       GateCounters  `json:"counters"`
+	Connections    int           `json:"connections"`
+	Report         *SafetyReport `json:"report,omitempty"`
 }
 
 // EgressGate is owned by the hostagent, not by the guest or browser UI.
@@ -103,12 +103,27 @@ func NewEgressGate(cfg Config) (*EgressGate, error) {
 }
 
 // SyncProxyRevision revokes every old connection/report while preserving the
-// VM. Only the private proxy generation may change; transports stay identical.
+// VM. A new proxy generation may carry its node's exit policy. Transports and
+// guest settings stay identical. Completing a previously empty anchor is also
+// allowed; both changes revoke authorization and require a fresh safety report.
 func (g *EgressGate) SyncProxyRevision(cfg Config) error {
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
 	g.mu.Lock()
 	before, after := g.config, cfg
+	oldPolicy, newPolicy := before.ExitPolicy.Normalized(), after.ExitPolicy.Normalized()
+	initialBinding := oldPolicy.NeedsBinding() && !newPolicy.NeedsBinding() &&
+		oldPolicy.Mode == newPolicy.Mode && oldPolicy.Scope == newPolicy.Scope &&
+		(oldPolicy.IP == "" || oldPolicy.IP == newPolicy.IP) &&
+		(oldPolicy.CountryCode == "" || oldPolicy.CountryCode == newPolicy.CountryCode) &&
+		(oldPolicy.Region == "" || oldPolicy.Region == newPolicy.Region) &&
+		(oldPolicy.City == "" || oldPolicy.City == newPolicy.City)
+	if before.ProxyRevision != after.ProxyRevision || initialBinding {
+		before.ExitPolicy, after.ExitPolicy = ExitPolicy{}, ExitPolicy{}
+	}
 	before.ProxyRevision, after.ProxyRevision = "", ""
-	if before != after || cfg.ProxyRevision == "" {
+	if !reflect.DeepEqual(before, after) || cfg.ProxyRevision == "" {
 		g.mu.Unlock()
 		return errors.New("出口地址或环境设置变化需要重启环境")
 	}
@@ -213,7 +228,6 @@ func (g *EgressGate) BeginCheck() error {
 	g.mu.Lock()
 	connections := g.transitionLocked(GateChecking, false, "关键检查进行中")
 	g.state.CheckID = hex.EncodeToString(id[:])
-	g.state.IPv6LinkProbeCheck = ""
 	g.state.CheckStartedAt = time.Now()
 	g.probeRequests = 0
 	g.armLocked(3 * time.Minute)
@@ -401,6 +415,11 @@ func (c *gateConn) Write(b []byte) (int, error) {
 	}
 	return c.Conn.Write(b)
 }
+
+func (c *gateConn) CloseWrite() error {
+	return closeWrite(c.Conn)
+}
+
 func (c *gateConn) Close() error {
 	var err error
 	c.once.Do(func() {
@@ -415,9 +434,6 @@ func (c *gateConn) Close() error {
 
 type unavailableProxy struct{}
 
-func (unavailableProxy) Dial(string, string) (net.Conn, error) {
-	return nil, errors.New("proxy outage drill")
-}
 func (unavailableProxy) DialContext(context.Context, string, string) (net.Conn, error) {
 	return nil, errors.New("proxy outage drill")
 }

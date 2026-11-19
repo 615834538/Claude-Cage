@@ -43,7 +43,7 @@ func TestClaudeDesktopSnapshotFailureReason(t *testing.T) {
 
 func TestClaudeDesktopControlBoundary(t *testing.T) {
 	s := testServer(t)
-	for _, path := range []string{"/api/claude-desktop/install", "/api/claude-desktop/start", "/api/claude-desktop/stop"} {
+	for _, path := range []string{"/api/claude-desktop/install", "/api/claude-desktop/update", "/api/claude-desktop/start", "/api/claude-desktop/stop"} {
 		if w := request(s, "POST", path, s.origin, "{}", false); w.Code != 401 {
 			t.Fatalf("%s without session: %d", path, w.Code)
 		}
@@ -57,7 +57,8 @@ func TestClaudeDesktopControlBoundary(t *testing.T) {
 			t.Fatalf("%s must require running VM: %d", path, w.Code)
 		}
 	}
-	for _, body := range []string{`{"width":1,"height":1000}`, `{"width":8193,"height":1000}`, `{"width":1000,"height":8193}`, `{"width":"1024;command","height":768}`} {
+	for _, body := range []string{`{"width":1,"height":1000}`, `{"width":8193,"height":1000}`, `{"width":1000,"height":8193}`, `{"width":"1024;command","height":768}`,
+		`{"width":1000,"height":800,"scale":0.5}`, `{"width":1000,"height":800,"scale":4.5}`, `{"width":1000,"height":800,"scale":"2;command"}`} {
 		if w := request(s, "POST", "/api/claude-desktop/resize", s.origin, body, true); w.Code != 400 {
 			t.Fatalf("invalid geometry: %d", w.Code)
 		}

@@ -6,9 +6,13 @@
 
 <img src="assets/claude-cage-character.png" alt="Claude Cage" width="320" />
 
-[![Release](https://img.shields.io/github/v/release/Lee-xeo/Claude-Cage?include_prereleases)](https://github.com/Lee-xeo/Claude-Cage/releases) [![CI](https://github.com/Lee-xeo/Claude-Cage/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Lee-xeo/Claude-Cage/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/Lee-xeo/Claude-Cage?include_prereleases)](https://github.com/Lee-xeo/Claude-Cage/releases) [![MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**[Mareegta mashruuca](https://lee-xeo.github.io/Claude-Cage/) · [Soo dejiso abka](https://lee-xeo.github.io/Claude-Cage/so/#download) · [Bilaabidda](docs/getting-started.md) · [FAQ](docs/troubleshooting.md) · [Hagaha isticmaalka (Shiine)](https://lee-xeo.github.io/Claude-Cage/docs/)**
+<a href="https://trendshift.io/repositories/339051#achievements"><img src="https://trendshift.io/api/badge/trendshift/repositories/339051/daily?language=Go" alt="Trendshift — Go Repository of the Day" width="250" height="55" /></a> <a href="https://trendshift.io/repositories/339051#achievements"><img src="https://trendshift.io/api/badge/trendshift/repositories/339051/weekly?language=Go" alt="Trendshift — Go Repository of the Week" width="250" height="55" /></a>
+
+<a href="https://trendshift.io/repositories/339051#achievements"><img src="https://trendshift.io/api/badge/trendshift/repositories/339051/daily" alt="Trendshift — Repository of the Day" width="250" height="55" /></a> <a href="https://trendshift.io/repositories/339051#achievements"><img src="https://trendshift.io/api/badge/trendshift/repositories/339051/weekly" alt="Trendshift — Repository of the Week" width="250" height="55" /></a>
+
+**[Mareegta mashruuca](https://claude-cage.com/) · [Soo dejiso abka](https://claude-cage.com/so/#download) · [Bilaabidda](docs/getting-started.md) · [FAQ](docs/troubleshooting.md) · [Hagaha isticmaalka (Shiine)](https://claude-cage.com/docs/)**
 
 [简体中文](README.md) · [繁體中文](README.zh-TW.md) · [Русский](README.ru.md) · [العربية](README.ar.md) · [فارسی](README.fa.md) · [한국어](README.ko.md) · [Español](README.es.md) · [မြန်မာဘာသာ](README.my.md) · [Беларуская](README.be.md) · [پښتو](README.ps.md) · [دری](README.prs.md) · [አማርኛ](README.am.md) · [Soomaali](README.so.md) · [ትግርኛ](README.ti.md) · [Français](README.fr.md)
 
@@ -18,7 +22,7 @@
 
 Isticmaalayaasha caadiga ah ee raba inay la hadlaan Claude, waanu ka daalnay habaynta tusaalooyinka VPS, sawirka faraha browserka, iyo hubinta deegaanka, anagoo ka walwalsanayn xayiraadaha akoonnada iyo khasaaraha maaliyadeed. Waxaan soo bandhigaynaa **Claude Cage** -**codsi desktop diyaar u ah in la isticmaalo: habayso wakiilkaaga shabakad oo maamul deegaankaaga go'doonsan, aagga wakhtiga, luqadda, iyo hubinta deegaanka ee hal meel ah.**
 
-Claude Cage wuxuu terminalka, biraawsarka, tafatiraha iyo Claude Desktop-ka rasmiga ah ku mideeyaa hal goob shaqo oo go’doonsan. Ku isticmaal macOS mashiin macmal ah oo Mac ah, Windows kombiyuutar la jaanqaadaya, ama deegaan Linux fudud. Wadaag mashaariicda aad doorato, shabakadda si gaar ah u maamul, serverkaaga SSH ku xir, hawlahana telefoonka ka sii wad. Astaamaha ugu waaweyn:
+Claude Cage wuxuu terminalka, biraawsarka, tafatiraha iyo Claude Desktop-ka rasmiga ah ku mideeyaa hal goob shaqo oo go’doonsan. macOS, Windows iyo Linux dhammaantood waxay isticmaalaan isla deegaan yar oo Debian 13 ah. Wadaag mashaariicda aad doorato, shabakadda si gaar ah u maamul, serverkaaga SSH ku xir, hawlahana telefoonka ka sii wad. Astaamaha ugu waaweyn:
 
 - Dejinta shabakada oo ka go'an martigeliyaha; Dariiqyada qafisku waxay maraa dhammaan taraafikada shabakada gudaha deegaankeeda iyada oo u sii marinaysa wakiilkeeda shabakadeeda
 - Dejinta faraha browserka ee ka go'doon martigeliyaha, oo ay ku jiraan aaga wakhtiga iyo luqadda, oo leh si toos ah ula mid ah goobta wakiilka shabakada
@@ -31,6 +35,8 @@ Claude Cage wuxuu terminalka, biraawsarka, tafatiraha iyo Claude Desktop-ka rasm
 | :---: | :---: |
 | <a href="assets/network-checks.png"><img src="assets/network-checks.png" alt="Hubinta shabakadda iyo go’doominta" width="400" /></a> | <a href="assets/community-browser-check.png"><img src="assets/community-browser-check-cropped.png" alt="Hubinta biraawsarka ee bulshada" width="400" /></a> |
 
+[FuckClaude](https://fuck-claude.vercel.app/) · [LinXiaoTao / GitHub](https://github.com/LinXiaoTao/FuckClaude)
+
 **Interface ugu weyn ee Cage:**
 
 ![Cage](www/public/workbench-2026-11.jpg)
@@ -38,7 +44,7 @@ Claude Cage wuxuu terminalka, biraawsarka, tafatiraha iyo Claude Desktop-ka rasm
 ## Maxaad ku samayn kartaa Cage
 
 - **Ka shaqee hal daaqad.** Orod Claude Code gudaha terminalka, dib u eeg isbeddelada tifaftiraha, oo isticmaal browserka Cage si aad u aragto adeegyada oo aad u soo gasho.
-- **Ku horumari nidaamka aad taqaan.** Dooro macOS, Windows ama Linux marti ah iyo qalabkiisa, ama nuqul ka samee nidaamka martigeliyaha si aad u abuurto deegaan nadiif ah oo madax bannaan. [Doorashada nidaamka martida](docs/guide/guest-systems.md)
+- **Hal deegaan dhammaan nidaamyada.** Cage wuxuu macOS, Windows iyo Linux ku isticmaalaa isla deegaanka Debian 13, oo leh isla qalabka iyo isla habka shaqada. [Deegaanka Debian](docs/guide/guest-systems.md)
 - **Xakamee waxa aad wadaagto.** Kaliya goobta shaqada ee caadiga ah iyo galka mashruuca ee si cad loo furay ayaa la wadaagaa. Xaaladda soo galitaanka Claude ee martida loo yahay, boggaga browserka, iyo furayaasha SSH si toos ah looma soo dejiyo.
 - **Eeg heerka shabakadaada** Maaraynta wakiilnimada shabakada ee ku dhex jirta ayaa kuu ogolaanaysa inaad soo dejiso rukunsiyada, dooro meelaha dhamaadka, oo aad hubiso IP-ga ka baxa. Deegaanku internetka kuma xirmayo ilaa hubinnada muhiimka ahi ay si guul leh u gudbaan. Haddii wakiillada shabakadu maqan tahay, ma dhacayso xiriir toos ah.
 - **Sii wad marka xigta** Qalabka, faylalka, iyo xaaladda gelitaanku waxay ku sii jiraan saxanka casriga ah. Hawlaha asalka ahi waxay sii socon karaan markaad daaqadda xidhid.
@@ -46,13 +52,14 @@ Claude Cage wuxuu terminalka, biraawsarka, tafatiraha iyo Claude Desktop-ka rasm
 - **Telefoonka ka sii wad.** Android ama iPhone ku lammaani kombiyuutarka adigoo adeegsanaya QR ama koodhka lammaaninta. Sii wad isla wada sheekaysiyada Claude Code, dir farriimo, oggolow qalabka, isticmaalna biraawsarka fog ama daaqadda Claude Desktop ee kombiyuutarka.
 - **Cage ku socodsii daruurta.** SSH kaga xirmo Cage lagu rakibay VPS ku habboon oo Linux x86_64 ah, adigoon u baahnayn KVM. Xogta iyo halka shabakadu ka baxdo waxay ku yaallaan serverka.
 - **Ku xidh shabakad gaar ah.** Gudaha Cage ka gal Tailscale si martigeliyaha iyo deegaanku SSH ugu xidhmaan labada jiho. [Tailscale / SSH](docs/guide/tailscale.md)
+- **Qalabka martigeliyaha (tijaabo).** Si caadi ah waa damisan yahay. Marka la shido, Claude-ka ku jira deegaanka wuxuu amarro ka socodsiin karaa kombiyuutarkaaga gudaha galalka mashruuca ee la wadaago; wicitaan kasta waa in lagu xaqiijiyaa sanduuqa wada-hadalka nidaamka. [Plugins](docs/plugins.md)
 
 ## Bilaw degdeg ah
 
 U dir codsigan wakiilkaaga AI (codex, dsh, workbuddy - malaha maaha Claude Code 😁):
 
 ```markdown
-Iga caawi in aan rakibo https://github.com/Lee-xeo/Claude-Cage oo habee wakiilka shabakada Cage si aad u isticmaasho xxx dhamaadka rakibida xaafadayda.
+Soo qaado koodhkii ugu dambeeyay ee https://github.com/Lee-xeo/Claude-Cage, dhis, xirmo ka samee oo rakib. U habee proxy-ga Cage inuu isticmaalo node-ka xx ee Clash-kayga maxalliga ah oo uu ka baxo IP-gayga xx. La soco hawsha oo dhan, si toos ah u sax dhibaatooyinka, haddii loo baahdana issue u gudbi mashruuca si loo wanaajiyo iswaafajinta.
 ```
 
 Waxa kaliya ee aad u baahan tahay waa barta ugu dambeysa ee wakiil shabakad la isku halayn karo. Mashruucani ma dalacsiinayo bixiye wakiil; Waxaad heli kartaa bixiye laftaada, tusaale ahaan adoo raadiya shabakada qaladka madow.
@@ -61,11 +68,11 @@ Waxa kaliya ee aad u baahan tahay waa barta ugu dambeysa ee wakiil shabakad la i
 
 Cage wuxuu taageeraa macOS, Windows iyo Linux: Apple Silicon oo leh macOS 14+, Windows 10 22H2 / 11 x64 iyo Debian 12 / Ubuntu 22.04 / 24.04 x86_64. Intel Mac, Windows ARM64 iyo Linux ARM64 weli lama taageero. [macOS](docs/getting-started.md) · [Windows](docs/windows.md) · [Linux](docs/linux.md).
 
-1. Soo dejiso abka: [macOS / Windows / Linux](https://lee-xeo.github.io/Claude-Cage/so/#download).
+1. Soo dejiso abka: [macOS / Windows / Linux](https://claude-cage.com/so/#download).
 2. macOS: Fur xirmada rakibaadda oo jiid **Cage** galay **Codsiyada**; ka dibna ka bilow Applications. Windows: [Hagaha rakibidda](docs/windows.md#安装并开始工作) · Linux: [Hagaha rakibidda](docs/linux.md#安装并开始工作).
 3. Raac tilmaamaha app-ka si aad u habayso wakiilkaaga shabakad, bilaw deegaanka, oo aad u furto mashruuc.
 
-Rakibuhu wuxuu ka kooban yahay goobta shaqada iyo matoorka proxy-ga. Uma baahnid inaad horay u rakibto Go, Node.js, Docker ama Clash. Markaad deegaanka abuurayso, dooro nidaamka martida iyo goobta kaydinta, dabadeed diyaari sawirka rasmiga ah iyo qalabka. Cage ma bixiyo ruqsad nidaam, adeeg proxy ama akoon Claude.
+Rakibuhu wuxuu ka kooban yahay goobta shaqada iyo matoorka proxy-ga. Uma baahnid inaad horay u rakibto Go, Node.js, Docker ama Clash. Markaad deegaanka abuurayso, dooro goobta kaydinta; Cage wuxuu soo dejiyaa sawirka Debian 13 iyo qalabka horumarinta. Cage ma bixiyo adeeg proxy ama akoon Claude.
 
 Koodhka isha iyo rakibayaashu waa dadweyne. Qoraallada noocyada iyo checksum-yada ka eeg [Releases](https://github.com/Lee-xeo/Claude-Cage/releases).
 
@@ -81,7 +88,7 @@ Bogga guriga, dhagsii 'Configure network and proxy', ka dibna 'Ku dar isha'. Soo
 
 ### 2. Bilow deegaanka
 
-Marka ugu horreysa dooro nidaamka martida ama nuqulka nidaamka martigeliyaha iyo goobta kaydinta. Bilow deegaanka Cage oo raac rakibidda iyo oggolaanshaha. Horumarka iyo khaladaadku waxay ka muuqdaan faahfaahinta hawsha. Bilowga dambe wuxuu isticmaalaa isla deegaanka.
+Marka ugu horreysa dooro goobta kaydinta. Bilow deegaanka Cage oo raac rakibidda iyo oggolaanshaha. Horumarka iyo khaladaadku waxay ka muuqdaan faahfaahinta hawsha. Bilowga dambe wuxuu isticmaalaa isla deegaanka.
 
 ### 3. Fur mashruuc oo maamul Claude
 
@@ -90,7 +97,7 @@ Guji 'Mashruuca Furan' si aad u dooratid galka kombiyuutarka kaaga, fur terminal
 ## Fahmo xadkan ka hor intaanad isticmaalin
 
 - Wax ka beddelka iyo tirtiridda mashaariicda la wadaago waxay si toos ah u saameeyaan faylasha kombiyuutarka kaaga. Isticmaal xakamaynta nooca ama kaydinta. Galka `.git` ee mashruuca waa la akhriyi karaa lana qori karaa; Cage gudaheeda waxaad ku diyaarin kartaa isbeddelada, samayn kartaa commits, kuna beddeli kartaa branches.
-- Dhammaan mashruucyada waxay wadaagaan hal deegaan Cage, oo ay ku jiraan qalabkeeda, xisaabaadka, iyo nidaamka faylka macOS / Windows / Debian / Ubuntu 22.04. Mashruucyadu maaha kuwo midba midka kale ka soocan.
+- Dhammaan mashruucyada waxay wadaagaan hal deegaan Cage, oo ay ku jiraan qalabkeeda, xisaabaadka, iyo nidaamka faylka Debian. Mashruucyadu maaha kuwo midba midka kale ka soocan.
 - Sida caadiga ah bixitaanka internetku wuxuu taageeraa IPv4 TCP, DNS-na isla proxy-ga ayuu maraa. UDP, IPv6 iyo ICMP dadweyne iyo xidhiidh toos ah oo martigeliye ama LAN ah waa xaddidan yihiin. Markaad si cad u hawlgeliso Tailscale, gelitaanka aaladuhu wuxuu raacaa oggolaanshaha shabakadda gaarka ah.
 - Jeegaga shabakada waxay tusinaysaa qaabka hadda jira iyo cadaymaha la muunada ah. Ma dammaanad qaadi karaan in akoonku uu ka fogaanayo xannibaadaha goobta, mana beddelaan xisaab-xidhka amniga oo dhammaystiran.
 
@@ -102,17 +109,20 @@ Si aad u hesho tusmada buuxda, eeg [Tusmada dhokumentiyada](docs/README.md).
 
 | Hawshaada | Halkan ka bilow |
 |---|---|
-| macOS / Windows / Debian / Ubuntu 22.04 | [Doorashada nidaamka martida](https://lee-xeo.github.io/Claude-Cage/docs/guest-systems/) |
+| Debian 13 | [Deegaanka Debian](https://claude-cage.com/docs/guest-systems/) |
 | Ku rakib, habee wakiil shabakad, oo fur mashruucaaga ugu horreeya | [Bilaabidda](docs/getting-started.md) |
 | Xallinta soo dejinta, bilaabista, isku xidhka, iyo soo gelista | [FAQ iyo soo kabashada](docs/troubleshooting.md) |
 | Baro kontaroolada kiiboodhka, muuqaalka, adkaysiga xogta, iyo habdhaqanka bixista | [Isticmaalka maalinlaha ah](docs/getting-started.md#日常使用) |
 | Ka warbixi arrin dib loo soo saari karo | [GitHub Issues](https://github.com/Lee-xeo/Claude-Cage/issues) |
+| Ku biiri sixid, hawl cusub ama dukumenti: dib-u-eegista Issue → martiqaadka wada-shaqeeyaha → PR | [Hagaha wax-ku-biirinta (Shiine)](.github/CONTRIBUTING.md) |
 
 Mashruucu si xawli ah ayuu u socdaa. Ku biir kooxda bulshada si aad ula wadaagto jawaab celinta; ilaaliyayaasha bulshada waa la soo dhawaynayaa.
 
-<p align="center">
-  <a href="assets/community-qq.png"><img src="assets/community-qq.png" alt="QQ · 1134250870" width="240" /></a>
-</p>
+| QQ group · 273237690 | WeChat |
+| :---: | :---: |
+| <a href="assets/community-qq.png"><img src="assets/community-qq.png" alt="QQ group · 273237690" width="240" /></a> | <a href="www/src/assets/community-wechat.png"><img src="www/src/assets/community-wechat.png" alt="WeChat" width="240" /></a> |
+
+[Telegram](https://t.me/claude_cage)
 
 ## Asalka iyo shatiga
 
@@ -135,6 +145,7 @@ Waad ku mahadsan tahay mashaariicda soo socota ee kartida aasaasiga ah iyo tixra
 - [code-server](https://github.com/coder/code-server): tifaftiraha koodhka ku salaysan browserka.
 - [AIO Sandbox](https://github.com/agent-infra/sandbox): tixraacyada jawiga shaqada iyo naqshadeynta isdhexgalka.
 - [claude-switcher](https://github.com/YOURSJEYO/claude-switcher) iyo [Claude-Guardian](https://github.com/DUNHKpcc/Claude-Guardian): tixraacyada hubinta shabakada iyo ogaanshaha amniga.
+- [claude-post-ban-cleanup](https://github.com/l2461090/claude-post-ban-cleanup): tixraac loogu talagalay tirakoob sax ah, ilaalinta xogta iyo nadiifinta kaydka oo dib loo soo celin karo; Cage ayaa si madax-bannaan u hirgeliyey.
 
 
 <a href="https://www.star-history.com/?repos=Lee-xeo%2FClaude-Cage&amp;type=date">

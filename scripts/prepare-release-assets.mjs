@@ -12,6 +12,7 @@ import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
 const maxChecksums = 64 * 1024;
+// The in-place updater of every published App rejects a larger installer.
 const maxInstaller = 512 * 1024 * 1024;
 
 async function releaseNames() {
@@ -31,7 +32,6 @@ async function releaseNames() {
     linux: `Cage-${version}-linux-amd64.deb`,
     linuxSource: linuxDependencies.mihomoSource.file,
     macSource: `mihomo-${macCore}-source.tar.gz`,
-    macGuestSource: `cage-macos-guest-${version}-source.tar.gz`,
     windowsSource: `mihomo-${dependencies.mihomo.version}-source.tar.gz`,
     qemuPrefix: `qemu-${dependencies.qemu.version}-windows-full-source.`,
     qemuSource: `${dependencies.qemuSource.file}.gz`,
@@ -68,7 +68,12 @@ function isQemuArchive(name, names) {
 
 async function verifyAndStage(source, digest, destination, installer) {
   const before = await regularFile(source);
-  if (!before.size || (installer && before.size > maxInstaller)) throw new Error(`Invalid release asset size: ${source}`);
+  if (!before.size) throw new Error(`Invalid release asset size: ${source}`);
+  if (installer && before.size > maxInstaller) {
+    throw new Error(`Release installer is ${before.size} bytes, above the ${maxInstaller}-byte limit: ${source}\n` +
+      'Published versions up to 0.1.8-rc ignore a larger package and report that they are up to date. ' +
+      'Reduce the package, or raise this limit once those versions no longer update in place.');
+  }
   const file = await open(source, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
   try {
     const opened = await file.stat();
@@ -117,13 +122,12 @@ export async function prepareReleaseAssets({ inputs, output }) {
     if (!mac && !windows && !linux) throw new Error(`No supported package name for VERSION ${names.version}: ${directory}`);
     if (linux && !entries.has(names.linuxSource)) throw new Error(`Missing Linux Mihomo source in SHA256SUMS: ${directory}`);
     if (mac && !entries.has(names.macSource)) throw new Error(`Missing macOS Mihomo source in SHA256SUMS: ${directory}`);
-    if (mac && !entries.has(names.macGuestSource)) throw new Error(`Missing macOS guest corresponding source in SHA256SUMS: ${directory}`);
     if (windows && (!entries.has(names.windowsSource) || ![...entries.keys()].some(name => isQemuArchive(name, names)))) {
       throw new Error(`Windows release requires its Mihomo and complete QEMU source archives in the same SHA256SUMS: ${directory}`);
     }
     for (const [name, digest] of entries) {
       const installer = name === names.mac || name === names.windows || name === names.linux;
-      if (!installer && ![names.macSource, names.macGuestSource, names.windowsSource, names.linuxSource, names.qemuSource, names.qemuKeymap, names.qemuChanges].includes(name) && !isQemuArchive(name, names)) {
+      if (!installer && ![names.macSource, names.windowsSource, names.linuxSource, names.qemuSource, names.qemuKeymap, names.qemuChanges].includes(name) && !isQemuArchive(name, names)) {
         throw new Error(`Unsupported asset or version in SHA256SUMS: ${name}`);
       }
       const existing = all.get(name);

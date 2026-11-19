@@ -5,18 +5,13 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/sylvinus/agent-vm/internal/guestos"
 )
 
 func TestVMRecordWithReusedPIDIsNotRunning(t *testing.T) {
-	for _, guest := range []string{"linux", "macos"} {
+	for _, guest := range []string{"linux"} {
 		t.Run(guest, func(t *testing.T) {
 			s := testServer(t)
 			s.preferences.Workspace, _ = filepath.EvalSymlinks(t.TempDir())
-			if guest == "macos" {
-				s.macosGuest = &guestos.MacOSProfile{Instance: "mac", User: "cage"}
-			}
 			dir := s.instanceDir()
 			if err := os.MkdirAll(dir, 0700); err != nil {
 				t.Fatal(err)

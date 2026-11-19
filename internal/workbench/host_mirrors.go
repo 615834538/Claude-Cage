@@ -19,7 +19,8 @@ import (
 // from each through the user's proxy, because the guest reaches them the same
 // way: the guest's own probe only tells whether a source answers, not whether
 // a domestic mirror is several times faster than the official CDN (a direct
-// domestic connection) or several times slower (an overseas exit).
+// domestic connection) or several times slower (an overseas exit). The IDs of
+// the domestic mirrors are also the preference values that put them first.
 var debianMirrorCandidates = []struct{ ID, Name, URL string }{
 	{"nju", "南京大学镜像", "https://mirrors.nju.edu.cn/debian"},
 	{"ustc", "中国科学技术大学镜像", "https://mirrors.ustc.edu.cn/debian"},
@@ -41,10 +42,14 @@ type mirrorSample struct {
 }
 
 type mirrorProbe struct {
-	Samples     []mirrorSample `json:"samples"`
-	Recommended string         `json:"recommended"`
-	Preference  string         `json:"preference"`
-	Decided     bool           `json:"decided"`
+	Samples []mirrorSample `json:"samples"`
+	// Recommended is "auto" or the fastest domestic mirror's ID.
+	Recommended string `json:"recommended"`
+	// Domestic is the preference that puts the fastest measured domestic
+	// mirror first; it is what "domestic mirrors first" saves.
+	Domestic   string `json:"domestic"`
+	Preference string `json:"preference"`
+	Decided    bool   `json:"decided"`
 }
 
 func debianGuestArch() string {
@@ -62,9 +67,12 @@ const domesticAdvantage = 1.5
 // do not compete for the same proxy connection. A sample ends at the byte or
 // time budget; the rate counts only bytes actually received.
 func probeDebianMirrors(ctx context.Context, client *http.Client, suite, arch string) mirrorProbe {
-	result := mirrorProbe{Recommended: "auto"}
+	result := mirrorProbe{Recommended: "auto", Domestic: debianMirrorCandidates[0].ID}
 	var official, domestic float64
 	for _, candidate := range debianMirrorCandidates {
+		if ctx.Err() != nil {
+			break
+		}
 		sample := mirrorSample{ID: candidate.ID, Name: candidate.Name}
 		if u, err := url.Parse(candidate.URL); err == nil {
 			sample.Host = u.Hostname()
@@ -77,13 +85,11 @@ func probeDebianMirrors(ctx context.Context, client *http.Client, suite, arch st
 			official = sample.BytesPerSecond
 		case sample.BytesPerSecond > domestic:
 			domestic = sample.BytesPerSecond
-		}
-		if ctx.Err() != nil {
-			break
+			result.Domestic = candidate.ID
 		}
 	}
 	if domestic > 0 && domestic >= official*domesticAdvantage {
-		result.Recommended = "domestic"
+		result.Recommended = result.Domestic
 	}
 	return result
 }
@@ -91,11 +97,12 @@ func probeDebianMirrors(ctx context.Context, client *http.Client, suite, arch st
 func sampleMirror(ctx context.Context, client *http.Client, target string) (int64, float64, string) {
 	ctx, cancel := context.WithTimeout(ctx, mirrorProbeBudget+2*time.Second)
 	defer cancel()
+	// Standard request headers only: the mirrors learn nothing beyond what
+	// the guest's own APT downloads already show them.
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
 		return 0, 0, "无效的镜像地址"
 	}
-	req.Header.Set("User-Agent", "Cage-mirror-probe/1")
 	start := time.Now()
 	resp, err := client.Do(req)
 	if err != nil {
@@ -131,7 +138,29 @@ func sampleMirror(ctx context.Context, client *http.Client, target string) (int6
 	return received, float64(received) / elapsed, ""
 }
 
+// mirrorProbeClient reaches the mirrors only through the selected Cage
+// proxy. The egress dialer has no direct fallback and passes host names to
+// the proxy unresolved; environment proxies and redirects are not followed.
+func mirrorProbeClient(cfg cage.Config) (*http.Client, func(), error) {
+	egress, err := cage.NewEgress(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	transport := &http.Transport{Proxy: nil, DialContext: egress.DialContext, DisableKeepAlives: true}
+	client := &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("mirror redirect refused") }}
+	return client, transport.CloseIdleConnections, nil
+}
+
 func (s *Server) hostDebianMirrors(w http.ResponseWriter, r *http.Request) {
+	// A saved choice ends the dialog without another measurement, so retrying
+	// an install does not wait for three downloads again.
+	s.mu.Lock()
+	saved := s.preferences.DebianMirror
+	s.mu.Unlock()
+	if saved != "" {
+		jsonReply(w, mirrorProbe{Samples: []mirrorSample{}, Recommended: saved, Domestic: saved, Preference: saved, Decided: true})
+		return
+	}
 	cfg, err := loadConfig(s.configPath)
 	if err != nil {
 		requestError(w, err)
@@ -141,24 +170,16 @@ func (s *Server) hostDebianMirrors(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "请先应用代理节点，再测量软件源速度。", http.StatusConflict)
 		return
 	}
-	egress, err := cage.NewEgress(cfg)
+	client, closeIdle, err := mirrorProbeClient(cfg)
 	if err != nil {
 		requestError(w, err)
 		return
 	}
-	transport := &http.Transport{Proxy: nil, DialContext: egress.DialContext, DisableKeepAlives: true}
-	defer transport.CloseIdleConnections()
-	client := &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("mirror redirect refused") }}
+	defer closeIdle()
 	ctx, cancel := context.WithTimeout(r.Context(), time.Duration(len(debianMirrorCandidates))*(mirrorProbeBudget+3*time.Second))
 	defer cancel()
 	result := probeDebianMirrors(ctx, client, "trixie", debianGuestArch())
-	s.mu.Lock()
-	result.Preference = s.preferences.DebianMirror
-	s.mu.Unlock()
-	result.Decided = result.Preference != ""
-	if result.Preference == "" {
-		result.Preference = result.Recommended
-	}
+	result.Preference = result.Recommended
 	sort.SliceStable(result.Samples, func(i, j int) bool { return result.Samples[i].BytesPerSecond > result.Samples[j].BytesPerSecond })
 	jsonReply(w, result)
 }
@@ -171,7 +192,7 @@ func (s *Server) chooseDebianMirror(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !cage.ValidDebianMirror(input.Preference) {
-		http.Error(w, "Debian 软件源只能选择官方优先、国内镜像优先或固定官方源。", http.StatusBadRequest)
+		http.Error(w, "Debian 软件源只能选择官方源优先、指定国内镜像优先或固定官方源。", http.StatusBadRequest)
 		return
 	}
 	s.mu.Lock()

@@ -8,14 +8,18 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"time"
+	"unicode/utf8"
 
+	"github.com/sylvinus/agent-vm/internal/diagnostics"
 	"github.com/sylvinus/agent-vm/internal/host"
 )
 
@@ -28,6 +32,7 @@ type gateRecord struct {
 }
 
 type gateCommand struct {
+	Node     string        `json:"node,omitempty"`
 	Action   string        `json:"action"`
 	Fault    bool          `json:"fault,omitempty"`
 	Reason   string        `json:"reason,omitempty"`
@@ -90,7 +95,11 @@ func StartGateControl(configPath, instanceDir string, gate *EgressGate) (func(),
 		os.RemoveAll(dir)
 		return nil, err
 	}
+	nodes := nodeListeners{dir: dir, configPath: configPath, gate: gate, verify: verifyNodeExit}
 	server := &http.Server{ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second, IdleTimeout: 5 * time.Second, MaxHeaderBytes: 8192}
+	// Keep watchdog reads and control transitions in one order, so a stale
+	// watchdog snapshot cannot close a newly synchronized checking session.
+	var controlMu sync.Mutex
 	server.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Content-Type", "application/json")
@@ -103,12 +112,25 @@ func StartGateControl(configPath, instanceDir string, gate *EgressGate) (func(),
 			var command gateCommand
 			decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10))
 			decoder.DisallowUnknownFields()
-			if decoder.Decode(&command) != nil || len(command.Reason) > 200 {
+			if decoder.Decode(&command) != nil {
 				w.WriteHeader(400)
 				return
 			}
+			if len(command.Reason) > 200 {
+				if command.Action != "close" {
+					w.WriteHeader(400)
+					return
+				}
+				// A detailed failure message must not prevent fail-closed cleanup.
+				// Keep the wire/storage limit without splitting a UTF-8 character.
+				command.Reason = gateCloseReason(command.Reason)
+			}
+			controlMu.Lock()
+			defer controlMu.Unlock()
+			var cfg Config
 			if command.Action == "check" || command.Action == "grant" || command.Action == "renew" || command.Action == "proxy-revision" {
-				cfg, e := Load(configPath)
+				var e error
+				cfg, e = Load(configPath)
 				if e == nil {
 					e = cfg.RequireManagedProxy(filepath.Dir(configPath))
 				}
@@ -120,18 +142,34 @@ func StartGateControl(configPath, instanceDir string, gate *EgressGate) (func(),
 				}
 			}
 			switch command.Action {
+			case "account-node":
+				operationError = nodes.prepare(command.Node)
 			case "proxy-revision":
-				cfg, e := Load(configPath)
-				if e != nil {
-					operationError = e
+				operationError = gate.SyncProxyRevision(cfg)
+				if operationError == nil {
+					operationError = cfg.RecordRunningAt(instanceDir)
 				} else {
+					gate.Close("配置无法同步，请停止并重新启动环境后检测")
+				}
+			case "check":
+				// A controller may have saved and started a node before its gate
+				// synchronization failed. Adopt only changes supported by the same
+				// hot-switch contract before collecting a new report.
+				gate.mu.Lock()
+				configurationChanged := !reflect.DeepEqual(gate.config, cfg)
+				gate.mu.Unlock()
+				if configurationChanged {
 					operationError = gate.SyncProxyRevision(cfg)
 					if operationError == nil {
 						operationError = cfg.RecordRunningAt(instanceDir)
+						nodes.refresh()
 					}
 				}
-			case "check":
-				operationError = gate.BeginCheck()
+				if operationError == nil {
+					operationError = gate.BeginCheck()
+				} else {
+					gate.Close("配置无法同步，请停止并重新启动环境后检测")
+				}
 			case "fault":
 				operationError = gate.SetFault(command.Fault)
 			case "grant":
@@ -160,12 +198,23 @@ func StartGateControl(configPath, instanceDir string, gate *EgressGate) (func(),
 		_ = json.NewEncoder(w).Encode(gate.Status())
 	})
 	ctx, cancel := context.WithCancel(context.Background())
+	watched := make(chan struct{})
 	var once sync.Once
 	stop := func() {
-		once.Do(func() { cancel(); gate.Close("网络控制服务已停止"); _ = server.Close(); _ = os.RemoveAll(dir) })
+		once.Do(func() {
+			cancel()
+			nodes.close()
+			gate.Close("网络控制服务已停止")
+			_ = server.Close()
+			// The watcher may be writing a diagnostic into the instance folder;
+			// the caller can remove that folder once stop returns.
+			<-watched
+			_ = os.RemoveAll(dir)
+		})
 	}
 	go func() { _ = server.Serve(listener); stop() }()
 	go func() {
+		defer close(watched)
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 		for {
@@ -173,13 +222,23 @@ func StartGateControl(configPath, instanceDir string, gate *EgressGate) (func(),
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
+				controlMu.Lock()
 				cfg, err := Load(configPath)
 				if err == nil {
 					err = cfg.RequireManagedProxy(filepath.Dir(configPath))
 				}
 				if err != nil || cfg.Fingerprint() != gate.Status().Configuration {
-					gate.Close("配置已变更或无法读取，请重启环境并重新检测")
+					const reason = "配置已变更或无法读取，请重新检测；环境设置变化时需停止并重新启动"
+					if state := gate.Status(); state.Mode != GateClosed || state.Reason != reason {
+						gate.Close(reason)
+						cause := "configuration_changed"
+						if err != nil {
+							cause = "configuration_unavailable"
+						}
+						_ = diagnostics.New(filepath.Dir(configPath)).Record("warn", "network-gate", "action=close cause="+cause+" recovery=network.check")
+					}
 				}
+				controlMu.Unlock()
 			}
 		}
 	}()
@@ -191,6 +250,9 @@ type GateClient struct{ record gateRecord }
 func OpenGateClient(instanceDir string) (*GateClient, error) {
 	path := filepath.Join(instanceDir, gateRecordName)
 	if err := host.CheckPrivateFile(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("网络门槛控制记录不存在：%w", os.ErrNotExist)
+		}
 		return nil, errors.New("网络门槛控制记录不可用，请停止并重启环境")
 	}
 	data, err := os.ReadFile(path)
@@ -260,8 +322,18 @@ func (c *GateClient) Grant(ctx context.Context, report SafetyReport) (GateStatus
 func (c *GateClient) Renew(ctx context.Context, reportID string) (GateStatus, error) {
 	return c.request(ctx, &gateCommand{Action: "renew", ReportID: reportID})
 }
+func gateCloseReason(reason string) string {
+	if len(reason) > 200 {
+		reason = reason[:200]
+		for len(reason) > 0 && !utf8.ValidString(reason) {
+			reason = reason[:len(reason)-1]
+		}
+	}
+	return reason
+}
+
 func (c *GateClient) Close(ctx context.Context, reason string) (GateStatus, error) {
-	return c.request(ctx, &gateCommand{Action: "close", Reason: reason})
+	return c.request(ctx, &gateCommand{Action: "close", Reason: gateCloseReason(reason)})
 }
 func (c *GateClient) SyncProxyRevision(ctx context.Context) (GateStatus, error) {
 	return c.request(ctx, &gateCommand{Action: "proxy-revision"})

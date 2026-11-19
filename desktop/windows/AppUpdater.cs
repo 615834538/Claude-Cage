@@ -48,7 +48,14 @@ internal sealed class AppUpdater : IDisposable
         {
             case "status": break;
             case "check": if (cancellation == null && prepared == null) _ = Run(true); break;
-            case "install": if (cancellation == null) _ = prepared != null ? Install() : Run(false); break;
+            case "install":
+                if (cancellation == null)
+                {
+                    if (prepared != null) Change("ready", "更新已下载，请保存工作并手动停止环境后安装", true);
+                    else _ = Run(false);
+                }
+                break;
+            case "complete": if (cancellation == null && prepared != null) _ = Install(); break;
             case "cancel": if (!committed && state["phase"] as string != "installing") cancellation?.Cancel(); break;
             default: throw new InvalidDataException("更新操作无效");
         }
@@ -71,9 +78,12 @@ internal sealed class AppUpdater : IDisposable
 
     private async Task Run(bool checkOnly)
     {
-        cancellation = new CancellationTokenSource(TimeSpan.FromMinutes(25));
+        // The backend reports progress at least once per retry. Bound its silence
+        // rather than the transfer, so a slow connection can still finish.
+        var silence = TimeSpan.FromMinutes(10);
+        cancellation = new CancellationTokenSource(silence);
         var token = cancellation.Token;
-        Change("checking", "正在通过所选代理检查更新");
+        Change("checking", "正在检查更新，优先使用主机网络");
         string? archive = null;
         string retryAt = "";
         using var process = new Process { StartInfo = Backend.StartInfo(Backend.Executable, "app-update", checkOnly ? "check" : "download") };
@@ -88,6 +98,7 @@ internal sealed class AppUpdater : IDisposable
             while (await process.StandardOutput.ReadLineAsync(token) is { } line)
             {
                 if (line.Length > 65536) throw new IOException("更新响应超过允许大小");
+                cancellation.CancelAfter(silence);
                 last = JsonDocument.Parse(line).RootElement.Clone();
                 retryAt = last.Text("retryAt");
                 foreach (var property in last.EnumerateObject())
@@ -105,6 +116,7 @@ internal sealed class AppUpdater : IDisposable
             archive = UpdatePolicy.DownloadPath(last.Text("archivePath"), Root);
             var version = last.Text("latestVersion"); var digest = last.Text("sha256");
             if (!UpdatePolicy.IsNewer(version, Version)) throw new IOException("安装包版本无效或不高于当前版本");
+            cancellation.CancelAfter(TimeSpan.FromMinutes(25));
             Change("verifying", "正在验证 Windows 签名和安装包内容");
             var publisher = await Task.Run(() => Authenticode.Publisher(Environment.ProcessPath!), token);
             await Task.Run(() => UpdateInstaller.VerifyArchive(archive, digest, version, publisher), token);
@@ -113,7 +125,6 @@ internal sealed class AppUpdater : IDisposable
                 AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar), Environment.ProcessId,
                 Process.GetCurrentProcess().StartTime.ToUniversalTime().Ticks, Guid.NewGuid().ToString());
             archive = null;
-            Change("ready", "更新已下载并验证，可安装重启", true);
         }
         catch (OperationCanceledException) { Change("failed", "更新已暂停，可稍后重试", true); }
         catch (Exception error) { Change("failed", error.Message, true, retryAt); }
@@ -123,7 +134,7 @@ internal sealed class AppUpdater : IDisposable
             if (archive != null) { try { Directory.Delete(Path.GetDirectoryName(archive)!, true); } catch (IOException) { } }
             cancellation.Dispose(); cancellation = null;
         }
-        if (prepared != null) await Install();
+        if (prepared != null) Change("ready", "更新已下载，请保存工作并手动停止环境后安装", true);
     }
 
     private async Task Install()
@@ -141,7 +152,11 @@ internal sealed class AppUpdater : IDisposable
             Directory.CreateDirectory(Root); UpdatePolicy.PlainPath(Root);
             File.Copy(Environment.ProcessPath!, helperPath);
             await Task.Run(() => Authenticode.SamePublisher(helperPath, prepared.Publisher), token);
-            var start = Backend.StartInfo(helperPath, "--install-update"); start.RedirectStandardInput = true;
+            var start = Backend.StartInfo(helperPath, "--install-update");
+            // A live process's working directory cannot be renamed on Windows.
+            // The helper outlives this App and must not retain its install path.
+            start.WorkingDirectory = Root;
+            start.RedirectStandardInput = true;
             helper = new Process { StartInfo = start };
             if (!helper.Start()) throw new IOException("无法启动安全安装程序");
             await helper.StandardInput.WriteLineAsync(JsonSerializer.Serialize(prepared));
@@ -151,7 +166,7 @@ internal sealed class AppUpdater : IDisposable
             var (exit, data) = await Backend.Json(["prepare-update", "--json"], token);
             if (data.Text("status") == "stop_required")
             {
-                (exit, data) = await Backend.Json(["prepare-update", "--json", "--stop"], token);
+                throw new IOException("环境仍在运行，请在工作台停止环境后重试安装");
             }
             if (exit != 0 || data.Text("status") != "prepared") throw new IOException(data.Text("message") is { Length: > 0 } detail ? detail : "环境未能安全停止");
             if (helper.HasExited) throw new IOException("安装程序已退出，原应用已保留");

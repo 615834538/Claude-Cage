@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"al.essio.dev/pkg/shellescape"
-	"github.com/sylvinus/agent-vm/internal/cage"
 	"github.com/sylvinus/agent-vm/internal/diagnostics"
+	"github.com/sylvinus/agent-vm/internal/transfermeta"
 	"github.com/sylvinus/agent-vm/internal/usererror"
 )
 
@@ -56,95 +56,52 @@ func validFileTargetID(target, id string) bool {
 // Desktop requests use the private session socket, carried over the existing
 // SSH connection. Directory selections use an authorized project's guest path.
 func (s *Server) guestFiles(ctx context.Context, target, method, path string, body io.Reader, name string) (map[string]any, error) {
-	if s.macosGuest != nil && target == "desktop" {
-		parsed, err := url.Parse(path)
-		if err != nil {
-			return nil, errors.New("虚拟 Mac 文件操作无效")
-		}
-		if method == "POST" && parsed.Path == "/upload" {
-			return s.macOSUploadDesktopAttachment(ctx, name, parsed.Query().Get("id"), body)
-		}
-		var input macOSWindowRequest
-		if body != nil {
-			data, err := io.ReadAll(io.LimitReader(body, 8193))
-			if err != nil || len(data) > 8192 || json.Unmarshal(data, &input) != nil {
-				return nil, errors.New("虚拟 Mac 文件操作无效")
-			}
-		}
-		switch {
-		case method == "GET" && parsed.Path == "/requests":
-			input.Action = "files-poll"
-		case method == "POST" && (parsed.Path == "/start" || parsed.Path == "/finish" || parsed.Path == "/finish-image" || parsed.Path == "/cancel" || parsed.Path == "/directory" || parsed.Path == "/download-retry" || parsed.Path == "/download-ack" || parsed.Path == "/open-claim" || parsed.Path == "/open-complete"):
-			input.Action = "files-" + strings.TrimPrefix(parsed.Path, "/")
-		default:
-			return nil, errors.New("虚拟 Mac 文件操作无效")
-		}
-		input.Files = nil
-		return s.macOSDesktopFileCall(ctx, input)
+	asWorkUser, err := s.linuxTemplate("sudo -H -u cage ")
+	if err != nil {
+		return nil, err
 	}
-	if s.windowsGuest != nil && target == "terminal" {
-		return s.windowsSaveAttachment(ctx, name, body)
-	}
-	if s.windowsGuest != nil && target == "desktop" {
-		parsed, err := url.Parse(path)
-		if err != nil {
-			return nil, errors.New("Windows 文件操作无效")
-		}
-		if method == "POST" && parsed.Path == "/upload" {
-			return s.windowsUploadAttachment(ctx, name, parsed.Query().Get("id"), body)
-		}
-		var action string
-		switch {
-		case method == "GET" && parsed.Path == "/requests":
-			action = "files-poll"
-		case method == "POST" && (parsed.Path == "/start" || parsed.Path == "/finish" || parsed.Path == "/finish-image" || parsed.Path == "/cancel" || parsed.Path == "/directory" || parsed.Path == "/download-retry" || parsed.Path == "/download-ack" || parsed.Path == "/open-claim" || parsed.Path == "/open-complete"):
-			action = "files-" + strings.TrimPrefix(parsed.Path, "/")
-		default:
-			return nil, errors.New("Windows 原生文件选择框与桌面下载尚未接通")
-		}
-		input := map[string]any{}
-		if body != nil {
-			data, readErr := io.ReadAll(io.LimitReader(body, 65537))
-			if readErr != nil || len(data) > 65536 || json.Unmarshal(data, &input) != nil {
-				return nil, errors.New("Windows 文件操作无效")
-			}
-		}
-		var result map[string]any
-		err = s.windowsDesktopRequest(ctx, action, input, &result)
-		return result, windowsDesktopFileFailure(err)
-	}
-	script := "sudo -H -u cage curl --silent --show-error --max-time 1800 --write-out '\\nCAGE_FILE_HTTP:%{http_code}' --unix-socket /run/cage-desktop/files.sock -X " + method
+	script := asWorkUser + "curl --silent --show-error --max-time 1800 --write-out '\\nCAGE_FILE_HTTP:%{http_code}' --unix-socket /run/cage-desktop/files.sock -X " + method
 	if target == "terminal" {
-		script = "sudo -H -u cage /usr/local/bin/cage-desktop-files --save-file " + shellescape.Quote(name)
-		if s.macosGuest != nil {
-			script = "exec " + shellescape.QuoteCommand([]string{macCLIInstall + "/bin/python3", "-I", "-c", cage.DesktopFileReceiver(), "--save-file", name})
-		}
+		script = asWorkUser + "/usr/local/bin/cage-desktop-files --save-file " + shellescape.Quote(name)
 	} else {
 		if body != nil {
 			script += " --upload-file -"
 		}
 		script += " " + shellescape.Quote("http://localhost"+path)
 	}
+	var stderr fileControlStderr
+	var data []byte
+	var readErr error
+	shared := false
 	if target != "terminal" && method == "GET" && path == "/requests" {
 		script = desktopFilesPoll + script
+		// The workbench asks for pending requests every second or two.
+		var reply guestSessionReply
+		if reply, shared, err = s.guestShared(ctx, script); shared {
+			data, stderr.data = reply.stdout, reply.stderr
+			if err == nil && reply.code != 0 {
+				err = fmt.Errorf("exit status %d", reply.code)
+			}
+		}
 	}
-	command := "exec /bin/bash --noprofile --norc -c " + shellescape.Quote(script)
-	cmd := s.sshCommand(ctx, "-T", s.sshTarget(), "--", command)
-	var stderr fileControlStderr
-	cmd.Stderr = &stderr
-	cmd.Stdin = body
-	pipe, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, err
+	if !shared {
+		command := "exec /bin/bash --noprofile --norc -c " + shellescape.Quote(script)
+		cmd := s.sshCommand(ctx, "-T", s.sshTarget(), "--", command)
+		cmd.Stderr = &stderr
+		cmd.Stdin = body
+		pipe, pipeErr := cmd.StdoutPipe()
+		if pipeErr != nil {
+			return nil, pipeErr
+		}
+		if err = cmd.Start(); err != nil {
+			return nil, usererror.Wrap("连接文件传递服务", err, "请确认 Cage 安装完整，环境已经启动；持续失败时在设置中导出诊断包。")
+		}
+		data, readErr = io.ReadAll(io.LimitReader(pipe, 65537+64))
+		if readErr != nil || len(data) > 65536+64 {
+			_ = cmd.Process.Kill()
+		}
+		err = cmd.Wait()
 	}
-	if err = cmd.Start(); err != nil {
-		return nil, usererror.Wrap("连接文件传递服务", err, "请确认 Cage 安装完整，环境已经启动；持续失败时在设置中导出诊断包。")
-	}
-	data, readErr := io.ReadAll(io.LimitReader(pipe, 65537+64))
-	if readErr != nil || len(data) > 65536+64 {
-		_ = cmd.Process.Kill()
-	}
-	err = cmd.Wait()
 	httpStatus := 0
 	if at := bytes.LastIndex(data, []byte("\nCAGE_FILE_HTTP:")); at >= 0 && target != "terminal" {
 		httpStatus, _ = strconv.Atoi(strings.TrimSpace(string(data[at+len("\nCAGE_FILE_HTTP:"):])))
@@ -199,6 +156,7 @@ func (s *Server) fileInputAction(w http.ResponseWriter, r *http.Request) {
 		Kind      string  `json:"kind"`
 		X         float64 `json:"x"`
 		Y         float64 `json:"y"`
+		Surface   string  `json:"surface,omitempty"`
 		Workspace string  `json:"workspace"`
 		Window    uint32  `json:"window,omitempty"`
 		PID       int32   `json:"pid,omitempty"`
@@ -228,23 +186,13 @@ func (s *Server) fileInputAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if action == "directory" {
-		if !s.op.TryLock() {
+		if !s.lockProjectOperation(r.Context()) {
 			http.Error(w, "另一个操作仍在进行，请稍候", 409)
 			return
 		}
 		defer s.op.Unlock()
 		if !s.fileTargetReady("desktop", input.ID) || s.busy() {
 			http.Error(w, "环境尚未就绪或正在处理其他操作，请稍后重试", 409)
-			return
-		}
-	}
-	if action == "download-retry" && (s.macosGuest != nil || s.windowsGuest != nil) {
-		if handled, err := s.retryNativeDownload(input.ID); handled {
-			if err != nil {
-				requestError(w, err)
-			} else {
-				jsonReply(w, map[string]bool{"ok": true})
-			}
 			return
 		}
 	}
@@ -262,16 +210,6 @@ func (s *Server) fileInputAction(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		body, _ = json.Marshal(map[string]string{"id": input.ID, "path": guestPath(workspace)})
-		if s.macosGuest != nil {
-			body, _ = json.Marshal(map[string]string{"id": input.ID, "path": macOSProjectPath(s.macosGuest.User, workspace)})
-		} else if s.windowsGuest != nil {
-			project, err := s.windowsProjectForHost(workspace)
-			if err != nil {
-				requestError(w, err)
-				return
-			}
-			body, _ = json.Marshal(map[string]string{"id": input.ID, "project_id": project.ID, "grant": project.Grant})
-		}
 	}
 	if input.Target == "terminal" {
 		jsonReply(w, map[string]any{"ok": true, "id": input.ID})
@@ -312,88 +250,51 @@ func (s *Server) desktopFileRequests(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
 	}
-	if err = s.rememberDesktopDownloads(result); err != nil {
-		requestError(w, err)
-		return
-	}
-	s.acknowledgeDesktopDownloads(ctx, result)
+	s.rememberDesktopDownloads(result)
 	jsonReply(w, result)
-}
-
-func (s *Server) acknowledgeDesktopDownloads(ctx context.Context, result map[string]any) {
-	if result["downloadAck"] != true || (s.macosGuest == nil && s.windowsGuest == nil) {
-		return
-	}
-	var ids []string
-	items, _ := result["downloads"].([]any)
-	for _, value := range items {
-		item, ok := value.(map[string]any)
-		if !ok || item["state"] != "saved" || item["acknowledged"] == true {
-			continue
-		}
-		id, _ := item["id"].(string)
-		ids = append(ids, id)
-	}
-	if len(ids) == 0 {
-		return
-	}
-	// rememberDesktopDownloads has resolved every saved state from its durable
-	// host receipt. A failed acknowledgment keeps the guest copy for the next poll.
-	body, _ := json.Marshal(map[string]any{"ids": ids})
-	if _, err := s.guestFiles(ctx, "desktop", "POST", "/download-ack", bytes.NewReader(body), ""); err != nil {
-		diagnostics.Log("warn", "desktop-files", "主机文件已保存，客机保留副本并等待下次确认："+err.Error())
-	}
 }
 
 // Register completed exports before the UI can ask a native bridge to save them.
 // Guest paths are never accepted as arbitrary host paths.
-func (s *Server) rememberDesktopDownloads(result map[string]any) error {
+func (s *Server) rememberDesktopDownloads(result map[string]any) {
 	items, _ := result["downloads"].([]any)
-	visible := make(map[string]bool, len(items))
+	downloads := make([]any, 0, len(items))
 	for _, value := range items {
-		item, ok := value.(map[string]any)
-		if !ok {
-			return errors.New("Desktop 下载记录无效")
-		}
+		item, _ := value.(map[string]any)
 		id, _ := item["id"].(string)
 		name, _ := item["name"].(string)
 		if !browserFileID.MatchString(id) || !browserFileName(name) {
-			return errors.New("Desktop 下载记录无效")
+			continue
 		}
-		visible[id] = true
 		item["target"] = "desktop"
-		if s.macosGuest != nil || s.windowsGuest != nil {
-			data, err := json.Marshal(item)
-			if err != nil {
-				return err
-			}
-			var native browserDownloadInfo
-			if err = json.Unmarshal(data, &native); err != nil {
-				return err
-			}
-			converted := s.nativeDownloadForHost(native)
-			item["name"], item["state"], item["path"] = converted.Name, converted.State, converted.Path
-			item["retryable"], item["error"] = converted.Retryable, converted.Error
-			continue
-		}
-		if item["state"] != "saved" {
-			delete(item, "path")
-			continue
-		}
-		root := s.environmentDir()
-		if item["path"] != strings.TrimRight(guestPath(root), "/")+"/Downloads/"+name {
-			return errors.New("Desktop 下载保存位置无效")
-		}
-		path := filepath.Join(root, "Downloads", name)
-		if err := rememberDownload(s.profile, SavedDownload{ID: id, Name: name, Path: path}, true); err != nil {
-			return err
-		}
-		item["path"] = path
+		s.resolveSharedDesktopDownload(item, id, name)
+		downloads = append(downloads, item)
 	}
-	if s.macosGuest != nil || s.windowsGuest != nil {
-		s.discardMissingNativeDownloads("desktop", visible)
+	result["downloads"] = downloads
+}
+
+func (s *Server) resolveSharedDesktopDownload(item map[string]any, id, name string) {
+	path, _ := item["path"].(string)
+	delete(item, "path")
+	if item["state"] != "saved" {
+		return
 	}
-	return nil
+	// A host receipt survives a change of download directory or a Save As.
+	if saved, err := readSavedDownload(s.profile, id); err == nil {
+		item["name"], item["path"] = saved.Name, saved.Path
+		return
+	}
+	root := s.environmentDir()
+	if path != strings.TrimRight(guestPath(root), "/")+"/Downloads/"+name {
+		item["state"], item["retryable"], item["error"] = "failed", false, "无法确认这条下载记录的本机保存位置。"
+		return
+	}
+	hostPath := filepath.Join(root, "Downloads", name)
+	if err := rememberDownload(s.profile, SavedDownload{ID: id, Name: name, Path: hostPath}, true); err != nil {
+		item["state"], item["retryable"], item["error"] = "failed", false, "无法记录这次下载的本机保存位置。"
+		return
+	}
+	item["path"] = hostPath
 }
 
 func (s *Server) fileInputUpload(w http.ResponseWriter, r *http.Request) {
@@ -417,20 +318,23 @@ func (s *Server) fileInputUpload(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Minute)
 	defer cancel()
 	r.Body = http.MaxBytesReader(w, r.Body, browserFileLimit)
-	result, err := s.guestFiles(ctx, target, "POST", "/upload?"+url.Values{"id": {id}, "name": {name}}.Encode(), r.Body, name)
+	prepared, err := transfermeta.Prepare(name, r.Body, r.ContentLength, s.transferOptions())
+	if err != nil {
+		transferMetadataError(w, err)
+		return
+	}
+	defer prepared.Close()
+	if prepared.Unclean {
+		w.Header().Set("X-Cage-Metadata-Warning", "metadata-may-remain")
+	}
+	result, err := s.guestFiles(ctx, target, "POST", "/upload?"+url.Values{"id": {id}, "name": {name}}.Encode(), prepared.Body, name)
 	if err != nil {
 		requestError(w, err)
 		return
 	}
 	if target == "terminal" {
 		path, _ := result["path"].(string)
-		valid := strings.HasPrefix(path, "/home/cage/.local/share/cage/attachments/files/") && !strings.ContainsAny(path, "\x00\r\n")
-		if s.windowsGuest != nil {
-			valid = validWindowsAttachmentPath(path, name)
-		}
-		if s.macosGuest != nil {
-			valid = s.validMacOSAttachmentPath(path, name)
-		}
+		valid := s.linuxPathHasPrefix(path, "/home/cage/.local/share/cage/attachments/files/") && !strings.ContainsAny(path, "\x00\r\n")
 		if !valid {
 			http.Error(w, "文件保存路径无效", 502)
 			return

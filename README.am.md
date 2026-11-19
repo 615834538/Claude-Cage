@@ -6,9 +6,13 @@
 
 <img src="assets/claude-cage-character.png" alt="Claude Cage" width="320" />
 
-[![Release](https://img.shields.io/github/v/release/Lee-xeo/Claude-Cage?include_prereleases)](https://github.com/Lee-xeo/Claude-Cage/releases) [![CI](https://github.com/Lee-xeo/Claude-Cage/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Lee-xeo/Claude-Cage/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/Lee-xeo/Claude-Cage?include_prereleases)](https://github.com/Lee-xeo/Claude-Cage/releases) [![MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**[የፕሮጀክት ድር ጣቢያ](https://lee-xeo.github.io/Claude-Cage/) · [መተግበሪያውን ያውርዱ](https://lee-xeo.github.io/Claude-Cage/am/#download) · [በመጀመር ላይ](docs/getting-started.md) · [የሚጠየቁ ጥያቄዎች](docs/troubleshooting.md) · [የአጠቃቀም መመሪያ (በቻይንኛ)](https://lee-xeo.github.io/Claude-Cage/docs/)**
+<a href="https://trendshift.io/repositories/339051#achievements"><img src="https://trendshift.io/api/badge/trendshift/repositories/339051/daily?language=Go" alt="Trendshift — Go Repository of the Day" width="250" height="55" /></a> <a href="https://trendshift.io/repositories/339051#achievements"><img src="https://trendshift.io/api/badge/trendshift/repositories/339051/weekly?language=Go" alt="Trendshift — Go Repository of the Week" width="250" height="55" /></a>
+
+<a href="https://trendshift.io/repositories/339051#achievements"><img src="https://trendshift.io/api/badge/trendshift/repositories/339051/daily" alt="Trendshift — Repository of the Day" width="250" height="55" /></a> <a href="https://trendshift.io/repositories/339051#achievements"><img src="https://trendshift.io/api/badge/trendshift/repositories/339051/weekly" alt="Trendshift — Repository of the Week" width="250" height="55" /></a>
+
+**[የፕሮጀክት ድር ጣቢያ](https://claude-cage.com/) · [መተግበሪያውን ያውርዱ](https://claude-cage.com/am/#download) · [በመጀመር ላይ](docs/getting-started.md) · [የሚጠየቁ ጥያቄዎች](docs/troubleshooting.md) · [የአጠቃቀም መመሪያ (በቻይንኛ)](https://claude-cage.com/docs/)**
 
 [简体中文](README.md) · [繁體中文](README.zh-TW.md) · [Русский](README.ru.md) · [العربية](README.ar.md) · [فارسی](README.fa.md) · [한국어](README.ko.md) · [Español](README.es.md) · [မြန်မာဘာသာ](README.my.md) · [Беларуская](README.be.md) · [پښتو](README.ps.md) · [دری](README.prs.md) · [አማርኛ](README.am.md) · [Soomaali](README.so.md) · [ትግርኛ](README.ti.md) · [Français](README.fr.md)
 
@@ -18,7 +22,7 @@
 
 እንደ ተራ ተጠቃሚዎች ከClaude ጋር ለመነጋገር እና ለመተባበር፣ ስለ መለያ እገዳዎች እና የገንዘብ ኪሳራዎች እየተጨነቅን የVPS ምሳሌዎችን፣ የአሳሽ አሻራ መገለጫዎችን እና የአካባቢ ፍተሻዎችን ማዋቀር ሰልችቶናል። እናቀርባለን። **Claude Cage** -**ለመጠቀም ዝግጁ የሆነ የዴስክቶፕ መተግበሪያ፡ የራስዎን የአውታረ መረብ ፕሮክሲ ያዋቅሩ እና የእርስዎን ገለልተኛ አካባቢ፣ የሰዓት ሰቅ፣ ቋንቋ እና የአካባቢ ፍተሻዎችን በአንድ ቦታ ያስተዳድሩ።**
 
-Claude Cage ተርሚናልን፣ አሳሽን፣ አርታዒን እና ኦፊሴላዊውን Claude Desktop በአንድ የተለየ የሥራ ቦታ ያጣምራል። በMac ላይ macOS ቨርቹዋል ማሽን፣ በተስማሚ Windows ኮምፒውተር ላይ Windows ወይም ቀላል Linux አካባቢ ይጠቀሙ። የመረጡትን ፕሮጀክቶች ያጋሩ፣ አውታረ መረቡን በተናጠል ያስተዳድሩ፣ ከራስዎ አገልጋይ ጋር በSSH ይገናኙ እና ከስልክ ሥራ ይቀጥሉ። ዋና ባህሪያት፦
+Claude Cage ተርሚናልን፣ አሳሽን፣ አርታዒን እና ኦፊሴላዊውን Claude Desktop በአንድ የተለየ የሥራ ቦታ ያጣምራል። በmacOS፣ Windows እና Linux ላይ አንድ ዓይነት ትንሽ Debian 13 አካባቢ ይጠቀማል። የመረጡትን ፕሮጀክቶች ያጋሩ፣ አውታረ መረቡን በተናጠል ያስተዳድሩ፣ ከራስዎ አገልጋይ ጋር በSSH ይገናኙ እና ከስልክ ሥራ ይቀጥሉ። ዋና ባህሪያት፦
 
 - ከአስተናጋጁ ተነጥለው የአውታረ መረብ ቅንብሮች; Cage ሁሉንም የአውታረ መረብ ትራፊክ በአካባቢያቸው ውስጥ በራሱ የአውታረ መረብ ፕሮክሲ በኩል ያደርሳል
 - የሰዓት ሰቅ እና ቋንቋን ጨምሮ ከአስተናጋጁ የተገለሉ የአሳሽ አሻራ ቅንጅቶች ከአውታረ መረቡ ተኪ አይፒ አካባቢ ጋር በራስ ሰር ማመሳሰል
@@ -31,6 +35,8 @@ Claude Cage ተርሚናልን፣ አሳሽን፣ አርታዒን እና ኦፊ�
 | :---: | :---: |
 | <a href="assets/network-checks.png"><img src="assets/network-checks.png" alt="የአውታረ መረብ እና የማግለል ምርመራዎች" width="400" /></a> | <a href="assets/community-browser-check.png"><img src="assets/community-browser-check-cropped.png" alt="የማህበረሰብ አሳሽ ምርመራ" width="400" /></a> |
 
+[FuckClaude](https://fuck-claude.vercel.app/) · [LinXiaoTao / GitHub](https://github.com/LinXiaoTao/FuckClaude)
+
 **የ Cage ዋና በይነገጽ**
 
 ![Cage](www/public/workbench-2026-11.jpg)
@@ -38,7 +44,7 @@ Claude Cage ተርሚናልን፣ አሳሽን፣ አርታዒን እና ኦፊ�
 ## በ Cage ምን ማድረግ ይችላሉ
 
 - **በአንድ መስኮት ውስጥ ይስሩ.** በተርሚናል ውስጥ የClaude ኮድን ያሂዱ፣ በአርታዒው ላይ የተደረጉ ለውጦችን ይገምግሙ እና አገልግሎቶችን አስቀድመው ለማየት እና ለመግባት የCage አሳሹን ይጠቀሙ።
-- **በሚያውቁት ስርዓት ይገንቡ።** macOS፣ Windows ወይም Linux የእንግዳ ስርዓትን ከተዛማጅ መሣሪያዎች ጋር ይምረጡ፤ ወይም የአስተናጋጁን ስርዓት በመቅዳት ንጹህና ገለልተኛ አካባቢ ይፍጠሩ። [የእንግዳ ስርዓት ምርጫ](docs/guide/guest-systems.md)
+- **በሁሉም መድረኮች አንድ አካባቢ።** Cage በmacOS፣ Windows እና Linux ላይ ያንኑ Debian 13 አካባቢ ከተመሳሳይ መሣሪያዎች እና አሠራር ጋር ይጠቀማል። [Debian አካባቢ](docs/guide/guest-systems.md)
 - **የሚያጋሩትን ይቆጣጠሩ።** ነባሪው የስራ ቦታ እና በግልፅ የተከፈቱ የፕሮጀክት ማህደሮች ብቻ ነው የሚጋሩት። የአስተናጋጁ Claude የመግባት ሁኔታ፣ የአሳሽ መገለጫዎች እና የኤስኤስኤች ቁልፎች በራስ ሰር አይመጡም።
 - **የአውታረ መረብ ሁኔታዎን ይመልከቱ።** አብሮገነብ የአውታረ መረብ ተኪ አስተዳደር የደንበኝነት ምዝገባዎችን እንድታስመጣ፣ የመጨረሻ ነጥቦችን እንድትመርጥ እና መውጫውን አይፒ እንድታረጋግጥ ያስችልሃል። ወሳኝ ፍተሻዎች እስኪያልፍ ድረስ አካባቢው ከመስመር ውጭ ይቆያል። የአውታረ መረቡ ተኪ የማይገኝ ከሆነ ቀጥታ ግንኙነት ወደ ኋላ መመለስ የለም።
 - **በሚቀጥለው ጊዜ ይቀጥሉ.** መሳሪያዎች፣ ፋይሎች እና የመግባት ሁኔታ በምናባዊ ዲስክ ላይ ይቆያሉ። መስኮቱን ሲዘጉ የበስተጀርባ ተግባራት መሮጥ ይችላሉ።
@@ -46,13 +52,14 @@ Claude Cage ተርሚናልን፣ አሳሽን፣ አርታዒን እና ኦፊ�
 - **ከስልክ ይቀጥሉ።** Android ወይም iPhone ከኮምፒውተር ጋር በQR ወይም በማጣመሪያ ኮድ ያገናኙ። ተመሳሳይ የClaude Code ውይይቶችን ይቀጥሉ፣ መልእክት ይላኩ፣ መሣሪያዎችን ያጽድቁ እና የርቀት አሳሽን ወይም የኮምፒውተሩን Claude Desktop መስኮት ይጠቀሙ።
 - **Cage በደመና ያስኪዱ።** መስፈርቶቹን በሚያሟላ Linux x86_64 VPS ላይ ከተጫነ Cage ጋር በSSH ይገናኙ፤ KVM አያስፈልግም። ውሂብና የአውታረ መረብ መውጫ በአገልጋዩ ላይ ናቸው።
 - **በግል አውታረ መረብ ይገናኙ።** በCage ውስጥ Tailscale ግቡና በአስተናጋጁ እና አካባቢው መካከል ባለሁለት አቅጣጫ SSH ይጠቀሙ። [Tailscale / SSH](docs/guide/tailscale.md)
+- **የአስተናጋጅ መሣሪያዎች (የሙከራ)።** በነባሪ ጠፍቷል። ሲበራ በአካባቢው ውስጥ ያለው Claude በተጋሩ የፕሮጀክት አቃፊዎች ውስጥ በኮምፒውተርዎ ላይ ትዕዛዞችን ማስኬድ ይችላል፤ እያንዳንዱ ጥሪ በስርዓት መገናኛ ሳጥን መረጋገጥ አለበት። [ፕለጊኖች](docs/plugins.md)
 
 ## ፈጣን ጅምር
 
 ይህንን ጥያቄ ወደ AI ወኪልዎ ይላኩ (ኮዴክስ ፣ ዲኤስኤስ ፣ የስራ ጓደኛ - ምናልባት Claude ኮድ 😁 ላይሆን ይችላል)
 
 ```markdown
-እንድጫን እርዳኝ። https://github.com/Lee-xeo/Claude-Cage እና የCage's network proxy አዋቅር በእኔ የአከባቢ ግጭት የ xxx የመጨረሻ ነጥብ ለመጠቀም።
+የ https://github.com/Lee-xeo/Claude-Cage የቅርብ ጊዜ ምንጭ ኮድ አውርድ፣ ገንባ፣ ጥቅል አድርግና ጫን። የCage ፕሮክሲ በአካባቢዬ ያለውን የClash xx ኖድ ተጠቅሞ በእኔ xx IP እንዲወጣ አዋቅር። ሂደቱን በሙሉ ተከታተል፣ ችግሮችን በቀጥታ አስተካክል፣ አስፈላጊ ከሆነም ተስማሚነትን ለማሻሻል በፕሮጀክቱ issue አስገባ።
 ```
 
 የሚያስፈልግህ አስተማማኝ የአውታረ መረብ ተኪ የመጨረሻ ነጥብ ነው። ይህ ፕሮጀክት ማንኛውንም ተኪ አቅራቢን አያስተዋውቅም። አቅራቢን እራስዎ ማግኘት ይችላሉ፣ ለምሳሌ የጥቁር ስህተት ድህረ ገጽን በመፈለግ።
@@ -61,11 +68,11 @@ Claude Cage ተርሚናልን፣ አሳሽን፣ አርታዒን እና ኦፊ�
 
 Cage macOS፣ Windows እና Linux ይደግፋል፦ Apple Silicon ከ macOS 14+፣ Windows 10 22H2 / 11 x64 እና Debian 12 / Ubuntu 22.04 / 24.04 x86_64. Intel Mac፣ Windows ARM64 እና Linux ARM64 ገና አይደገፉም። [macOS](docs/getting-started.md) · [Windows](docs/windows.md) · [Linux](docs/linux.md).
 
-1. መተግበሪያውን ያውርዱ: [macOS / Windows / Linux](https://lee-xeo.github.io/Claude-Cage/am/#download).
+1. መተግበሪያውን ያውርዱ: [macOS / Windows / Linux](https://claude-cage.com/am/#download).
 2. macOS: የመጫኛ ጥቅሉን ይክፈቱ እና ይጎትቱ **Cage** ውስጥ **መተግበሪያዎች**; ከዚያ ከመተግበሪያዎች ያስጀምሩት። Windows: [የመጫኛ መመሪያ](docs/windows.md#安装并开始工作) · Linux: [የመጫኛ መመሪያ](docs/linux.md#安装并开始工作).
 3. የራስዎን የአውታረ መረብ ፕሮክሲ ለማዋቀር፣ አካባቢውን ለመጀመር እና ፕሮጀክት ለመክፈት የውስጠ-መተግበሪያ መመሪያዎችን ይከተሉ።
 
-ጫኚው የሥራ ቦታን እና የፕሮክሲ ሞተርን ያካትታል። Go፣ Node.js፣ Docker ወይም Clash አስቀድሞ መጫን አያስፈልግም። አካባቢውን ሲፈጥሩ የእንግዳ ስርዓቱን እና የማከማቻ ቦታን ይምረጡ፣ ከዚያ ኦፊሴላዊ ምስሉን እና መሣሪያዎቹን ያዘጋጁ። Cage የስርዓት ፈቃድ፣ የፕሮክሲ አገልግሎት ወይም የClaude መለያ አይሰጥም።
+ጫኚው የሥራ ቦታን እና የፕሮክሲ ሞተርን ያካትታል። Go፣ Node.js፣ Docker ወይም Clash አስቀድሞ መጫን አያስፈልግም። አካባቢውን ሲፈጥሩ የማከማቻ ቦታን ይምረጡ፤ Cage የDebian 13 ምስሉን እና የልማት መሣሪያዎቹን ያወርዳል። Cage የፕሮክሲ አገልግሎት ወይም የClaude መለያ አይሰጥም።
 
 ምንጭ ኮድ እና ጫኚዎች ለሕዝብ ክፍት ናቸው። የስሪት ማስታወሻዎችን እና ቼክሰሞችን በ [Releases](https://github.com/Lee-xeo/Claude-Cage/releases) ይመልከቱ።
 
@@ -81,7 +88,7 @@ macOS እና የተፈረሙ Windows ስሪቶች በተመረጠው ፕሮክ�
 
 ### 2. አካባቢውን ይጀምሩ
 
-መጀመሪያ ሲፈጥሩ የእንግዳ ስርዓት ወይም የአስተናጋጁን ስርዓት መቅዳትና የማከማቻ ቦታ ይምረጡ። Cage አካባቢን አስጀምሩና የመጫን እና የፈቃድ መመሪያን ይከተሉ። ሂደትና ስህተቶች በሥራ ዝርዝር ይታያሉ። ቀጣይ ጅማሬዎች ያንኑ አካባቢ ይጠቀማሉ።
+መጀመሪያ ሲፈጥሩ የማከማቻ ቦታ ይምረጡ። Cage አካባቢን አስጀምሩና የመጫን እና የፈቃድ መመሪያን ይከተሉ። ሂደትና ስህተቶች በሥራ ዝርዝር ይታያሉ። ቀጣይ ጅማሬዎች ያንኑ አካባቢ ይጠቀማሉ።
 
 ### 3. ፕሮጀክት ይክፈቱ እና Claude ያሂዱ
 
@@ -102,17 +109,20 @@ macOS እና የተፈረሙ Windows ስሪቶች በተመረጠው ፕሮክ�
 
 | የእርስዎ ተግባር | እዚ ጀምር |
 |---|---|
-| macOS / Windows / Debian / Ubuntu 22.04 | [የእንግዳ ስርዓት ምርጫ](https://lee-xeo.github.io/Claude-Cage/docs/guest-systems/) |
+| Debian 13 | [Debian አካባቢ](https://claude-cage.com/docs/guest-systems/) |
 | የአውታረ መረብ ተኪ ጫን፣ አዋቅር እና የመጀመሪያህን ፕሮጀክት ክፈት | [በመጀመር ላይ](docs/getting-started.md) |
 | ማውረዶችን፣ ጅምርን፣ ግንኙነትን እና መግባትን መላ ፈልግ | [የሚጠየቁ ጥያቄዎች እና መልሶ ማግኛ](docs/troubleshooting.md) |
 | የቁልፍ ሰሌዳ መቆጣጠሪያዎችን፣ መልክን፣ የውሂብን ጽናት እና የመውጣት ባህሪን ተማር | [ዕለታዊ አጠቃቀም](docs/getting-started.md#日常使用) |
 | ሊባዛ የሚችል ጉዳይ ሪፖርት ያድርጉ | [GitHub Issues](https://github.com/Lee-xeo/Claude-Cage/issues) |
+| ማስተካከያ፣ ባህሪ ወይም ሰነድ ለማበርከት፦ Issue ግምገማ → የተባባሪ ግብዣ → PR | [የአስተዋጽኦ መመሪያ (ቻይንኛ)](.github/CONTRIBUTING.md) |
 
 ፕሮጀክቱ በፍጥነት እያደገ ነው. ግብረመልስ ለማጋራት የማህበረሰብ ቡድኑን ይቀላቀሉ; የማህበረሰብ ጠባቂዎች እንኳን ደህና መጡ።
 
-<p align="center">
-  <a href="assets/community-qq.png"><img src="assets/community-qq.png" alt="QQ · 1134250870" width="240" /></a>
-</p>
+| QQ group · 273237690 | WeChat |
+| :---: | :---: |
+| <a href="assets/community-qq.png"><img src="assets/community-qq.png" alt="QQ group · 273237690" width="240" /></a> | <a href="www/src/assets/community-wechat.png"><img src="www/src/assets/community-wechat.png" alt="WeChat" width="240" /></a> |
+
+[Telegram](https://t.me/claude_cage)
 
 ## አመጣጥ እና ፈቃድ
 
@@ -135,6 +145,7 @@ Cage ራሱን የቻለ የማህበረሰብ ፕሮጀክት ነው እና ከ
 - [code-server](https://github.com/coder/code-server): በአሳሽ ላይ የተመሰረተ ኮድ አርታዒ.
 - [AIO Sandbox](https://github.com/agent-infra/sandbox) የሥራ አካባቢ እና መስተጋብር ንድፍ ማጣቀሻዎች.
 - [claude-switcher](https://github.com/YOURSJEYO/claude-switcher) እና [Claude-Guardian](https://github.com/DUNHKpcc/Claude-Guardian) ለአውታረ መረብ ፍተሻዎች እና የደህንነት ምርመራዎች ማጣቀሻዎች።
+- [claude-post-ban-cleanup](https://github.com/l2461090/claude-post-ban-cleanup): ለትክክለኛ ቆጠራ፣ ለውሂብ ጥበቃ እና ሊመለስ ለሚችል የመሸጎጫ ማጽዳት ሂደት ማጣቀሻ፤ በCage በተናጠል ተተግብሯል።
 
 
 <a href="https://www.star-history.com/?repos=Lee-xeo%2FClaude-Cage&amp;type=date">

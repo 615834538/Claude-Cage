@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/sylvinus/agent-vm/internal/transfermeta"
 )
 
 const maxImageBytes = 20 << 20
@@ -18,6 +20,7 @@ const maxImageBytes = 20 << 20
 type imageInputRequest struct {
 	PNG      string  `json:"png"`
 	Text     *string `json:"text,omitempty"`
+	Surface  string  `json:"surface,omitempty"`
 	Target   string  `json:"target"`
 	ID       string  `json:"id"`
 	Transfer string  `json:"transfer,omitempty"`
@@ -46,7 +49,7 @@ func (s *Server) pasteInputStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if input.Target == "desktop" {
-		body, _ := json.Marshal(map[string]any{"kind": "image", "window": input.Window, "pid": input.PID})
+		body, _ := json.Marshal(map[string]any{"kind": "image", "window": input.Window, "pid": input.PID, "surface": input.Surface})
 		result, err := s.guestFiles(ctx, "desktop", "POST", "/start", bytes.NewReader(body), "")
 		id, _ := result["id"].(string)
 		if err != nil || !browserFileID.MatchString(id) {
@@ -54,18 +57,6 @@ func (s *Server) pasteInputStart(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		jsonReply(w, map[string]any{"available": true, "transfer": id})
-		return
-	}
-	if s.macosGuest != nil || s.windowsGuest != nil {
-		data, err := s.nativeBrowserClient().request(ctx, "POST", "/paste-start", map[string]any{"id": input.ID, "length": 0})
-		var result struct {
-			Transfer string `json:"transfer"`
-		}
-		if err != nil || json.Unmarshal(data, &result) != nil || !validInputToken(result.Transfer) {
-			http.Error(w, "粘贴目标未能绑定，请重新点击输入框。旧客机需要先同步环境组件", http.StatusConflict)
-			return
-		}
-		jsonReply(w, map[string]any{"available": true, "transfer": result.Transfer})
 		return
 	}
 	data, err := s.browserAction(ctx, "ime", &browserInput{Target: "browser", ID: input.ID, Mode: "status"})
@@ -90,8 +81,6 @@ func (s *Server) pasteInputCancel(w http.ResponseWriter, r *http.Request) {
 	if input.Target == "desktop" && browserFileID.MatchString(input.Transfer) {
 		body, _ := json.Marshal(map[string]string{"id": input.Transfer})
 		_, _ = s.guestFiles(ctx, "desktop", "POST", "/cancel", bytes.NewReader(body), "")
-	} else if input.Target == "browser" && validInputToken(input.Transfer) && (s.macosGuest != nil || s.windowsGuest != nil) {
-		_, _ = s.nativeBrowserClient().request(ctx, "POST", "/paste-cancel", map[string]string{"transfer": input.Transfer})
 	}
 	jsonReply(w, map[string]bool{"ok": true})
 }
@@ -116,23 +105,15 @@ func (s *Server) textInput(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var err error
-	if s.macosGuest != nil || s.windowsGuest != nil {
-		if !validInputToken(input.Transfer) {
-			http.Error(w, "粘贴目标尚未绑定，请重新点击输入框", http.StatusConflict)
-			return
-		}
-		_, err = s.nativeBrowserClient().pasteData(ctx, input.ID, []byte(*input.Text), input.Transfer, "text/plain")
-	} else {
-		if !validInputToken(input.Context) {
-			http.Error(w, "粘贴目标尚未绑定，请重新点击输入框", http.StatusConflict)
-			return
-		}
-		body, _ := json.Marshal(map[string]string{"id": input.ID, "text": *input.Text, "context": input.Context})
-		s.mu.Lock()
-		token := s.credentials.Token
-		s.mu.Unlock()
-		_, err = s.guestAPI(ctx, token, "POST", "/paste-text", body)
+	if !validInputToken(input.Context) {
+		http.Error(w, "粘贴目标尚未绑定，请重新点击输入框", http.StatusConflict)
+		return
 	}
+	body, _ := json.Marshal(map[string]string{"id": input.ID, "text": *input.Text, "context": input.Context})
+	s.mu.Lock()
+	token := s.credentials.Token
+	s.mu.Unlock()
+	_, err = s.guestAPI(ctx, token, "POST", "/paste-text", body)
 	if err != nil {
 		http.Error(w, "文字未能交给原输入位置，请核对页面与客机组件后重试", http.StatusConflict)
 		return
@@ -162,7 +143,7 @@ func validateInputImage(data []byte) ([]byte, error) {
 	if _, err := png.Decode(bytes.NewReader(data)); err != nil {
 		return nil, errors.New("图片已损坏，请重新复制或选择图片")
 	}
-	return data, nil
+	return transfermeta.SanitizeBytes("image.png", data)
 }
 
 func (s *Server) imageInput(w http.ResponseWriter, r *http.Request) {
@@ -202,7 +183,7 @@ func (s *Server) imageInput(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
 	if input.Target == "browser" {
-		if input.Context != "" && s.macosGuest == nil && s.windowsGuest == nil {
+		if input.Context != "" {
 			state, checkErr := s.browserAction(ctx, "ime", &browserInput{Target: "browser", ID: input.ID, Mode: "status"})
 			var current struct {
 				Available bool   `json:"available"`
@@ -213,7 +194,7 @@ func (s *Server) imageInput(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		body, _ := json.Marshal(map[string]string{"id": input.ID, "png": input.PNG, "transfer": input.Transfer})
+		body, _ := json.Marshal(map[string]string{"id": input.ID, "png": base64.StdEncoding.EncodeToString(data), "transfer": input.Transfer})
 		if _, err = s.guestAPI(ctx, token, "POST", "/paste-image", body); err != nil {
 			http.Error(w, "图片未能粘贴，请点击支持图片的输入框后重试；环境组件过旧时请先更新环境", 502)
 			return
@@ -238,7 +219,7 @@ func (s *Server) imageInput(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "图片未能交给原输入位置，请核对窗口和客机组件后重新粘贴", http.StatusConflict)
 		return
 	}
-	result, err := s.guestImage(ctx, input.Target, data, macOSWindowRequest{Window: input.Window, PID: input.PID})
+	result, err := s.guestImage(ctx, input.Target, data)
 	if err != nil {
 		http.Error(w, err.Error(), 502)
 		return
@@ -246,32 +227,14 @@ func (s *Server) imageInput(w http.ResponseWriter, r *http.Request) {
 	jsonReply(w, result)
 }
 
-func (s *Server) guestImage(ctx context.Context, target string, data []byte, window macOSWindowRequest) (map[string]any, error) {
-	if s.macosGuest != nil && target == "desktop" {
-		return s.macOSPasteDesktopImage(ctx, data, window)
-	}
-	if s.macosGuest != nil && target == "terminal" {
-		result, err := s.guestFiles(ctx, target, "POST", "/upload", bytes.NewReader(data), "image.png")
-		if err != nil {
-			return nil, err
-		}
-		path, _ := result["path"].(string)
-		if !s.validMacOSAttachmentPath(path, "image.png") {
-			return nil, errors.New("图片保存路径无效")
-		}
-		return result, nil
-	}
-	if s.windowsGuest != nil {
-		if target == "terminal" {
-			return s.windowsSaveAttachment(ctx, "image.png", bytes.NewReader(data))
-		}
-		var result map[string]any
-		err := s.windowsDesktopRequest(ctx, "paste-image", map[string]any{"png": base64.StdEncoding.EncodeToString(data)}, &result)
-		return result, err
-	}
+func (s *Server) guestImage(ctx context.Context, target string, data []byte) (map[string]any, error) {
 	script := "sudo -H -u cage /usr/local/bin/cage-image-input save"
 	if target == "desktop" {
 		script = "systemctl is-active --quiet cage-claude-desktop.service && sudo -H -u cage env DISPLAY=:78 XAUTHORITY=/run/cage-desktop/Xauthority /usr/local/bin/cage-image-input paste"
+	}
+	script, err := s.linuxTemplate(script)
+	if err != nil {
+		return nil, err
 	}
 	cmd := s.sshCommand(ctx, "-T", s.sshTarget(), "--", script)
 	cmd.Stdin = bytes.NewReader(data)
@@ -297,7 +260,7 @@ func (s *Server) guestImage(ctx context.Context, target string, data []byte, win
 	}
 	if target == "terminal" {
 		path, ok := result["path"].(string)
-		if !ok || !strings.HasPrefix(path, "/home/cage/.local/share/cage/attachments/image-") || strings.ContainsAny(path, "'\r\n\x00") {
+		if !ok || !s.linuxPathHasPrefix(path, "/home/cage/.local/share/cage/attachments/image-") || strings.ContainsAny(path, "'\r\n\x00") {
 			return nil, errors.New("图片保存路径无效")
 		}
 	}

@@ -34,7 +34,7 @@ func TestMaintenanceRequiresAuthenticationAndSoftwareSource(t *testing.T) {
 	defer upstream.Close()
 	destination, _ := url.Parse(upstream.URL)
 	dial := func(ctx context.Context, network, address string) (net.Conn, error) {
-		if address != "deb.debian.org:80" && address != "deb.nodesource.com:80" && address != "archive.ubuntu.com:80" && address != "security.ubuntu.com:80" && address != "ports.ubuntu.com:80" {
+		if address != "deb.debian.org:80" && address != "deb.nodesource.com:80" {
 			return nil, errors.New("unexpected destination")
 		}
 		return (&net.Dialer{}).DialContext(ctx, network, destination.Host)
@@ -59,9 +59,6 @@ func TestMaintenanceRequiresAuthenticationAndSoftwareSource(t *testing.T) {
 		{"http://deb.debian.org/debian/pool/file.deb", "POST", true, 405},
 		{"http://deb.debian.org/debian/pool/file.deb", "GET", true, 200},
 		{"http://deb.nodesource.com/node_24.x/dists/nodistro/InRelease", "GET", true, 200},
-		{"http://archive.ubuntu.com/ubuntu/dists/jammy/InRelease", "GET", true, 200},
-		{"http://security.ubuntu.com/ubuntu/dists/jammy-security/InRelease", "GET", true, 200},
-		{"http://ports.ubuntu.com/ubuntu-ports/dists/jammy/InRelease", "GET", true, 200},
 	} {
 		proxyURL, _ := url.Parse(server.URL)
 		if test.auth {
@@ -84,7 +81,7 @@ func TestMaintenanceRequiresAuthenticationAndSoftwareSource(t *testing.T) {
 			t.Fatal("download bytes changed")
 		}
 	}
-	if calls.Load() != 5 {
+	if calls.Load() != 2 {
 		t.Fatal("rejected request reached origin")
 	}
 	if gate.Status().Mode != cage.GateClosed {
@@ -130,7 +127,7 @@ func TestMaintenanceClosesTLSConnectionsAndRefusesBusinessHosts(t *testing.T) {
 			t.Fatal("business or non-HTTPS destination accepted", address)
 		}
 	}
-	for _, host := range []string{"mirrors.nju.edu.cn", "mirrors.ustc.edu.cn", "cdn.npmmirror.com", "storage.googleapis.com", "codeload.github.com"} {
+	for _, host := range []string{"mirrors.nju.edu.cn", "mirrors.ustc.edu.cn", "cdn.npmmirror.com", "api.snapcraft.io", "storage.snapcraftcontent.com", "canonical-lgw01.cdn.snapcraftcontent.com", "canonical-lcy01.cdn.snapcraftcontent.com", "canonical-lcy02.cdn.snapcraftcontent.com", "canonical-bos01.cdn.snapcraftcontent.com", "cloudfront.cdn.snapcraftcontent.com", "codeload.github.com"} {
 		if !maintenanceDestination(host+":443", true) || maintenanceDestination(host+":80", false) || maintenanceDestination(host+".evil.test:443", true) {
 			t.Fatalf("unexpected mirror policy for %s", host)
 		}
