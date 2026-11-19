@@ -130,6 +130,8 @@ func (m *Manifest) check() error {
 		return fmt.Errorf("name must be lowercase letters, digits and hyphens")
 	case m.Version == "":
 		return fmt.Errorf("version is missing")
+	case strings.TrimSpace(m.Description) == "":
+		return fmt.Errorf("description is missing")
 	case m.Permissions == nil:
 		return fmt.Errorf("permissions must be declared, as an empty list if there are none")
 	case len(m.DisplayName) > 80:
@@ -138,6 +140,14 @@ func (m *Manifest) check() error {
 	for _, permission := range m.Permissions {
 		if !slices.Contains(KnownPermissions, permission) {
 			return fmt.Errorf("unknown permission %q", permission)
+		}
+	}
+	if len(m.Categories) > 3 {
+		return fmt.Errorf("at most three categories")
+	}
+	for i, category := range m.Categories {
+		if !validID(category) || slices.Contains(m.Categories[:i], category) {
+			return fmt.Errorf("category %q must be lowercase letters, digits and hyphens, and named once", category)
 		}
 	}
 	if m.Icon != "" && !validIcon(m.Icon) {
