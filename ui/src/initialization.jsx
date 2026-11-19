@@ -13,6 +13,7 @@ import { InitializationDetails } from "./initialization-checks";
 import { Modal } from "./modal";
 import { SafetyMessage } from "./safety-message";
 import { needsEnvironmentRestart, needsProxySetup } from "./onboarding-state.mjs";
+import { beginInstall, formatSpeed, mirrorNames } from "./debian-mirrors.mjs";
 import { networkState } from "./safety-state.mjs";
 import { useSSHNavigation } from "./remote-hosts";
 import logo from "./logo.png";
@@ -61,6 +62,9 @@ function Initialization({ initial, onComplete }) {
   const [entering, setEntering] = useState(false);
   const [error, setError] = useState("");
   const [connectionError, setConnectionError] = useState("");
+  const [mirrors, setMirrors] = useState(null);
+  const [mirrorChoice, setMirrorChoice] = useState("");
+  const [measuring, setMeasuring] = useState(false);
   const [details, setDetails] = useState(false);
   const [help, setHelp] = useState(false);
   const [dialog, setDialog] = useState(null);
@@ -136,12 +140,20 @@ function Initialization({ initial, onComplete }) {
     if (!choice) return job.setup_progress?.system ? { guest_system: job.setup_progress.system } : preferences;
     return { guest_system: choice.guest_system, ...preferences };
   }
-  async function install() {
+  async function install(mirrorChoice) {
     if (needsProxySetup(null, status, proxy)) { setError("请先选择并应用代理节点。"); setStep("proxy"); return; }
+    // Before the first install, measure the Debian sources through the proxy
+    // once; the saved choice is reused by later updates and maintenance.
+    const checkMirrors = !status?.vm_running && !job.setup_progress;
     await run(async () => {
-      await api("/environment/initialization", { action: "install" });
-      const accepted = await api("/start", startOptions());
+      setMeasuring(checkMirrors && typeof mirrorChoice !== "string");
+      let outcome;
+      try { outcome = await beginInstall(api, { mirrorChoice: typeof mirrorChoice === "string" ? mirrorChoice : "", checkMirrors, startOptions: startOptions() }); }
+      finally { if (alive.current) setMeasuring(false); }
       if (!alive.current) return;
+      if (outcome.mirrors) { setMirrors(outcome.mirrors); setMirrorChoice(outcome.mirrors.preference); setStep("install"); return; }
+      setMirrors(null);
+      const { accepted } = outcome;
       setStep("install");
       setStatus(current => ({ ...current, job: { ...accepted, running: true, kind: accepted.kind || "start", message: accepted.message || "正在准备客机环境…" } }));
     });
@@ -251,7 +263,7 @@ function Initialization({ initial, onComplete }) {
           {step === "proxy" && <><ProxySettings initializing status={status} onConfirm={confirm} onDirty={setProxyDirty} onApplied={async () => { setProxy(await api("/proxy")); pollNow.current?.(); }} /></>}
           {step === "install" && (showReady ? <div className="initialization-ready"><ShieldCheck size={36} /><h2>{entering ? "正在进入工作台" : "环境已就绪"}</h2><p role={entering ? "status" : undefined}>{entering ? "正在等待后台检查结束并确认环境状态，请稍候…" : "独立系统已安装，工具、文件和登录状态会持续保存。以后打开 Cage 可直接进入工作台。"}</p></div> : <>
             {needsRestart && <section className="initialization-notice" aria-label="需要重启环境"><h2>下一步：重启环境并重新检测</h2><p>环境设置已变化。请先保存文件，再点击下方按钮。重启并通过检查前，外网保持关闭。</p><button className="primary" disabled={busy || Boolean(connectionError)} onClick={restart}>{status.vm_running ? "重启环境并重新检测" : "启动环境并重新检测"}</button></section>}
-            {progress ? <SetupProgress job={progress} onDetails={() => setDetails(true)} onStop={stop} onRetry={needsRestart ? restart : install} disconnected={Boolean(connectionError) || submitting} /> : <div className="initialization-operation" role="status">{busy && <LoaderCircle size={22} className="spin" />}<p>{stopped ? "安装已停止，已有下载和磁盘会保留。点击「继续安装」接着完成。" : job.message || (status.vm_running ? "请完成客机连接和网络检查。" : "准备继续原安装，已有文件和磁盘会保留。")}</p>{!busy && !job.error && !needsRestart && <button className="primary" disabled={Boolean(connectionError)} onClick={install}>{status.ready ? "重新启动并检查" : "继续安装"}</button>}{busy && <button onClick={stop} disabled={submitting}>停止安装</button>}</div>}
+            {progress ? <SetupProgress job={progress} onDetails={() => setDetails(true)} onStop={stop} onRetry={needsRestart ? restart : install} disconnected={Boolean(connectionError) || submitting} /> : <div className="initialization-operation" role="status">{busy && <LoaderCircle size={22} className="spin" />}<p>{measuring ? "正在经所选代理测量 Debian 软件源的下载速度，最多约 20 秒…" : stopped ? "安装已停止，已有下载和磁盘会保留。点击「继续安装」接着完成。" : job.message || (status.vm_running ? "请完成客机连接和网络检查。" : "准备继续原安装，已有文件和磁盘会保留。")}</p>{!busy && !job.error && !mirrors && !needsRestart && <button className="primary" disabled={Boolean(connectionError)} onClick={install}>{status.ready ? "重新启动并检查" : "继续安装"}</button>}{busy && !measuring && <button onClick={stop} disabled={submitting}>停止安装</button>}</div>}
             {job.error && !progress && <div className="initialization-notice" role="alert"><SafetyMessage message={job.error} />{!networkPending && !needsRestart && <button className="primary" disabled={busy || Boolean(connectionError)} onClick={install}>继续安装</button>}</div>}
             {status.ready && network.mode !== "open" && !busy && !needsRestart && <>
               <div className="initialization-network"><p>{status.safety?.error || job.error || status.network_error || "客机已经连接，请完成网络和隔离检查后进入工作台。"}</p><button disabled={Boolean(connectionError)} onClick={checkNetwork}>运行网络与隔离检查</button></div>
@@ -260,6 +272,12 @@ function Initialization({ initial, onComplete }) {
             <div className="initialization-recovery">{canReselect && <button disabled={busy} onClick={() => setStep("system")}>查看或撤销原安装选择</button>}<button onClick={() => setStep("proxy")} disabled={busy}>检查 Cage 代理配置</button>{!progress && <button onClick={() => setDetails(true)}>查看操作详情</button>}</div>
           </>)}
         </div>
+        {mirrors && step === "install" && <section className="initialization-notice" aria-label="Debian 软件源"><h2>安装前，选择 Debian 软件源</h2><p>已经所选代理依次测量各软件源的下载速度。国内直连时国内镜像通常更快；出口在海外时官方 CDN 更快。</p>
+          <table className="mirror-samples"><tbody>{mirrors.samples.map(sample => <tr key={sample.id}><td>{sample.name}</td><td><code>{sample.host}</code></td><td>{sample.error ? <span className="mirror-error">{sample.error}</span> : formatSpeed(sample.bytes_per_second)}</td></tr>)}</tbody></table>
+          <label className="mirror-option"><input type="radio" name="debian-mirror" value="auto" checked={mirrorChoice === "auto"} onChange={() => setMirrorChoice("auto")} />Debian 官方源优先（deb.debian.org，不可达时改用国内镜像）{mirrors.recommended === "auto" && <em>推荐</em>}</label>
+          <label className="mirror-option"><input type="radio" name="debian-mirror" value={mirrors.domestic} checked={mirrorChoice === mirrors.domestic} onChange={() => setMirrorChoice(mirrors.domestic)} />国内镜像优先（{mirrorNames[mirrors.domestic]}首选，另一镜像其次，都不可达时用官方源）{mirrors.recommended === mirrors.domestic && <em>推荐</em>}</label>
+          <p>选择保存在设置中，之后的安装、更新和维护沿用；也可以在环境的 <code>/etc/claude-cage/debian-mirror</code> 中修改。</p>
+          <button className="primary" disabled={busy || !mirrorChoice || Boolean(connectionError)} onClick={() => install(mirrorChoice)}>使用所选软件源并开始安装</button></section>}
         {error && <p className="initialization-notice" role="alert"><SafetyMessage message={error} /></p>}
         <footer className="initialization-actions">
           {step === "system" ? <span /> : <button className="text-button" disabled={busy} onClick={back}><ChevronLeft size={16} />上一步</button>}
