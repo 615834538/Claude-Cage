@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -22,4 +22,26 @@ test("Cage's desktop language list and first-run translations match the README",
       assert.deepEqual(placeholders(value), placeholders(source), `${id}: interpolation for "${source}"`);
     }
   }
+});
+
+test("every text passed to tr() or translate() is translated in every language", () => {
+  const sources = new Set();
+  const files = readdirSync(new URL(".", import.meta.url), { recursive: true })
+    .filter(name => /\.(jsx|js|mjs)$/.test(name) && !/\.test\.mjs$/.test(name));
+  for (const name of files) {
+    // Only double-quoted literals are catalog keys; template literals are not.
+    for (const [, literal] of read(`./${name}`).matchAll(/\b(?:tr|translate)\(("(?:[^"\\\n]|\\.)*")/g)) {
+      sources.add(JSON.parse(literal));
+    }
+  }
+  assert.ok(sources.size > 1000, `found only ${sources.size} translated texts`);
+  const languages = JSON.parse(read("../../internal/uilocale/languages.json"));
+  const missing = [];
+  for (const { id } of languages.slice(1)) {
+    const catalog = JSON.parse(read(`./locales/${id}.json`));
+    for (const source of sources) {
+      if (typeof catalog[source] !== "string" || !catalog[source].trim()) missing.push(`${id}: ${source}`);
+    }
+  }
+  assert.deepEqual(missing, []);
 });
