@@ -80,6 +80,12 @@ static const char *ui_text(const char *source) {
     const char *message = text_member(app.messages, source);
     return *message ? message : source;
 }
+/* Translations are whole sentences; only the {0} detail is inserted, so word order, spacing and punctuation stay per-language. */
+static char *ui_format(const char *source, const char *detail) {
+    const char *text = ui_text(source);
+    const char *slot = strstr(text, "{0}");
+    return slot ? g_strdup_printf("%.*s%s%s", (int)(slot - text), text, detail, slot + 3) : g_strdup(text);
+}
 static void set_messages(JsonObject *result) {
     JsonNode *node = result ? json_object_get_member(result, "messages") : NULL;
     if (!node || !JSON_NODE_HOLDS_OBJECT(node)) return;
@@ -1176,8 +1182,9 @@ static void bootstrapped(JsonObject *object, const GError *error, gpointer data)
         }
         if (chinese) show_error(error->message);
         else {
-            char *message = g_strdup_printf("启动工作台失败：本机后台未返回可识别的原因（错误码 %d）。请点击“重试连接”；仍失败时请保留此提示并反馈给维护者。", error->code);
-            show_error(message); g_free(message);
+            char *code = g_strdup_printf("%d", error->code);
+            char *message = ui_format("启动工作台失败：本机后台未返回可识别的原因（错误代码 {0}）。请点击“重试连接”；仍失败时请保留此提示并反馈给维护者。", code);
+            show_error(message); g_free(message); g_free(code);
         }
         return;
     }
@@ -1257,9 +1264,10 @@ static gboolean load_failed(WebKitWebView *web, WebKitLoadEvent event, const cha
     (void)web; (void)event; (void)uri; (void)data;
     app.navigation_failed = TRUE;
     if (error) diagnostic_event(error->message);
-    char *message = g_strdup_printf("打开工作台失败：内置网页组件未能加载本机后台（错误码 %d）。请点击“重试连接”；仍失败时请保留此错误提示并反馈给维护者。后台任务不会因此自动结束。", error ? error->code : 0);
+    char *code = g_strdup_printf("%d", error ? error->code : 0);
+    char *message = ui_format("打开工作台失败：内置网页组件未能加载本机工作台（错误代码 {0}）。请点击“重试连接”；仍失败时请保留此错误提示并反馈给维护者。后台任务不会因此自动结束。", code);
     show_error(message);
-    g_free(message);
+    g_free(message); g_free(code);
     return TRUE;
 }
 static void process_terminated(WebKitWebView *web, WebKitWebProcessTerminationReason reason, gpointer data) {

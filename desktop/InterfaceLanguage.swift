@@ -28,4 +28,6 @@ enum CageLanguage {
     }
 
     static func text(_ source: String) -> String { messages[source] ?? source }
+    // Translations are whole sentences; only the {0} detail is inserted, so word order, spacing and punctuation stay per-language.
+    static func format(_ source: String, _ detail: String) -> String { text(source).replacingOccurrences(of: "{0}", with: detail) }
 }
