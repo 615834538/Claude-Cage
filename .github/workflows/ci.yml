@@ -54,6 +54,29 @@ jobs:
         run: |
           node internal/cage/device-observation.test.mjs
           node internal/cage/browser-audit.test.mjs
+  browser-popups:
+    needs: workflow-checks
+    # The Debian guest controller is Linux-only; hosts never run it directly.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install isolation and display tools
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap xvfb
+      - name: Test real Chromium popups through the guest browser controller
+        run: |
+          prefix="$RUNNER_TEMP/popup-playwright"
+          npm install --prefix "$prefix" --no-save --ignore-scripts playwright-core@1.65.0
+          node "$prefix/node_modules/playwright-core/cli.js" install --with-deps chromium
+          CAGE_BROWSER_TEST_CHROMIUM="$(node --input-type=module -e "const { chromium } = await import(process.argv[1]); console.log(chromium.executablePath());" "$prefix/node_modules/playwright-core/index.mjs")"
+          test -x "$CAGE_BROWSER_TEST_CHROMIUM" || { echo 'Chromium is required; popup tests must not skip.' >&2; exit 1; }
+          export CAGE_BROWSER_TEST_CHROMIUM
+          xvfb-run -a node --test internal/cage/browser-popup.integration.mjs
   macos:
     needs: workflow-checks
     uses: ./.github/workflows/macos-build.yml
