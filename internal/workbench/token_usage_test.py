@@ -89,7 +89,11 @@ class UsageTests(unittest.TestCase):
         self.assertTrue(self.path.exists())
         self.assertEqual(self.collect(cutoff=cutoff)["days"], [])
         self.assertEqual(self.collect(cutoff=0)["days"], [])
-        self.write([old, self.row("msg_new")])
+        # time.time() and datetime.now() can read different clocks (Windows),
+        # so a row stamped "now" may sort before cutoff. Stamp it explicitly.
+        new = self.row("msg_new")
+        new["timestamp"] = dt.datetime.fromtimestamp(cutoff + 1, dt.timezone.utc).isoformat()
+        self.write([old, new])
         self.assertEqual(self.collect(cutoff=cutoff)["days"][0]["requests"], 1)
 
     def test_symlinks_and_oversized_lines_cannot_escape_log_roots(self):
