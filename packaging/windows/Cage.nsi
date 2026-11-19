@@ -47,6 +47,9 @@ VIAddVersionKey /LANG=1033 "LegalCopyright" "Cage contributors"
 !endif
 
 !define MUI_ABORTWARNING
+!define MUI_LANGDLL_ALLLANGUAGES
+!define MUI_LANGDLL_WINDOWTITLE "Cage"
+!define MUI_LANGDLL_INFO "$(CageInstallerLanguage)"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\Cage.exe"
 !define MUI_FINISHPAGE_RUN_NOTCHECKED
 !define MUI_FINISHPAGE_TEXT "$(CageFinishHelp)"
@@ -71,6 +74,7 @@ Var InstallPhase
 Var InstallOutcome
 Var HelperExit
 Var DiagnosticArguments
+Var InstallerSystemLanguage
 
 !include "CageInstallerLanguages.nsh"
 !include "CageInstallerLanguageSelection.nsh"
@@ -283,6 +287,7 @@ FunctionEnd
 
 Function .onInit
   !insertmacro CageSelectInstallerLanguage
+  StrCpy $InstallerSystemLanguage $LANGUAGE
   StrCpy $InstallOutcome "running"
   StrCpy $HelperExit ""
   SetShellVarContext current
@@ -315,6 +320,7 @@ Function .onInit
     Quit
   ${EndIf}
   Call SetDefaultInstallDirectory
+  !insertmacro MUI_LANGDLL_DISPLAY
 FunctionEnd
 
 Function CheckDestination
@@ -573,6 +579,11 @@ Section "Cage" Main
   ${EndIf}
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "DesktopShortcut" $DesktopShortcut
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "StartMenuShortcuts" $StartMenuShortcuts
+  ${If} $LANGUAGE != $InstallerSystemLanguage
+    ; Seed a fresh profile after a successful interactive installation.
+    nsExec::ExecToLog /TIMEOUT=10000 '"$INSTDIR\resources\cage.exe" interface-language --seed-windows-id "$LANGUAGE"'
+    Pop $0
+  ${EndIf}
   !insertmacro InstallPhase "completed"
   SetErrorLevel 0
 SectionEnd

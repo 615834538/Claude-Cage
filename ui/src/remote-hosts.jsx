@@ -23,6 +23,7 @@ import { HostForm } from "./remote-host-form";
 import logo from "./logo.png";
 import "./remote-hosts.css";
 import { useTranslation } from "./interface-language.mjs";
+import { LanguageSettings } from "./language-settings";
 
 const Navigation = createContext(null);
 export const useSSHNavigation = () => useContext(Navigation);
@@ -757,6 +758,7 @@ function Environment({ context, refresh, children }) {
         ) : (
           <main className="environment-picker">
             <div>
+              <div className="startup-language-slot"><LanguageSettings compact /></div>
               <img className="environment-logo" src={logo} alt="" />
               <h1>
                 {localLost

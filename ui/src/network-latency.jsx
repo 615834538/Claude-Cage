@@ -61,10 +61,10 @@ export function NetworkLatency({ enabled, revision, selected }) {
   return (
     <button
       className="status-latency"
-      aria-label={tr("网络延迟：{0}", (enabled ? sample?.label || "检测中" : "未连接"))}
+      aria-label={tr("网络延迟：{0}", tr(enabled ? sample?.label || "检测中" : "未连接"))}
       title={
         enabled
-          ? sample?.detail || tr("正在检测当前节点的网络延迟")
+          ? tr(sample?.detail || "正在检测当前节点的网络延迟")
           : tr("环境启动并连接代理后检测网络延迟")
       }
       disabled={!enabled}
@@ -74,7 +74,7 @@ export function NetworkLatency({ enabled, revision, selected }) {
       }}
     >
       <Activity size={12} />
-      <span>{enabled ? sample?.label || tr("测延迟…") : tr("延迟 —")}</span>
+      <span>{tr(enabled ? sample?.label || "测延迟…" : "延迟 —")}</span>
     </button>
   );
 }

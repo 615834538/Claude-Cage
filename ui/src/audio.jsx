@@ -62,8 +62,8 @@ export function AudioControls({ audio }) {
     if (!audio.enabled) setOpen(false);
   }, [audio.enabled]);
   const silent = audio.muted || audio.volume === 0;
-  const label = !audio.enabled ? "环境声音：未启动" : !open ? "打开音量控制" : silent ? "取消静音" : "静音";
-  const status = audio.error || (audio.state === "unsupported" ? "当前窗口不支持声音播放" : audio.state === "disconnected" ? "声音连接中断，正在重连" : "");
+  const label = tr(!audio.enabled ? "环境声音：未启动" : !open ? "打开音量控制" : silent ? "取消静音" : "静音");
+  const status = tr(audio.error || (audio.state === "unsupported" ? "当前窗口不支持声音播放" : audio.state === "disconnected" ? "声音连接中断，正在重连" : ""));
   return <div className="audio-controls" ref={controls}
     onPointerLeave={event => { pressingSpeaker.current = false; if (event.pointerType !== "touch") setOpen(false); }}
     onBlur={event => { if (!pressingSpeaker.current && !event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}

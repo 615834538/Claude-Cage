@@ -49,14 +49,14 @@ export function projectGroups(status) {
   return status?.project_groups || (status?.projects || []).map(path => ({ workspace: path, name: projectName(path), folders: [path] }));
 }
 
-export function projectName(path, groups = []) {
+export function projectName(path, groups = [], fallback = "新项目") {
   if (clientMount.test(path)) {
     try { return sessionStorage.getItem(path) || "本机共享项目"; }
     catch { return "本机共享项目"; }
   }
   const group = groups.find(item => item.workspace === path || item.folders.includes(path));
   if (group?.name) return group.name;
-  return folderName(path) || "新项目";
+  return folderName(path) || fallback;
 }
 
 export function tabName(tab, saved, project) {

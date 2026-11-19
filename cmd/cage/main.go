@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -147,6 +148,16 @@ func run() int {
 		return fail(err)
 	}
 	if args[0] == "interface-language" {
+		if len(args) == 3 && args[1] == "--seed-windows-id" {
+			id, err := strconv.Atoi(args[2])
+			if err == nil {
+				err = uilocale.SeedWindowsInstallerChoice(filepath.Dir(path), id)
+			}
+			if err != nil {
+				return fail(err)
+			}
+			return 0
+		}
 		if len(args) != 2 || args[1] != "--json" {
 			return 2
 		}

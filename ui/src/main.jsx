@@ -319,7 +319,7 @@ function App() {
   const network = connectionError
     ? { mode: "unknown", label: "外网状态待确认" }
     : networkState(status);
-  const runtimeLabel = connectionError
+  const runtimeLabel = tr(connectionError
     ? "连接中断"
     : busy
       ? network.mode === "checking" || status?.job?.kind === "safety"
@@ -335,7 +335,7 @@ function App() {
           : "离线可用"
         : running
           ? status?.environment_update_required ? "环境待更新" : "浏览器待恢复"
-          : "已停止";
+          : "已停止");
   // A Linux environment keeps what it learned about project files for a while.
   const projectFilesCached = settings?.project_file_cache === true;
   const refreshProjectFiles = async () => {
@@ -1227,7 +1227,7 @@ function App() {
     desktopOpen,
     terminalChoice,
   ]);
-  const project = projectName(contentWorkspace, groups);
+  const project = projectName(contentWorkspace, groups, tr("新项目"));
   const tabLayoutKey = status?.environment_identity_directory || status?.environment_directory || status?.workspace;
   const metadata = { ...(savedTabs[tabLayoutKey] || {}), ...(privateTabMetadata[tabLayoutKey] || {}) };
   for (const tab of tabs) {
@@ -1345,7 +1345,7 @@ function App() {
     const detail = tab?.terminalKind === "claude-login" ? `登录 · ${account || "新账号"}`
       : account ? `Claude · ${account}${tab.claude_account_source === "default" ? "（启动时账号）" : ""}` : "";
     const location = split && tab ? `heading-${tab.id}` : "heading";
-    return <TerminalHeader tab={tab} project={projectName(path, groups)} metadata={metadata}
+    return <TerminalHeader tab={tab} project={projectName(path, groups, tr("新项目"))} metadata={metadata}
       contentWorkspace={path} terminalDetail={detail} terminalDetailHint={tab?.claude_account_source === "default"
         ? "此终端按启动时的普通终端登录标记。若普通终端已换号，请重新打开工作会话确认身份。" : detail}
       busy={busy} onHome={() => setHome(true)}
@@ -1747,7 +1747,7 @@ function App() {
                             }
                           >
                             <span>{index + 1}</span>
-                            {label}
+                            {tr(label)}
                           </li>
                         ),
                       )}

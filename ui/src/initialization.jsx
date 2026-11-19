@@ -18,12 +18,19 @@ import { useSSHNavigation } from "./remote-hosts";
 import logo from "./logo.png";
 import "./initialization.css";
 import { useTranslation } from "./interface-language.mjs";
+import { LanguageSettings } from "./language-settings";
 
 const steps = [["system", "系统与存储"], ["proxy", "网络代理"], ["install", "安装与检查"]];
 
 function InitializationFrame({ children }) {
   const tr = useTranslation();
-  return <main className="initialization"><header className="initialization-brand"><img src={logo} alt="" /><strong>Cage</strong><span>{tr("首次设置")}</span></header>{children}</main>;
+  return <main className="initialization">
+    <header className="initialization-brand">
+      <img src={logo} alt="" /><strong>Cage</strong><span>{tr("首次设置")}</span>
+      <div className="startup-language-slot"><LanguageSettings compact /></div>
+    </header>
+    {children}
+  </main>;
 }
 
 export function InitializationGate({ children }) {

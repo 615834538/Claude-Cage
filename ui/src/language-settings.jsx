@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { Globe2 } from "lucide-react";
 import { api, native, nativeAvailable } from "./api";
 import { InlineSelect } from "./inline-select";
 import {
@@ -9,10 +10,14 @@ import {
   useInterfaceLanguage,
   useTranslation,
 } from "./interface-language.mjs";
+import "./language-settings.css";
 
-export function LanguageSettings() {
+export function LanguageSettings({ compact = false }) {
   const t = useTranslation();
-  const { language } = useInterfaceLanguage();
+  const { language, active } = useInterfaceLanguage();
+  const systemName = compact && language === systemLanguage
+    ? languages.find(({ id }) => id === active)?.name
+    : undefined;
   const [saving, setSaving] = useState(false);
   const pending = useRef(false);
   const [error, setError] = useState("");
@@ -39,14 +44,14 @@ export function LanguageSettings() {
   }
   return (
     <>
-      <label>
-        {t("界面语言")}
-        <InlineSelect inline aria-label={t("界面语言")} value={language} onValueChange={choose} aria-busy={saving}>
+      <label className={compact ? "startup-language" : undefined}>
+        <span>{compact && <Globe2 size={15} aria-hidden="true" />} {t("界面语言")}</span>
+        <InlineSelect inline aria-label={t("界面语言")} value={language} displayLabel={systemName} onValueChange={choose} aria-busy={saving}>
           <option value={systemLanguage}>{t("跟随系统")}</option>
           {languages.map(({ id, name }) => <option key={id} value={id} lang={id}>{name}</option>)}
         </InlineSelect>
       </label>
-      <p className="field-help">{t("默认跟随主机的显示语言。切换后立即更新界面，无需重启。")}</p>
+      {!compact && <p className="field-help">{t("默认跟随主机的显示语言。切换后立即更新界面，无需重启。")}</p>}
       {error && <p className="error-message" role="alert">{t(error)}</p>}
     </>
   );

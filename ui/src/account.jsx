@@ -24,6 +24,7 @@ import "./account.css";
 import { Modal } from "./modal";
 import { TokenUsagePanel } from "./token-usage.jsx";
 import { useTranslation } from "./interface-language.mjs";
+import { LanguageSettings } from "./language-settings";
 
 const AccountContext = createContext(null);
 export const useAccount = () => useContext(AccountContext);
@@ -272,10 +273,13 @@ export function AccountGate({ children }) {
   };
   return (
     <main className="account-gate">
-      <div className="account-brand">
-        <img src={logo} alt="" />
-        Cage
-      </div>
+      <header className="account-gate-header">
+        <div className="account-brand">
+          <img src={logo} alt="" />
+          Cage
+        </div>
+        <div className="startup-language-slot"><LanguageSettings compact /></div>
+      </header>
       <section
         className="account-entry"
         aria-label={creating ? isRemoteClient() ? tr("创建云端账户") : tr("创建本地账户") : tr("解锁 Cage")}
@@ -394,7 +398,7 @@ export function AccountGate({ children }) {
           <LockKeyhole size={14} />
           {isRemoteClient() ? tr("账户资料保存在当前云端主机") : tr("账户资料仅保存在这台设备上")}
         </p>
-        {!account?.trusted_local && <p className="account-recovery-note">
+        {account && !account.trusted_local && <p className="account-recovery-note">
           {creating
             ? tr("注册后会生成恢复密钥。请保存到密码管理器，忘记密码时可用它恢复。")
             : account?.recovery_ready ? tr("忘记密码时，可使用已保存的恢复密钥重置。") : tr("此账户尚未设置恢复密钥。能登录时，请到「设置 → 账户」补设。")}
