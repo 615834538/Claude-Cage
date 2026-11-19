@@ -108,6 +108,9 @@ test: test-go
 
 test-go:
 	$(GO) test -tags $(TAGS) . ./cmd/... ./internal/...
+ifeq ($(GOOS)-$(CGO_ENABLED),darwin-1)
+	$(GO) test github.com/Code-Hex/vz/v3
+endif
 	cd tools/tailnet && GOFLAGS= $(GO) test ./...
 
 # The Windows build and its tests compile and vet, from any OS. The Windows
