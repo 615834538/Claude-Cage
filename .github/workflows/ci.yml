@@ -54,6 +54,29 @@ jobs:
         run: |
           node internal/cage/device-observation.test.mjs
           node internal/cage/browser-audit.test.mjs
+  browser-popups:
+    needs: workflow-checks
+    # The Debian guest controller is Linux-only; hosts never run it directly.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install isolation and display tools
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap xvfb
+      - name: Test real Chromium popups through the guest browser controller
+        run: |
+          prefix="$RUNNER_TEMP/popup-playwright"
+          npm install --prefix "$prefix" --no-save --ignore-scripts playwright-core@1.65.0
+          node "$prefix/node_modules/playwright-core/cli.js" install --with-deps chromium
+          CAGE_BROWSER_TEST_CHROMIUM="$(node --input-type=module -e "const { chromium } = await import(process.argv[1]); console.log(chromium.executablePath());" "$prefix/node_modules/playwright-core/index.mjs")"
+          test -x "$CAGE_BROWSER_TEST_CHROMIUM" || { echo 'Chromium is required; popup tests must not skip.' >&2; exit 1; }
+          export CAGE_BROWSER_TEST_CHROMIUM
+          xvfb-run -a node --test internal/cage/browser-popup.integration.mjs
   macos:
     needs: workflow-checks
     uses: ./.github/workflows/macos-build.yml
@@ -88,22 +111,7 @@ jobs:
       - name: Install the verified NSIS compiler
         run: ./scripts/install-nsis.ps1
       - name: Install the verified WebView2 prerequisite
-        run: |
-          . ./scripts/windows-common.ps1
-          $dependency = (Get-Content packaging/windows/dependencies.json -Raw | ConvertFrom-Json).webview2
-          $cache = Join-Path $env:RUNNER_TEMP 'update-dependencies'
-          $runtime = Get-VerifiedDependency $dependency $cache
-          $signature = Get-AuthenticodeSignature -LiteralPath $runtime
-          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') { throw 'WebView2 prerequisite signature is not trusted.' }
-          $start = [Diagnostics.ProcessStartInfo]::new($runtime)
-          $start.UseShellExecute = $false
-          $start.WorkingDirectory = $cache
-          $start.ArgumentList.Add('/silent'); $start.ArgumentList.Add('/install')
-          $process = [Diagnostics.Process]::Start($start)
-          try {
-            if (!$process.WaitForExit(180000)) { $process.Kill($true); throw 'WebView2 prerequisite installation timed out.' }
-            if ($process.ExitCode -ne 0) { throw "WebView2 prerequisite failed: $($process.ExitCode)" }
-          } finally { $process.Dispose() }
+        run: ./scripts/install-webview2.ps1
       - name: Verify signed update, rejection and rollback transactions
         run: ./scripts/test-windows-update-flow.ps1
       - uses: actions/upload-artifact@v4

@@ -51,7 +51,7 @@ try {
     # a broken script fails in the first minute instead of after packaging.
     Invoke-BuildTool 'node' @('scripts/check-version.mjs')
     Invoke-BuildTool 'uv' @('run', '--no-project', '--python', '3.13', 'internal/workbench/cache_maintenance_test.py')
-    Invoke-BuildTool 'node' @('--test', 'internal/cage/browser-clipboard.test.mjs', 'scripts/windows-native-bridge.test.mjs', 'scripts/fetch-build-artifact.test.mjs')
+    Invoke-BuildTool 'node' @('--test', 'internal/cage/browser-clipboard.test.mjs', 'internal/cage/browser-visibility.test.mjs', 'scripts/windows-native-bridge.test.mjs', 'scripts/fetch-build-artifact.test.mjs')
     if ($Release) {
         Enter-CiPhase 'Release signing configuration'
         if ($env:GITHUB_EVENT_NAME -ne 'workflow_dispatch') { throw 'Release candidates require an explicitly dispatched release workflow.' }

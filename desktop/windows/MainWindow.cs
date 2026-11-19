@@ -18,6 +18,8 @@ internal sealed class MainWindow : Form
     private int expectedPort;
     private bool controllerNeedsUpdate, allowQuit, bootstrapping, webFailed;
     private bool completingSmoke;
+    // Bridge requests still running on the UI thread, such as refreshSession's "desktop".
+    private int nativeRequests;
     private string smokePhase = "starting";
     private readonly CancellationTokenSource lifetime = new();
     private readonly Dictionary<string, (string[] Paths, DateTime Expires)> fileSelections = new();
@@ -249,6 +251,12 @@ internal sealed class MainWindow : Form
                 }
                 catch (Exception error) { errors.Add("无法保存工作台画面：" + error.Message); }
             }
+            // The page can still refresh its session through the bridge, which runs
+            // "desktop" and may start a new connection service while prepare-update
+            // retires the old one. New requests are refused once completingSmoke is
+            // set; let the ones already running finish first.
+            if (nativeBridgeReady) smokePhase = "waiting_native_requests";
+            while (nativeRequests > 0) await Task.Delay(50, shutdown.Token);
             var controllers = Backend.CaptureSmokeControllers();
             try
             {
@@ -352,6 +360,7 @@ internal sealed class MainWindow : Form
         // have a separate CoreWebView2Frame event, which this host never handles.
         if (!UpdatePolicy.IsWorkbench(e.Source, expectedPort)) return;
         string id = "";
+        var counted = false;
         try
         {
             var message = e.WebMessageAsJson;
@@ -359,6 +368,12 @@ internal sealed class MainWindow : Form
             var body = envelope.RootElement;
             id = body.Text("id");
             if (!Guid.TryParse(id, out _)) return;
+            if (completingSmoke)
+            {
+                if (!web.IsDisposed) web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { id, error = "自检正在结束，未执行新的原生操作" }));
+                return;
+            }
+            nativeRequests++; counted = true;
             // Match the Linux bridge envelope limit. A 20 MiB PNG needs about
             // 27 MiB after Base64 encoding; retain the ID to reply on rejection.
             if (message.Length > 30 * 1024 * 1024) throw new InvalidDataException("请求内容过大，请减少图片或文本内容后重试");
@@ -563,6 +578,7 @@ internal sealed class MainWindow : Form
             _ = Backend.Report(error.ToString());
             if (id.Length != 0 && !IsDisposed && !web.IsDisposed) web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { id, error = error.Message }));
         }
+        finally { if (counted) nativeRequests--; }
     }
 
     private const string SmokeDiagnosticsScript = """

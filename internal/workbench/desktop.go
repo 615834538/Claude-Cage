@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -168,17 +169,24 @@ func (c *controllerClient) call(method, path string, input, output any) (int, er
 }
 
 func (c *controllerClient) callContext(ctx context.Context, method, path string, input, output any) (int, error) {
+	status, _, err := c.callReason(ctx, method, path, input, output)
+	return status, err
+}
+
+// callReason also returns a short plain-text refusal from a non-200 response,
+// so a launcher can report which condition kept the controller running.
+func (c *controllerClient) callReason(ctx context.Context, method, path string, input, output any) (int, string, error) {
 	var body []byte
 	var err error
 	if input != nil {
 		body, err = json.Marshal(input)
 		if err != nil {
-			return 0, err
+			return 0, "", err
 		}
 	}
 	req, err := http.NewRequestWithContext(ctx, method, c.origin+path, bytes.NewReader(body))
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	req.Header.Set("Origin", c.origin)
 	req.Header.Set("Content-Type", "application/json")
@@ -193,15 +201,28 @@ func (c *controllerClient) callContext(ctx context.Context, method, path string,
 	}
 	res, err := client.Do(req)
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	defer res.Body.Close()
-	if res.StatusCode == http.StatusOK && output != nil {
+	if res.StatusCode != http.StatusOK {
+		return res.StatusCode, refusalText(res.Body), nil
+	}
+	if output != nil {
 		if err = json.NewDecoder(io.LimitReader(res.Body, 256<<10)).Decode(output); err != nil {
-			return res.StatusCode, errors.New("后台响应无效，未继续更新。")
+			return res.StatusCode, "", errors.New("后台响应无效，未继续更新。")
 		}
 	}
-	return res.StatusCode, nil
+	return res.StatusCode, "", nil
+}
+
+// refusalText keeps one bounded line of a controller's plain-text refusal.
+func refusalText(body io.Reader) string {
+	b, _ := io.ReadAll(io.LimitReader(body, 512))
+	text := strings.TrimSpace(strings.ToValidUTF8(string(b), ""))
+	if line, _, found := strings.Cut(text, "\n"); found {
+		text = strings.TrimSpace(line)
+	}
+	return text
 }
 func pendingUpdate(c *controllerClient) DesktopResult {
 	return DesktopResult{Status: "upgrade_pending", Legacy: c.launch.Controller.Protocol == 0, Controller: c.launch.Controller, Message: "新版已准备好，当前后台仍在运行。请先打开现有环境保存文件，再选择“保存后停止环境并完成更新”。终端任务会结束，项目和登录状态会保留。"}
@@ -314,6 +335,7 @@ func PrepareUpdate(configPath string, stop bool) (DesktopResult, error) {
 		}
 		return DesktopResult{Status: "prepared"}, nil
 	}
+	reason := ""
 	if c.launch.Controller.Protocol == controlProtocol {
 		// Routine status probes also hold the operation lock. Retry briefly.
 		// every request still checks running jobs, terminals and VM ownership.
@@ -321,7 +343,8 @@ func PrepareUpdate(configPath string, stop bool) (DesktopResult, error) {
 		// VM probe budget, which a Windows guest needs in full.
 		retryUntil := time.Now().Add(3 * time.Second)
 		for {
-			status, err := c.call("POST", "/api/handoff", map[string]string{"token": c.record.Token}, nil)
+			var status int
+			status, reason, err = c.callReason(context.Background(), "POST", "/api/handoff", map[string]string{"token": c.record.Token}, nil)
 			if err != nil {
 				return DesktopResult{}, err
 			}
@@ -337,7 +360,12 @@ func PrepareUpdate(configPath string, stop bool) (DesktopResult, error) {
 			time.Sleep(50 * time.Millisecond)
 		}
 	}
-	return DesktopResult{Status: "stop_required", Message: "请保存文件后确认停止环境并安装更新。终端任务会结束，项目和登录状态会保留。"}, nil
+	message := "请保存文件后确认停止环境并安装更新。终端任务会结束，项目和登录状态会保留。"
+	// Earlier controllers answer every refusal with this generic sentence.
+	if reason != "" && reason != "请先保存工作并停止环境，再完成更新。" {
+		message += "当前原因：" + reason
+	}
+	return DesktopResult{Status: "stop_required", Message: message}, nil
 }
 func (c *controllerClient) stopAndHandoff() error {
 	legacy := c.launch.Controller.Protocol == 0
@@ -466,14 +494,31 @@ func (c *controllerClient) waitForExit() error {
 		return errors.New("无法确认后台已退出，未继续更新。")
 	}
 	defer f.Close()
-	for i := 0; i < 100; i++ {
+	for i := 0; i < controllerExitPolls; i++ {
 		if lockController(f) == nil {
 			_ = unlockController(f)
 			return nil
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	return errors.New("后台尚未退出，未强制结束进程。请稍后重试更新。")
+	return c.exitTimeout()
+}
+
+// Number of 100 ms lock checks while a handed-off controller exits.
+var controllerExitPolls = 100
+
+// exitTimeout names the service that kept its lock. A different process in the
+// record means a launcher started a replacement while this one was exiting.
+func (c *controllerClient) exitTimeout() error {
+	service := "后台"
+	if c.launch.DesktopGateway {
+		service = "桌面连接服务"
+	}
+	if next, err := openController(c.profile); err == nil && next.record.PID != c.record.PID {
+		next.close()
+		return fmt.Errorf("%s退出期间又启动了新的%s（进程 %d，原进程 %d），通常是 Cage 窗口正在重新连接。未强制结束进程，请关闭 Cage 窗口后重试更新。", service, service, next.record.PID, c.record.PID)
+	}
+	return fmt.Errorf("%s（进程 %d）尚未退出，未强制结束进程。请稍后重试更新。", service, c.record.PID)
 }
 func startController(configPath string) error {
 	exe, err := os.Executable()
