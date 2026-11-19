@@ -51,15 +51,11 @@ type RemoteEntry struct {
 	Runtime      string          `json:"runtime"`
 	Origin       string          `json:"origin"`
 	Ticket       string          `json:"ticket,omitempty"`
+	RemoteView   string          `json:"remote_view,omitempty"`
 	Capabilities map[string]bool `json:"capabilities"`
 }
 
 func (s *Server) remoteManifest(w http.ResponseWriter, r *http.Request) {
-	if s.macosGuest != nil {
-		jsonReply(w, RemoteEntry{APIProtocol: remoteAPIProtocol, InstanceID: s.instanceID, Version: version.Version, Platform: runtime.GOOS,
-			Runtime: "lima", Origin: s.origin, Capabilities: map[string]bool{"terminal": true, "projects_browse": true}})
-		return
-	}
 	kind := "lima"
 	if _, err := os.Stat(filepath.Join(s.profile, "container.json")); err == nil {
 		kind = "container"

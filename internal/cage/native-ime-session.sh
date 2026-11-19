@@ -10,7 +10,8 @@ input_root="$HOME/.cache/cage-input"
 if [ "${CAGE_PHONE_DESKTOP_INPUT:-}" = 1 ]; then input_root=/run/cage-phone-desktop/input; fi
 mkdir -p "$input_root"
 chmod 700 "$input_root"
-export IBUS_ADDRESS="unix:path=$input_root/bus"
+bus_socket="$input_root/bus"
+export IBUS_ADDRESS="unix:path=$bus_socket"
 export GTK_IM_MODULE=ibus QT_IM_MODULE=ibus XMODIFIERS=@im=ibus
 bus_pid='' bridge_pid='' app_pid='' session_pid=''
 cleanup() {
@@ -52,12 +53,12 @@ CONFIG
   test -S "$input_root/session-bus"
   export DBUS_SESSION_BUS_ADDRESS="unix:path=$input_root/session-bus"
 fi
-rm -f "$input_root/ready" "$input_root/bus" "$input_root/input.sock"
+rm -f "$input_root/ready" "$bus_socket" "$input_root/input.sock"
 ibus-daemon --single --panel=disable --config=disable --emoji-extension=disable --cache=none --address="$IBUS_ADDRESS" &
 bus_pid=$!
 for i in $(seq 1 100); do
   kill -0 "$bus_pid"
-  if [ -S "$input_root/bus" ]; then break; fi
+  if [ -S "$bus_socket" ]; then break; fi
   sleep .05
 done
 /usr/local/bin/cage-native-input &

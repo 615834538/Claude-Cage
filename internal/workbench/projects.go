@@ -39,6 +39,19 @@ func (s *Server) connectProject(path string, add bool) (string, error) {
 	if err = s.ensureProjectShare(path); err != nil {
 		return "", err
 	}
+	if !add {
+		folders, err := s.projectFolders(path)
+		if err != nil {
+			return "", err
+		}
+		for _, folder := range folders {
+			if folder != path {
+				if err := s.ensureProjectShare(folder); err != nil {
+					return "", err
+				}
+			}
+		}
+	}
 	if add {
 		if err = s.rememberSharedProject(path); err != nil {
 			return "", err
@@ -60,7 +73,7 @@ func (s *Server) openProject(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "请选择项目文件夹", 400)
 		return
 	}
-	if !s.op.TryLock() {
+	if !s.lockProjectOperation(r.Context()) {
 		w.Header().Set("X-Cage-Recovery", "project-operation-busy")
 		http.Error(w, "另一个操作仍在进行，请稍候", 409)
 		return
@@ -74,28 +87,8 @@ func (s *Server) openProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	workspace, err := s.connectProject(input.Workspace, input.Add)
-	if errors.Is(err, errMacOSProjectApproval) {
-		path, pathErr := validateWorkspace(input.Workspace, s.profile)
-		if pathErr == nil {
-			s.mu.Lock()
-			share := s.projectShares[path]
-			grant := ""
-			if share != nil {
-				grant = share.approval
-			}
-			s.mu.Unlock()
-			if grant != "" {
-				jsonReply(w, map[string]string{"workspace": path, "approval": grant})
-				return
-			}
-		}
-	}
 	if err != nil {
-		var failure *projectShareError
-		if errors.As(err, &failure) && failure.Recovery != "" {
-			w.Header().Set("X-Cage-Recovery", failure.Recovery)
-		}
-		requestError(w, err)
+		s.projectConnectionError(w, err)
 		return
 	}
 	if input.Activate && isClientMountPath(workspace) {
@@ -129,15 +122,12 @@ type projectTransport struct {
 func (p projectTransport) Close() error { _ = p.ReadCloser.Close(); return p.WriteCloser.Close() }
 
 type projectShare struct {
-	cmd            *exec.Cmd
-	transport      projectTransport
-	done           chan struct{}
-	once           sync.Once
-	detach         func()
-	approval       string
-	approvalTimer  *time.Timer
-	windowsProject *windowsProjectBinding
-	stderr         *fileControlStderr
+	cmd       *exec.Cmd
+	transport projectTransport
+	done      chan struct{}
+	once      sync.Once
+	detach    func()
+	stderr    *fileControlStderr
 }
 
 func (p *projectShare) stop() {
@@ -152,9 +142,6 @@ func (p *projectShare) stop() {
 }
 
 func (p *projectShare) close() {
-	if p.approvalTimer != nil {
-		p.approvalTimer.Stop()
-	}
 	p.stop()
 	if p.done != nil {
 		<-p.done
@@ -164,8 +151,7 @@ func (p *projectShare) close() {
 	}
 }
 
-// The local SFTP server owns the host authorization boundary for both macOS
-// and Linux mounts. The remote shell receives only that directory's byte stream.
+// The local SFTP server owns the host authorization boundary for the mount. The remote shell receives only that directory's byte stream.
 func startProjectTransport(cmd *exec.Cmd, path string) (*projectShare, error) {
 	output, err := cmd.StdoutPipe()
 	if err != nil {
@@ -211,12 +197,6 @@ func (s *Server) ensureProjectShare(path string) (returned error) {
 		}
 		s.setProjectError(path, returned)
 	}()
-	if s.windowsGuest != nil {
-		return s.ensureWindowsProjectShare(path)
-	}
-	if s.macosGuest != nil {
-		return s.ensureMacOSProjectShare(path)
-	}
 	if path == s.environmentDir() {
 		return nil
 	}
@@ -255,7 +235,10 @@ func (s *Server) ensureProjectShare(path string) (returned error) {
 	}
 	// Present shared files as owned by the guest user. Host UID/GID values differ
 	// across platforms and otherwise make Git reject an explicitly shared repo.
-	script := "exec sshfs " + shellescape.Quote(":"+filepath.ToSlash(path)) + " " + quoted + ` -o slave,allow_other,cache=no,nodev,nosuid,uid="$(id -u)",gid="$(id -g)"`
+	s.mu.Lock()
+	cache := s.preferences.ProjectFileCache
+	s.mu.Unlock()
+	script := "exec sshfs " + shellescape.Quote(":"+filepath.ToSlash(path)) + " " + quoted + " -o " + projectShareOptions(cache)
 	cmd := s.sshCommand(s.lifetimeContext(), "-T", s.sshTarget(), "--", script)
 	share, err := startProjectTransport(cmd, path)
 	if err != nil {
@@ -284,8 +267,51 @@ func (s *Server) ensureProjectShare(path string) (returned error) {
 	return nil
 }
 
+// projectFileCacheSeconds is how long the guest may answer from what it
+// already knows about a shared file before asking the host again.
+const projectFileCacheSeconds = 20
+
+// projectShareOptions are the sshfs options of a project folder in a Linux
+// guest. Every lookup and attribute read is otherwise a round trip to the
+// host, and tools repeat them constantly: a status check of a repository
+// asks about each of its files. With the cache the guest kernel keeps names
+// and attributes for projectFileCacheSeconds, so a file the host changes,
+// deletes or extends can show as it was for that long; directory listings
+// are always read from the host. The cache is the kernel's rather than
+// sshfs's own because only the kernel's can be dropped on request
+// (refreshProjectFiles).
+func projectShareOptions(cache bool) string {
+	options := `slave,allow_other,cache=no,nodev,nosuid,uid="$(id -u)",gid="$(id -g)"`
+	if cache {
+		options += fmt.Sprintf(",entry_timeout=%d,attr_timeout=%d", projectFileCacheSeconds, projectFileCacheSeconds)
+	}
+	return options
+}
+
+// refreshProjectFiles makes the guest forget what it cached about shared
+// files, so that changes made on the host are visible at once. A file some
+// process holds open keeps its cached attributes until they expire.
+func (s *Server) refreshProjectFiles(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	ready, closing := s.ready, s.closing
+	s.mu.Unlock()
+	if closing || !ready {
+		http.Error(w, "环境尚未就绪，请稍后重试", 409)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	// Unused directory entries and inodes of every filesystem; nothing is lost.
+	if _, err := s.guest(ctx, "echo 2 | sudo -n tee /proc/sys/vm/drop_caches >/dev/null"); err != nil {
+		http.Error(w, "项目文件未能刷新，请稍后重试", 502)
+		return
+	}
+	jsonReply(w, map[string]bool{"refreshed": true})
+}
+
 type sharedProjects struct {
-	Paths []string `json:"paths"`
+	Paths  []string       `json:"paths"`
+	Groups []projectGroup `json:"groups,omitempty"`
 }
 
 type projectShareError struct {
@@ -323,8 +349,8 @@ func (s *Server) setProjectError(path string, err error) {
 	}
 }
 
-// The saved directory grants are the project list. Include the default and
-// current directories for profiles created before projects.json existed.
+// The saved directory grants are the project list. Retain a legacy current
+// selection as an ordinary project, without granting the transfer directory.
 func (s *Server) projectPaths() ([]string, error) {
 	var saved sharedProjects
 	if b, err := os.ReadFile(filepath.Join(s.profile, "projects.json")); err == nil {
@@ -334,7 +360,7 @@ func (s *Server) projectPaths() ([]string, error) {
 	} else if !os.IsNotExist(err) {
 		return nil, err
 	}
-	paths := []string{s.environmentDir()}
+	paths := []string{}
 	s.mu.Lock()
 	current := s.preferences.Workspace
 	s.mu.Unlock()
@@ -370,9 +396,6 @@ func (s *Server) projectWorkspace(path string) (string, error) {
 }
 
 func (s *Server) rememberSharedProject(path string) error {
-	if path == s.environmentDir() {
-		return nil
-	}
 	var saved sharedProjects
 	if b, err := os.ReadFile(filepath.Join(s.profile, "projects.json")); err == nil {
 		if err = json.Unmarshal(b, &saved); err != nil {
@@ -394,13 +417,10 @@ func (s *Server) restoreProjectShares() {
 	if b, err := os.ReadFile(filepath.Join(s.profile, "projects.json")); err == nil {
 		_ = json.Unmarshal(b, &saved)
 	}
-	if s.macosGuest != nil {
-		saved.Paths = append([]string{s.environmentDir()}, saved.Paths...)
-	}
 	s.mu.Lock()
 	current := s.preferences.Workspace
 	s.mu.Unlock()
-	if current != "" && current != s.environmentDir() {
+	if current != "" {
 		found := false
 		for _, p := range saved.Paths {
 			found = found || p == current

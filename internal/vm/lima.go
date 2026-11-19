@@ -22,9 +22,11 @@ import (
 	"github.com/coreos/go-semver/semver"
 	"github.com/mattn/go-isatty"
 	"github.com/sirupsen/logrus"
+	"github.com/sylvinus/agent-vm/internal/guestprofile"
 
 	"github.com/lima-vm/lima/v2/pkg/driver/external/server"
 	"github.com/lima-vm/lima/v2/pkg/driverutil"
+	"github.com/lima-vm/lima/v2/pkg/guestidentity"
 	"github.com/lima-vm/lima/v2/pkg/instance"
 	"github.com/lima-vm/lima/v2/pkg/limatmpl"
 	"github.com/lima-vm/lima/v2/pkg/limatype"
@@ -244,9 +246,6 @@ func fromLima(inst *limatype.Instance) *Instance {
 // exprs are the yq expressions of s, as limactl's edit flags make them.
 func exprs(s Settings) ([]string, error) {
 	var e []string
-	if s.macOSTimezone != "" {
-		e = append(e, ".timezone = "+strconv.Quote(s.macOSTimezone))
-	}
 	if s.CPUs > 0 {
 		e = append(e, fmt.Sprintf(".cpus = %d", s.CPUs))
 	}
@@ -267,7 +266,9 @@ func exprs(s Settings) ([]string, error) {
 		// default 127.0.0.1 leaves the listeners on 0.0.0.0 forwarded.
 		// Last, after the VM's own rules, which win (Lima takes the first
 		// rule that matches); one made earlier is replaced, not repeated.
-		e = append(e, fmt.Sprintf(`.portForwards = ((.portForwards // []) | map(select(((.guestPortRange // []) | join("-")) != "%d-%d"))) + [{"guestIP": "0.0.0.0", "guestIPMustBeZero": false, "guestPortRange": [%d, %d], "proto": "any", "ignore": true}]`, ephemeralPorts[0], ephemeralPorts[1], ephemeralPorts[0], ephemeralPorts[1]))
+		for _, ports := range [][2]int{ephemeralPorts, hostToolsPort} {
+			e = append(e, fmt.Sprintf(`.portForwards = ((.portForwards // []) | map(select(((.guestPortRange // []) | join("-")) != "%d-%d"))) + [{"guestIP": "0.0.0.0", "guestIPMustBeZero": false, "guestPortRange": [%d, %d], "proto": "any", "ignore": true}]`, ports[0], ports[1], ports[0], ports[1]))
+		}
 	}
 	if s.MountType != nil {
 		if *s.MountType == "" {
@@ -317,10 +318,27 @@ func (l *Lima) Create(ctx context.Context, name, template string, s Settings, lo
 		if err != nil {
 			return err
 		}
+		identity, err := guestidentity.New()
+		if err != nil {
+			return err
+		}
 		if path := os.Getenv(cage.ConfigEnv); path != "" {
 			cfg, err := cage.Load(path)
 			if err != nil {
 				return err
+			}
+			profile := cfg.GuestProfile
+			if profile != nil && profile.GPUBackend == "virgl" {
+				if runtime.GOOS != "linux" || tmpl.Config.OS != nil && *tmpl.Config.OS != limatype.LINUX {
+					return errors.New("VirGL requires a Linux host and Linux QEMU guest")
+				}
+				if err := CheckVirGLHost(); err != nil {
+					return err
+				}
+				e = append(e, `.vmType = "qemu"`, `.video.display = "egl-headless"`)
+			}
+			if profile != nil {
+				identity.Hostname = profile.Hostname
 			}
 			if template == "template:debian-13" {
 				images, err := cageDebianImages(tmpl.Config.Images)
@@ -334,16 +352,15 @@ func (l *Lima) Create(ctx context.Context, name, template string, s Settings, lo
 			}
 			tz, _ := json.Marshal(cfg.Timezone)
 			e = append(e, ".propagateProxyEnv = false", `.env = {"http_proxy":"","https_proxy":"","ftp_proxy":"","no_proxy":"","HTTP_PROXY":"","HTTPS_PROXY":"","FTP_PROXY":"","NO_PROXY":"","ALL_PROXY":"","all_proxy":""}`, ".timezone = "+string(tz))
-			if tmpl.Config.OS != nil && *tmpl.Config.OS == limatype.DARWIN {
-				e = append(e, `.user.name = "cageprovision"`, `.user.home = "/Users/cageprovision"`, `.user.comment = "Cage Provisioning"`, ".user.uid = 501", `.video.display = "offscreen"`)
-			} else {
-				e = append(e, `.user.name = "cage"`, `.user.home = "/home/cage"`, ".user.uid = 1000")
-			}
+			e = append(e, `.user.name = `+strconv.Quote(profile.WorkUser()), `.user.home = `+strconv.Quote(profile.WorkHomePath()), `.user.comment = ""`, ".user.uid = 1000")
 		}
-		if len(e) > 0 {
-			if tmpl.Bytes, err = yqutil.EvaluateExpression(ctx, yqutil.Join(e), tmpl.Bytes); err != nil {
-				return err
-			}
+		data, err := json.Marshal(identity)
+		if err != nil {
+			return err
+		}
+		e = append(e, ".guestIdentity = "+string(data))
+		if tmpl.Bytes, err = yqutil.EvaluateExpression(ctx, yqutil.Join(e), tmpl.Bytes); err != nil {
+			return err
 		}
 		_, err = instance.Create(ctx, name, tmpl.Bytes, false)
 		return err
@@ -387,7 +404,20 @@ func (l *Lima) Clone(ctx context.Context, from, to string) error {
 	if sock := filepath.Join(dir, filenames.LongestSock); len(sock) >= osutil.UnixPathMax {
 		return fmt.Errorf("%w: its sockets in %s would need %d characters, at most %d", ErrNameTooLong, filepath.Dir(dir), len(sock), osutil.UnixPathMax-1)
 	}
-	_, err = instance.CloneOrRename(ctx, inst, to, false)
+	identity, err := guestidentity.New()
+	if err != nil {
+		return err
+	}
+	if path := os.Getenv(cage.ConfigEnv); path != "" {
+		profile, e := guestprofile.Load(filepath.Dir(path))
+		if e != nil {
+			return e
+		}
+		if profile != nil {
+			identity.Hostname = profile.Hostname
+		}
+	}
+	_, err = instance.CloneWithIdentity(ctx, inst, to, identity)
 	return err
 }
 
@@ -497,6 +527,17 @@ func sharesKept(want []Mount, got []limatype.Mount) error {
 var logMu sync.Mutex
 
 // withLog runs fn with Lima's logrus output going to log.
+// Until the guest's SSH server is up, the hostagent reports every refused
+// forwarding attempt. They remain in ha.stderr.log but are not progress.
+type quietBootLog struct{ io.Writer }
+
+func (q quietBootLog) Write(p []byte) (int, error) {
+	if bytes.Contains(p, []byte("tcpproxy: for incoming conn")) {
+		return len(p), nil
+	}
+	return q.Writer.Write(p)
+}
+
 func withLog(log io.Writer, fn func() error) error {
 	logMu.Lock()
 	defer logMu.Unlock()
@@ -530,21 +571,6 @@ func (l *Lima) Start(ctx context.Context, name string, log io.Writer) error {
 			return loadErr
 		}
 		settings.MemoryGiB, settings.CPUs, err = allocation.Limits()
-		if *inst.Config.OS == limatype.DARWIN && err == nil {
-			cfg, loadErr := cage.Load(configPath)
-			if loadErr != nil {
-				return loadErr
-			}
-			settings.macOSTimezone = cfg.Timezone
-			requirements, requirementErr := ReadMacOSResourceRequirements(inst.Dir)
-			if requirementErr != nil {
-				return requirementErr
-			}
-			settings.MemoryGiB, settings.CPUs, err = requirements.Limits(allocation)
-			if err == nil {
-				err = saveMacOSResourceRequirements(inst.Dir, requirements)
-			}
-		}
 		if err != nil {
 			return err
 		}
@@ -562,15 +588,14 @@ func (l *Lima) Start(ctx context.Context, name string, log io.Writer) error {
 		return err
 	}
 	var guestAgent string
-	// Lima always needs the Darwin helper for first boot. Windows and FreeBSD
-	// have no guest agent, and Linux plain mode works without one.
-	if *inst.Config.OS == limatype.DARWIN || (*inst.Config.OS == limatype.LINUX && !*inst.Config.Plain) {
+	// Linux plain mode works without a guest agent.
+	if *inst.Config.OS == limatype.LINUX && !*inst.Config.Plain {
 		guestAgent, err = share.GuestAgent(*inst.Config.OS, *inst.Config.Arch)
 		if err != nil {
 			return err
 		}
 	}
-	return withLog(log, func() error {
+	return withLog(quietBootLog{log}, func() error {
 		if err := reconcile.Reconcile(ctx, name); err != nil {
 			return err
 		}

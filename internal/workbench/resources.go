@@ -8,22 +8,10 @@ import (
 	"github.com/docker/go-units"
 	"github.com/sylvinus/agent-vm/internal/cage"
 	"github.com/sylvinus/agent-vm/internal/containerenv"
-	"github.com/sylvinus/agent-vm/internal/guestos"
 	"go.yaml.in/yaml/v3"
 )
 
 func (s *Server) instanceDir() string {
-	if s.windowsGuest != nil {
-		// The profile owns storage paths, while the server retains the bound
-		// VM/user identity across a migration. Relay calls load this file too.
-		if current, err := guestos.LoadWindowsProfile(s.profile); err == nil && current != nil && current.VMID == s.windowsGuest.VMID && current.GUIUserSID == s.windowsGuest.GUIUserSID {
-			return current.InstanceDirectory
-		}
-		return s.windowsGuest.InstanceDirectory
-	}
-	if s.macosGuest != nil {
-		return filepath.Join(s.profile, "state", "lima", s.macosGuest.Instance)
-	}
 	if containerenv.Configured(s.profile) {
 		return filepath.Join(s.profile, "state", "container", "environment")
 	}
@@ -31,14 +19,6 @@ func (s *Server) instanceDir() string {
 }
 
 func (s *Server) resourceStatus(w http.ResponseWriter, r *http.Request) {
-	if s.windowsGuest != nil {
-		s.windowsResourceStatus(w, r)
-		return
-	}
-	if s.macosGuest != nil {
-		s.macOSResourceStatus(w, r)
-		return
-	}
 	if containerenv.Configured(s.profile) {
 		environment, err := containerenv.Load(s.profile)
 		if err != nil {
@@ -89,7 +69,7 @@ func (s *Server) resourceStatus(w http.ResponseWriter, r *http.Request) {
 		"memory_gib": memory, "cpus": cpus,
 		"max_memory_gib": maxMemory, "max_cpus": maxCPUs,
 		"resource_error":           allocationError,
-		"recommended_memory_bytes": uint64(maxMemory) << 30, "recommended_cpus": maxCPUs,
+		"recommended_memory_bytes": uint64(cage.AutomaticMemoryGiB(maxMemory)) << 30, "recommended_cpus": maxCPUs,
 		"configured_memory_bytes": maximum, "configured_cpus": configured.CPUs,
 		"restart_required": running && (maximum != int64(memory)<<30 || configured.CPUs != cpus || observation == nil),
 		"observation":      observation,
@@ -97,10 +77,6 @@ func (s *Server) resourceStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) applyResources(w http.ResponseWriter, r *http.Request) {
-	if s.windowsGuest != nil {
-		s.applyWindowsResources(w, r)
-		return
-	}
 	var input struct {
 		Allocation *cage.ResourceAllocation `json:"allocation"`
 	}
@@ -112,7 +88,7 @@ func (s *Server) applyResources(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if input.Allocation != nil {
-		if _, _, err := s.resourceAllocationLimits(*input.Allocation); err != nil {
+		if _, _, err := input.Allocation.Limits(); err != nil {
 			requestError(w, err)
 			return
 		}
@@ -134,7 +110,7 @@ func (s *Server) applyResources(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
-		if _, _, err := s.resourceAllocationLimits(allocation); err != nil {
+		if _, _, err := allocation.Limits(); err != nil {
 			return err
 		}
 		if s.vmRunning() {
@@ -157,15 +133,11 @@ func (s *Server) checkNetworkIfWanted() error {
 	s.mu.Lock()
 	paused := s.networkPaused
 	s.mu.Unlock()
-	if paused || s.macSetupPending() {
+	if paused {
 		return nil
 	}
 	var err error
-	if s.macosGuest != nil {
-		err = s.checkMacOSNetwork()
-	} else {
-		err = s.runSafetyCheck()
-	}
+	err = s.runSafetyCheck()
 	if err != nil {
 		return networkCheckError{err}
 	}

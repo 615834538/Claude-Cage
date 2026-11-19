@@ -7,9 +7,11 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sylvinus/agent-vm/internal/containerenv"
+	"github.com/sylvinus/agent-vm/internal/diagnostics"
 )
 
 func (s *Server) vnc(w http.ResponseWriter, r *http.Request) {
@@ -18,10 +20,6 @@ func (s *Server) vnc(w http.ResponseWriter, r *http.Request) {
 	s.mu.Unlock()
 	if !ready {
 		http.Error(w, "环境尚未就绪", 409)
-		return
-	}
-	if s.macosGuest != nil || s.windowsGuest != nil {
-		s.nativeBrowserVNC(w, r)
 		return
 	}
 	release, err := s.browserViews.acquire(s.changeBrowserVisibility)
@@ -66,7 +64,11 @@ func (s *Server) streamVNC(w http.ResponseWriter, r *http.Request, reader io.Rea
 	closeStreams := func() { _ = ws.Close(); closeRemote() }
 	stop := context.AfterFunc(r.Context(), closeStreams)
 	done := make(chan struct{})
-	input := make(chan []byte, 4)
+	// A menu capture can briefly pause the guest while pointer events continue.
+	// Bound both count and bytes; four tiny mouse packets must not tear down a
+	// healthy display. No protocol bytes are discarded or reordered.
+	input := make(chan []byte, 64)
+	var queuedBytes atomic.Int64
 	written := make(chan struct{})
 	defer func() {
 		stop()
@@ -85,6 +87,7 @@ func (s *Server) streamVNC(w http.ResponseWriter, r *http.Request, reader io.Rea
 			if _, err := writer.Write(data); err != nil {
 				return
 			}
+			queuedBytes.Add(-int64(len(data)))
 		}
 	}()
 	go func() {
@@ -110,6 +113,10 @@ func (s *Server) streamVNC(w http.ResponseWriter, r *http.Request, reader io.Rea
 			return
 		}
 		if kind == websocket.BinaryMessage {
+			if queuedBytes.Add(int64(len(b))) > 8<<20 {
+				diagnostics.Log("warn", "display-transport", "input byte limit reached")
+				return
+			}
 			// Allow short input bursts to drain. A stalled guest still has a
 			// bounded queue and cannot hide a client disconnect indefinitely.
 			timer := time.NewTimer(time.Second)
@@ -120,6 +127,7 @@ func (s *Server) streamVNC(w http.ResponseWriter, r *http.Request, reader io.Rea
 				timer.Stop()
 				return
 			case <-timer.C:
+				diagnostics.Log("warn", "display-transport", "input stalled: bounded queue did not drain")
 				return
 			}
 		}

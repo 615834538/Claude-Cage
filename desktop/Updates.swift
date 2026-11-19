@@ -7,13 +7,13 @@ let cageUpdateBundleID = "io.github.lee-xeo.claude-cage"
 
 enum CageProfile {
     static var clientOnly: Bool { Bundle.main.object(forInfoDictionaryKey: "CageClientOnly") as? Bool == true }
-    static var macGuestTrial: Bool { Bundle.main.bundleIdentifier == cageUpdateBundleID + ".macos-trial" }
+    static var intelMacTest: Bool { Bundle.main.bundleIdentifier == cageUpdateBundleID + ".intel-macos-test" }
     static func configURL() -> URL {
-        if macGuestTrial {
-            return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude-cage/macos-trial/config.json")
-        }
         if let path = ProcessInfo.processInfo.environment["CLAUDE_CAGE_CONFIG"], !path.isEmpty {
             return URL(fileURLWithPath: path).standardizedFileURL
+        }
+        if intelMacTest {
+            return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude-cage-intel-test/config.json")
         }
         return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(clientOnly ? ".claude-cage/client/config.json" : ".claude-cage/config.json")
     }
@@ -174,7 +174,12 @@ enum CageUpdateFiles {
         return actual
     }
     static func verifyArchitecture(_ executable: URL, validation: CageUpdateValidation? = nil) throws {
-        _ = try run("/usr/bin/lipo", [executable.path, "-verify_arch", "arm64"], validation: validation)
+        #if arch(x86_64)
+        let architecture = "x86_64"
+        #else
+        let architecture = "arm64"
+        #endif
+        _ = try run("/usr/bin/lipo", [executable.path, "-verify_arch", architecture], validation: validation)
     }
     static func verifyApp(_ url: URL, version: String, team: String, gatekeeper: Bool = true, validation: CageUpdateValidation? = nil) throws {
         try validation?.checkCancellation()
@@ -273,9 +278,9 @@ final class CageAppUpdater {
         }
     }
     func handle(_ operation: String) -> [String: Any] {
-        if Bundle(url: bundleURL)?.bundleIdentifier == cageUpdateBundleID + ".macos-trial" {
+        if Bundle(url: bundleURL)?.bundleIdentifier == cageUpdateBundleID + ".intel-macos-test" {
             if state["phase"] as? String != "manual" {
-                change(["phase": "manual", "message": "macOS 客机试用版通过本机安装更新。"])
+                change(["phase": "manual", "message": "Intel 测试版通过独立测试包更新。"])
             }
             return state
         }
@@ -285,6 +290,15 @@ final class CageAppUpdater {
             }
             return state
         }
+        #if arch(x86_64)
+        // The current public desktop update channel supplies ARM64 packages.
+        if Bundle(url: bundleURL)?.bundleIdentifier == cageUpdateBundleID {
+            if state["phase"] as? String != "manual" {
+                change(["phase": "manual", "message": "Intel 开发构建通过独立安装包更新。"])
+            }
+            return state
+        }
+        #endif
         let busy = ["checking", "downloading", "downloaded", "verifying", "installing"].contains(state["phase"] as? String ?? "")
         if ["check", "install"].contains(operation), let value = state["retryAt"] as? String,
            let date = ISO8601DateFormatter().date(from: value), date > Date() { return state }
@@ -292,7 +306,12 @@ final class CageAppUpdater {
         case "status": break
         case "check": if !busy && worker == nil && validationTask == nil && installer == nil && prepared == nil { startDownload(checkOnly: true) }
         case "install":
-            if !busy && worker == nil && validationTask == nil && installer == nil { if prepared != nil { beginInstallation() } else { startDownload(checkOnly: false) } }
+            if !busy && worker == nil && validationTask == nil && installer == nil {
+                if prepared != nil { change(["phase": "ready", "message": "更新已下载，请保存工作并手动停止环境后安装", "retryable": true]) }
+                else { startDownload(checkOnly: false) }
+            }
+        case "complete":
+            if !busy && worker == nil && validationTask == nil && installer == nil && prepared != nil { beginInstallation() }
         case "cancel":
             if installer == nil && state["phase"] as? String != "installing" { generation += 1; if let worker { CageUpdateFiles.stop(worker) }; validationTask?.cancel(); change(["phase": prepared == nil ? "available" : "ready", "message": "更新已暂停，可稍后继续", "retryable": true]) }
         default: break
@@ -348,7 +367,7 @@ final class CageAppUpdater {
     private var cage: URL { bundleURL.appendingPathComponent("Contents/Resources/cage") }
     private func startDownload(checkOnly: Bool) {
         generation += 1; let operation = generation
-        change(["phase": "checking", "message": "正在通过所选代理检查更新", "receivedBytes": 0, "totalBytes": 0, "retryable": false, "retryAt": ""])
+        change(["phase": "checking", "message": "正在检查更新，优先使用主机网络", "receivedBytes": 0, "totalBytes": 0, "retryable": false, "retryAt": ""])
         let process = Process(); process.executableURL = cage; process.arguments = ["app-update", checkOnly ? "check" : "download"]
         let pipe = Pipe(); process.standardOutput = pipe; process.standardError = FileHandle.nullDevice
         worker = process
@@ -405,8 +424,8 @@ final class CageAppUpdater {
                 DispatchQueue.main.async {
                     if self.generation != operation { try? FileManager.default.removeItem(at: directory); return }
                     self.prepared = (directory, app, version, team)
-                    self.change(["phase": "ready", "message": "更新已下载并验证", "retryable": true])
-                    self.beginInstallation()
+                    if self.validationTask === task { self.validationTask = nil }
+                    self.change(["phase": "ready", "message": "更新已下载，请保存工作并手动停止环境后安装", "retryable": true])
                 }
             } catch {
                 try? FileManager.default.removeItem(at: directory)
@@ -458,7 +477,7 @@ final class CageAppUpdater {
             let response = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
             DispatchQueue.main.async {
                 guard self.installer === process, !self.waitingForTermination else { return }
-                if response?["status"] as? String == "ready" { self.prepareEnvironment(stop: false) }
+                if response?["status"] as? String == "ready" { self.prepareEnvironment() }
                 else { self.abortInstaller(); self.failure(response?["message"] as? String ?? "安全安装准备失败，原应用已保留") }
             }
         }
@@ -474,11 +493,11 @@ final class CageAppUpdater {
             }
         }
     }
-    private func prepareEnvironment(stop: Bool) {
-        change(["phase": "installing", "message": stop ? "正在停止环境，准备安装" : "正在检查环境是否可安全更新"])
+    private func prepareEnvironment() {
+        change(["phase": "installing", "message": "正在确认环境已停止"])
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                let arguments = ["prepare-update"] + (stop ? ["--stop"] : []) + ["--json"]
+                let arguments = ["prepare-update", "--json"]
                 let process = Process(); process.executableURL = self.cage; process.arguments = arguments
                 let output = Pipe(); process.standardOutput = output; process.standardError = FileHandle.nullDevice
                 try process.run()
@@ -498,8 +517,8 @@ final class CageAppUpdater {
                             self.change(["phase": "installing", "message": "正在安装并重启 Cage"])
                             self.quit()
                         } catch { self.abortInstaller(); self.failure("无法开始安装，原应用已保留"); self.reconnect() }
-                    case "stop_required" where !stop:
-                        self.prepareEnvironment(stop: true)
+                    case "stop_required":
+                        self.abortInstaller(); self.failure("环境仍在运行，请在工作台停止环境后重试安装")
                     default:
                         self.abortInstaller(); self.failure(result["message"] as? String ?? "环境未能安全停止，更新未安装")
                     }

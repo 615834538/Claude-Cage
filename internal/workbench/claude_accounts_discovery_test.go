@@ -49,15 +49,15 @@ func TestClaudeDefaultDiscoveryJoinAndLiveIdentity(t *testing.T) {
 			t.Fatalf("join got %d, want %d (%s)", w.Code, status, w.Body)
 		}
 	}
-	if v := panel(); v.DetectionStatus != "ready" || v.Detected == nil || v.Detected.Email != a.Email || len(v.Accounts) != 0 {
+	if v := panel(); v.DetectionStatus != "ready" || len(v.Accounts) != 1 || v.Accounts[0].Email != a.Email || v.Accounts[0].Enabled {
 		t.Fatal(v)
 	}
 	_ = panel()
 	if probes != 1 {
 		t.Fatal("panel did not cache initial probe", probes)
 	}
-	if _, err := os.Stat(filepath.Join(s.profile, "claude-accounts.json")); !os.IsNotExist(err) {
-		t.Fatal("discovery enrolled or wrote an identity")
+	if _, err := os.Stat(filepath.Join(s.profile, "claude-accounts.json")); err != nil {
+		t.Fatal("discovered identity was not archived")
 	}
 	current = b
 	join(a, 409)
@@ -71,7 +71,7 @@ func TestClaudeDefaultDiscoveryJoinAndLiveIdentity(t *testing.T) {
 	if _, err = s.selectClaudeAccount("", false, "/p"); err == nil {
 		t.Fatal("selected a default identity that was no longer present")
 	}
-	if v := panel(); v.Detected == nil || v.Detected.Identity != b.subject() || len(v.Accounts) != 1 || v.Accounts[0].Status != "changed" {
+	if v := panel(); len(v.Accounts) != 2 || v.Accounts[1].Email != b.Email || v.Accounts[1].Enabled || v.Accounts[0].Status != "changed" {
 		t.Fatal(v)
 	}
 	join(b, 200)
@@ -161,7 +161,7 @@ func TestClaudeOneStepLoginSurvivesLockAndRestart(t *testing.T) {
 		return current, nil
 	}
 	v, _, err := restarted.claudePanelView(context.Background())
-	if err != nil || len(v.Accounts) != 1 || v.Accounts[0].ID != login.ID || v.Accounts[0].Label != current.Email || !v.Accounts[0].Enabled || v.Accounts[0].Status != "ready" || v.Accounts[0].Source != "managed" {
+	if err != nil || len(v.Accounts) != 1 || v.Accounts[0].ID != login.ID || v.Accounts[0].Label != current.Email || v.Accounts[0].Enabled || v.Accounts[0].Status != "ready" || v.Accounts[0].Source != "managed" {
 		t.Fatalf("successful login was not recovered: %+v %v", v, err)
 	}
 	list, _ = restarted.loadClaudeAccounts()
@@ -193,6 +193,7 @@ func TestClaudeUnsuccessfulLoginAndDuplicateStayOutsidePool(t *testing.T) {
 		t.Fatalf("cancelled login became a profile: %+v", list)
 	}
 	current = claudeGuestSnapshot{LoggedIn: true, Email: "same@example.org"}
+	s.claudeAccounts.recoverLogin = func(context.Context, string, string, string) (claudeGuestSnapshot, error) { return current, nil }
 	original := strings.Repeat("1", 24)
 	list.Accounts = append(list.Accounts, claudeAccount{ID: original, Source: "managed", Email: current.Email, Enabled: false, Status: "ready"})
 	if err = s.saveClaudeAccounts(list); err != nil {
@@ -208,6 +209,171 @@ func TestClaudeUnsuccessfulLoginAndDuplicateStayOutsidePool(t *testing.T) {
 	list, _ = s.loadClaudeAccounts()
 	if list.PendingLogin != "" || len(list.Accounts) != 1 || list.Accounts[0].Enabled || list.Accounts[0].ID != original {
 		t.Fatal("duplicate login altered membership", list)
+	}
+}
+
+func TestClaudeDuplicateLoginRecoversOriginalManagedProfile(t *testing.T) {
+	for _, status := range []string{"signed_out", "changed", "ready"} {
+		t.Run(status, func(t *testing.T) {
+			s := testServer(t)
+			ctx := context.Background()
+			id, guest := strings.Repeat("a", 24), strings.Repeat("b", 24)
+			reading := claudeGuestSnapshot{LoggedIn: true, Email: "same@example.org", Organization: "work", Plan: "pro"}
+			list := claudeAccountList{Accounts: []claudeAccount{{ID: id, ProfileID: guest, Source: "managed", Label: "工作账号", HandoffGroup: "papers", Email: reading.Email, Organization: reading.Organization, Status: status}}}
+			if err := s.saveClaudeAccounts(list); err != nil {
+				t.Fatal(err)
+			}
+			login, err := s.selectClaudeAccount("", true, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var restored bool
+			s.claudeAccounts.probe = func(_ context.Context, profile string) (claudeGuestSnapshot, error) {
+				if profile == login.GuestID || profile == guest && restored {
+					return reading, nil
+				}
+				return claudeGuestSnapshot{}, nil
+			}
+			s.claudeAccounts.recoverLogin = func(_ context.Context, target, source, subject string) (claudeGuestSnapshot, error) {
+				if target != guest || source != login.GuestID || subject != reading.subject() {
+					t.Fatalf("wrong recovery destination: %s %s %s", target, source, subject)
+				}
+				restored = true
+				return reading, nil
+			}
+			if err := s.confirmClaudeLogin(ctx, login.ID); err != nil {
+				t.Fatal(err)
+			}
+			got, err := s.loadClaudeAccounts()
+			if err != nil || len(got.Accounts) != 1 || got.PendingLogin != "" || !restored {
+				t.Fatalf("successful login was discarded: %+v %v", got, err)
+			}
+			a := got.Accounts[0]
+			if a.ID != id || a.guestID() != guest || a.Status != "ready" || a.Enabled || a.Label != "工作账号" || a.HandoffGroup != "papers" {
+				t.Fatalf("recovery changed account settings or conversation directory: %+v", a)
+			}
+			// A controller restart and a future allocation must still use the
+			// original profile, so existing conversation bindings remain valid.
+			restarted := &Server{profile: s.profile, account: s.account}
+			restarted.claudeAccounts.probe = s.claudeAccounts.probe
+			if err := restarted.refreshClaudeAccount(ctx, id); err != nil {
+				t.Fatal(err)
+			}
+			got, _ = restarted.loadClaudeAccounts()
+			got.Accounts[0].Enabled = true
+			if err := restarted.saveClaudeAccounts(got); err != nil {
+				t.Fatal(err)
+			}
+			choice, err := restarted.allocateClaudeAccount(got, "", func(context.Context, []string) (map[string]claudeGuestQuota, error) { return nil, nil })
+			if err != nil || choice.ID != id || choice.GuestID != guest || choice.Subject != reading.subject() {
+				t.Fatal(choice, err)
+			}
+		})
+	}
+}
+
+func TestClaudeDuplicateLoginRecoveryFailureKeepsOriginalBinding(t *testing.T) {
+	for _, scenario := range []string{"unsupported", "wrong_identity", "locked", "cancelled"} {
+		t.Run(scenario, func(t *testing.T) {
+			s := testServer(t)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			id := strings.Repeat("a", 24)
+			reading := claudeGuestSnapshot{LoggedIn: true, Email: "same@example.org", Organization: "work"}
+			list := claudeAccountList{Accounts: []claudeAccount{{ID: id, Source: "managed", Email: reading.Email, Organization: reading.Organization, Status: "signed_out", Enabled: true}}}
+			if err := s.saveClaudeAccounts(list); err != nil {
+				t.Fatal(err)
+			}
+			login, err := s.selectClaudeAccount("", true, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			s.claudeAccounts.probe = func(context.Context, string) (claudeGuestSnapshot, error) { return reading, nil }
+			s.claudeAccounts.recoverLogin = func(context.Context, string, string, string) (claudeGuestSnapshot, error) {
+				switch scenario {
+				case "wrong_identity":
+					return claudeGuestSnapshot{LoggedIn: true, Email: "other@example.org", Organization: "work"}, nil
+				case "locked":
+					s.account.lock()
+					return reading, nil
+				case "cancelled":
+					cancel()
+					return reading, nil
+				default:
+					return claudeGuestSnapshot{}, errors.New("keychain-backed login")
+				}
+			}
+			err = s.confirmClaudeLogin(ctx, login.ID)
+			if (err != nil) != (scenario == "locked" || scenario == "cancelled") {
+				t.Fatal(err)
+			}
+			got, err := s.loadClaudeAccounts()
+			if err != nil || len(got.Accounts) != 1 || got.Accounts[0].Status != "signed_out" || got.Accounts[0].guestID() != id {
+				t.Fatal(got, err)
+			}
+			if scenario == "locked" || scenario == "cancelled" {
+				if got.PendingLogin != login.ID {
+					t.Fatal("locked login was enrolled")
+				}
+			} else if !strings.Contains(s.claudeAccounts.loginNotice, "重新登录") {
+				t.Fatal("failed recovery gave no actionable login instruction")
+			}
+		})
+	}
+}
+
+func TestClaudeDuplicateLoginRecoveryKeepsTerminalExclusion(t *testing.T) {
+	for _, scenario := range []string{"running", "login", "operation_busy", "completed", "other_account", "mobile_running", "mobile_completed", "mobile_other_account"} {
+		t.Run(scenario, func(t *testing.T) {
+			s := testServer(t)
+			id := strings.Repeat("a", 24)
+			reading := claudeGuestSnapshot{LoggedIn: true, Email: "same@example.org", Organization: "work"}
+			list := claudeAccountList{Accounts: []claudeAccount{{ID: id, Source: "managed", Email: reading.Email, Organization: reading.Organization, Status: "signed_out"}}}
+			if err := s.saveClaudeAccounts(list); err != nil {
+				t.Fatal(err)
+			}
+			login, err := s.selectClaudeAccount("", true, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			s.claudeAccounts.probe = func(context.Context, string) (claudeGuestSnapshot, error) { return reading, nil }
+			var restored bool
+			s.claudeAccounts.recoverLogin = func(context.Context, string, string, string) (claudeGuestSnapshot, error) {
+				restored = true
+				return reading, nil
+			}
+			session := &terminalSession{kind: "claude", claudeAccountID: id, done: make(chan struct{})}
+			switch scenario {
+			case "login":
+				session.kind = "claude-login"
+			case "completed":
+				close(session.done)
+			case "other_account":
+				session.claudeAccountID = strings.Repeat("b", 24)
+			case "operation_busy":
+				close(session.done)
+				s.op.Lock()
+				defer s.op.Unlock()
+			case "mobile_running", "mobile_completed", "mobile_other_account":
+				close(session.done)
+				run := &mobileRun{record: &mobileRecord{Account: claudeSelection{ID: id}}, cancel: func() {}, done: session.done}
+				if scenario == "mobile_completed" {
+					run.cancel = nil
+				} else if scenario == "mobile_other_account" {
+					run.record.Account.ID = strings.Repeat("b", 24)
+				}
+				s.mobileCLI.active = map[string]*mobileRun{"mobile": run}
+			}
+			s.terminals.sessions = map[string]*terminalSession{"original": session}
+			if err := s.confirmClaudeLogin(context.Background(), login.ID); err != nil {
+				t.Fatal(err)
+			}
+			allowed := scenario == "completed" || scenario == "other_account" || scenario == "mobile_completed" || scenario == "mobile_other_account"
+			got, err := s.loadClaudeAccounts()
+			if err != nil || restored != allowed || (got.Accounts[0].Status == "ready") != allowed || got.Accounts[0].guestID() != id {
+				t.Fatalf("original terminal exclusion changed: restored=%v, %+v, %v", restored, got, err)
+			}
+		})
 	}
 }
 

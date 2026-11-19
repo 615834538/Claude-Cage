@@ -3,6 +3,7 @@ package workbench
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/sylvinus/agent-vm/internal/cage"
 	"github.com/sylvinus/agent-vm/internal/managedproxy"
+	"github.com/sylvinus/agent-vm/internal/usererror"
 )
 
 var (
@@ -99,12 +101,15 @@ func (s *Server) proxyStatus(w http.ResponseWriter, r *http.Request) {
 	jsonReply(w, map[string]any{"route": route, "route_error": routeError, "sources": sources, "selected": p.Selected, "port": p.Port, "running": running, "active": active, "state": state, "state_label": label, "network_open": state == "ready", "core_available": coreErr == nil, "version": version.Version, "revision": p.Revision, "bootstrap_dns": strings.Join(managedproxy.BootstrapDNSURLs(), "、"), "udp_blocked": true, "ipv6_blocked": true})
 }
 func (s *Server) proxyMutation(w http.ResponseWriter, r *http.Request) {
+	if r.PathValue("action") == "import-local" && !s.requireLocalConfigAccess(w, r) {
+		return
+	}
 	var input proxyInput
 	if !readJSON(w, r, &input, 12<<20) {
 		return
 	}
 	action := r.PathValue("action")
-	allowed := map[string]bool{"import": true, "refresh": true, "edit": true, "delete": true, "select": true, "restart": true, "stop": true, "route": true}
+	allowed := map[string]bool{"import": true, "import-local": true, "refresh": true, "edit": true, "delete": true, "select": true, "restart": true, "stop": true, "route": true}
 	if !allowed[action] {
 		http.NotFound(w, r)
 		return
@@ -146,6 +151,14 @@ func (s *Server) changeProxy(action string, in proxyInput, resumeVersion *uint64
 		return err
 	}
 	ctx := s.operationContext()
+	if action == "import-local" {
+		// Resolve the content-bound handle again inside the serialized job.
+		// Never accept a path, subscription URL, or raw node secrets from the UI.
+		in, err = s.localProxyConfig(in.ID)
+		if err != nil {
+			return err
+		}
+	}
 	if action == "stop" {
 		if err = s.closeProxyGate("内置代理已停止，外网保持关闭"); err != nil {
 			return err
@@ -167,10 +180,10 @@ func (s *Server) changeProxy(action string, in proxyInput, resumeVersion *uint64
 			if _, ok := p.Find(in.NodeID); !ok {
 				return errors.New("所选节点已不存在，请刷新列表")
 			}
+			// select 表示单节点出口：替换（而非改写）现有链，避免把所选节点
+			// 追加到已含该节点的链里造成重复；需要多跳请使用 route。
 			p.Selected = in.NodeID
-			if len(p.Chain) > 0 {
-				p.Chain[len(p.Chain)-1] = in.NodeID
-			}
+			p.Chain = nil
 		}
 		if in.Port != 0 {
 			if in.Port < 1024 || in.Port > 65535 {
@@ -178,7 +191,7 @@ func (s *Server) changeProxy(action string, in proxyInput, resumeVersion *uint64
 			}
 			p.Port = in.Port
 		}
-		return s.applyProxy(p, cfg, resumeVersion)
+		return s.applyProxy(p, cfg, resumeVersion, action != "restart")
 	}
 	index := -1
 	for i, src := range p.Sources {
@@ -233,9 +246,11 @@ func (s *Server) changeProxy(action string, in proxyInput, resumeVersion *uint64
 			in.Name, in.URL, in.Interval = src.Name, src.URL, src.Interval
 		} else {
 			data = []byte(in.Content)
-			in.ID = ""
+			if action != "import-local" {
+				in.ID = ""
+			}
 		}
-		if in.URL != "" {
+		if in.URL != "" && action != "import-local" {
 			s.setMessage("正在下载节点订阅…")
 			client, e := s.subscriptionClient(in.HostDownload)
 			if e != nil {
@@ -282,7 +297,7 @@ func (s *Server) changeProxy(action string, in proxyInput, resumeVersion *uint64
 			}
 			return p.Save(s.profile)
 		}
-		return s.applyProxy(p, cfg, resumeVersion)
+		return s.applyProxy(p, cfg, resumeVersion, false)
 	}
 	return p.Save(s.profile)
 }
@@ -314,10 +329,10 @@ func (s *Server) closeProxyGate(reason string) error {
 func (s *Server) activateProxy(p managedproxy.Store, old cage.Config) (returned error) {
 	// The explicit start operation already requested networking. A pause made
 	// after that request must survive any core recovery within the start.
-	return s.applyProxy(p, old, nil)
+	return s.applyProxy(p, old, nil, false)
 }
 
-func (s *Server) applyProxy(p managedproxy.Store, old cage.Config, resumeVersion *uint64) (returned error) {
+func (s *Server) applyProxy(p managedproxy.Store, old cage.Config, resumeVersion *uint64, selectExit bool) (returned error) {
 	ctx := s.operationContext()
 	previous, err := managedproxy.Load(s.profile)
 	if err != nil {
@@ -347,13 +362,16 @@ func (s *Server) applyProxy(p managedproxy.Store, old cage.Config, resumeVersion
 		if returned != nil && !committed {
 			_ = previous.Save(s.profile)
 			_ = writePrivate(s.configPath, old)
+		} else if returned != nil && !errors.Is(returned, context.Canceled) {
+			returned = fmt.Errorf("代理节点已保存，外网尚未恢复；请重新检查联网条件：%w", usererror.Display("恢复联网", returned, "请重新检测；仍失败时导出诊断包。"))
 		}
 	}()
 	p.Revision = managedproxy.Token()
+	cfg := old
+	cfg.ExitPolicy = selectProxyExitPolicy(&p, previous, old.ExitPolicy, selectExit)
 	if err := p.Save(s.profile); err != nil {
 		return err
 	}
-	cfg := old
 	cfg.ProxyURL = p.Endpoint()
 	cfg.ProxyRevision = p.Revision
 	if err := writePrivate(s.configPath, cfg); err != nil {
@@ -363,6 +381,7 @@ func (s *Server) applyProxy(p managedproxy.Store, old cage.Config, resumeVersion
 		return err
 	}
 	committed = true
+	s.jobs.execution().settingsSaved()
 	if resumeVersion != nil {
 		if err := s.resumeNetworkIntentAt(*resumeVersion); err != nil {
 			return err

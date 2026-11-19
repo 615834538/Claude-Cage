@@ -67,6 +67,12 @@ func TestCageDebianMirrors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if *instance.Config.User.Name != "cage" || *instance.Config.User.Home != "/home/cage" {
+		t.Fatal("recreating a base for a legacy environment changed its Linux account")
+	}
+	if _, err := os.Stat(filepath.Join(filepath.Dir(config), "guest-profile.json")); !os.IsNotExist(err) {
+		t.Fatalf("base creation must not assign a new profile to a legacy environment: %v", err)
+	}
 	earlyAPT := false
 	for _, step := range instance.Config.Provision {
 		if step.Mode == limatype.ProvisionModeDependency && step.Script != nil && *step.Script == cage.DebianPrepareScript {
@@ -292,7 +298,7 @@ func TestLimaEphemeralPorts(t *testing.T) {
 	if err != nil || inst.Config == nil {
 		t.Fatalf("inspect: %v %v", err, inst.Errors)
 	}
-	if n := len(inst.Config.PortForwards); n != 2 || inst.Config.PortForwards[0].GuestPort != 40000 {
+	if n := len(inst.Config.PortForwards); n != 3 || inst.Config.PortForwards[0].GuestPort != 40000 {
 		t.Errorf("port forwards: %+v", inst.Config.PortForwards)
 	}
 	def := limatype.PortForward{}
@@ -307,6 +313,7 @@ func TestLimaEphemeralPorts(t *testing.T) {
 		{Protocol: "tcp", Ip: "0.0.0.0", Port: 45000},
 		{Protocol: "tcp", Ip: "::", Port: 60999},
 		{Protocol: "udp", Ip: "0.0.0.0", Port: 50000},
+		{Protocol: "tcp", Ip: "127.0.0.1", Port: 18962},
 	} {
 		got = nil
 		fw.OnEvent(cctx, nil, &api.Event{AddedLocalPorts: []*api.IPPort{p}})
@@ -325,7 +332,7 @@ func TestLimaEphemeralPorts(t *testing.T) {
 	y := filepath.Join(inst.Dir, "lima.yaml")
 	before, _ := os.ReadFile(y)
 	l.Start(ctx, "p-12345678", io.Discard)
-	if after, _ := os.ReadFile(y); string(after) != string(before) || strings.Count(string(after), "ignore: true") != 1 {
+	if after, _ := os.ReadFile(y); string(after) != string(before) || strings.Count(string(after), "ignore: true") != 2 {
 		t.Errorf("rewritten:\n%s", after)
 	}
 }

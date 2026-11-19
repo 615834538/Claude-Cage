@@ -12,7 +12,6 @@ import (
 
 	"github.com/sylvinus/agent-vm/internal/cage"
 	"github.com/sylvinus/agent-vm/internal/containerenv"
-	"github.com/sylvinus/agent-vm/internal/guestos"
 	"github.com/sylvinus/agent-vm/internal/managedproxy"
 	"github.com/sylvinus/agent-vm/internal/version"
 )
@@ -127,26 +126,10 @@ func controllerVMState(profile string) (bool, error) {
 	return len(owners) != 0, err
 }
 
+// Upper bound for one probe of the environment's running state.
+const vmProbeTimeout = 15 * time.Second
+
 func controllerVMOwners(profile string) ([]string, error) {
-	binding, err := guestos.LoadWindowsProfile(profile)
-	if err != nil {
-		return nil, err
-	}
-	if binding != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
-		state, err := guestos.WindowsVMResources(ctx, profile, 0, 0)
-		if err != nil {
-			return nil, err
-		}
-		if state.State == "" {
-			return nil, errors.New("无法确认已绑定 Windows 客机的运行状态，现有环境保持不变")
-		}
-		if state.State == "Off" || state.State == "Saved" {
-			return nil, nil
-		}
-		return []string{fmt.Sprintf("windows/%s/%s", binding.VMID, state.State)}, nil
-	}
 	if containerenv.Configured(profile) {
 		environment, err := containerenv.Load(profile)
 		if err != nil {

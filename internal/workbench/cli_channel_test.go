@@ -77,7 +77,7 @@ func TestSharedSendReceiptSurvivesReadFailure(t *testing.T) {
 	if !ok {
 		t.Fatal("missing unlock epoch")
 	}
-	ctx := context.WithValue(context.Background(), mobileEpochKey{}, epoch)
+	ctx := context.WithValue(context.Background(), accountEpochKey{}, epoch)
 	requestID := uuid.NewString()
 	view, err := s.terminalConversationAction(ctx, id, map[string]any{"action": "send", "request_id": requestID, "text": "accepted message"})
 	if err != nil || view.AcknowledgedRequestID != requestID {
@@ -221,10 +221,10 @@ func TestDiscoveryRunningStateUpdatesCatalogAndClearsMissingHistory(t *testing.T
 		t.Fatal(err)
 	}
 	s.ready = true
-	for _, phase := range []struct{ present, running bool }{{true, true}, {true, false}, {true, true}, {false, false}} {
+	for _, phase := range []struct{ present, running, desktop bool }{{true, true, true}, {true, true, false}, {true, false, true}, {true, true, true}, {false, false, false}} {
 		found := []terminalConversation{}
 		if phase.present {
-			found = append(found, terminalConversation{CLIID: record.CLIID, Workspace: guestPath(project), Config: filepath.Join(home, ".claude"), Running: phase.running})
+			found = append(found, terminalConversation{CLIID: record.CLIID, Workspace: guestPath(project), Config: filepath.Join(home, ".claude"), Running: phase.running, ClaudeDesktop: phase.desktop})
 		}
 		if err := writePrivate(observation, found); err != nil {
 			t.Fatal(err)
@@ -233,8 +233,21 @@ func TestDiscoveryRunningStateUpdatesCatalogAndClearsMissingHistory(t *testing.T
 			t.Fatal(err)
 		}
 		list, err := s.mobileCLI.summaries(s.profile, map[string]bool{project: true}, false)
-		if err != nil || len(list) != 1 || list[0].Running != phase.running {
+		if err != nil || len(list) != 1 || list[0].Running != phase.running || list[0].ClaudeDesktop != (phase.running && phase.desktop) {
 			t.Fatalf("phase %+v: summaries = %+v, error = %v", phase, list, err)
+		}
+	}
+}
+
+func installClaudeTestHelpers(t *testing.T, bin string) {
+	t.Helper()
+	for source, dest := range map[string]string{"claude-account.py": "cage-claude-account", "client_runtime.py": "client_runtime.py"} {
+		body, err := os.ReadFile(filepath.Join("../cage", source))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(bin, dest), body, 0700); err != nil {
+			t.Fatal(err)
 		}
 	}
 }
@@ -265,6 +278,7 @@ func sharedCLIWorkbench(t *testing.T) (*Server, string, *atomic.Bool) {
 	if err := os.Mkdir(bin, 0700); err != nil {
 		t.Fatal(err)
 	}
+	installClaudeTestHelpers(t, bin)
 	actual, _ := filepath.EvalSymlinks(binary)
 	personal, _ := os.UserHomeDir()
 	quote := func(value string) string { b, _ := json.Marshal(value); return string(b) }

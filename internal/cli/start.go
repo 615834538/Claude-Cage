@@ -17,6 +17,7 @@ import (
 	"github.com/sylvinus/agent-vm/internal/env"
 	"github.com/sylvinus/agent-vm/internal/guard"
 	"github.com/sylvinus/agent-vm/internal/host"
+	"github.com/sylvinus/agent-vm/internal/hostimage"
 	"github.com/sylvinus/agent-vm/internal/mounts"
 	"github.com/sylvinus/agent-vm/internal/netguard"
 	"github.com/sylvinus/agent-vm/internal/paths"
@@ -321,6 +322,12 @@ func (s *start) ensureRunning() error {
 
 func (s *start) ensureRunningLocked() error {
 	o := &s.opts
+	// An environment created from a system that is no longer run stays as it
+	// is: starting it would apply this version's setup to the wrong system.
+	if system := hostimage.AbandonedEnvironment(string(s.state)); system != "" {
+		s.warnf("Error: %v", &hostimage.AbandonedSystemError{System: system})
+		return errStop
+	}
 	if o.Scratch && (o.Reset || o.ReadOnly) {
 		s.warnf("Error: --scratch makes a new VM that shares nothing: --reset and --readonly do not go with it.")
 		return errStop
@@ -388,30 +395,34 @@ func (s *start) ensureRunningLocked() error {
 			return errStop
 		}
 	}
-	base, err := s.get(vmname.Template)
+	inst, err := s.get(s.name)
 	if err != nil {
 		s.warnf("Error: could not query Lima: %v", err)
 		return errStop
 	}
-	if s.configErr(base) {
-		return errStop
-	}
-	if _, merr := os.Stat(s.state.Path(state.BaseVersion)); base == nil || merr != nil {
-		if base != nil {
-			s.warnf("Error: Base VM setup did not complete. Run 'agent-vm setup' again.")
-		} else {
-			s.warnf("Error: Base VM not found. Run 'agent-vm setup' first.")
+	// Existing VMs have their own disks and do not need the template to run.
+	// Check it before a reset can stop or delete the retained environment.
+	if inst == nil || o.Reset {
+		base, err := s.get(vmname.Template)
+		if err != nil {
+			s.warnf("Error: could not query Lima: %v", err)
+			return errStop
 		}
-		return errStop
+		if s.configErr(base) {
+			return errStop
+		}
+		if _, merr := os.Stat(s.state.Path(state.BaseVersion)); base == nil || merr != nil {
+			if base != nil {
+				s.warnf("Error: Base VM setup did not complete. Run 'agent-vm setup' again.")
+			} else {
+				s.warnf("Error: Base VM not found. Run 'agent-vm setup' first.")
+			}
+			return errStop
+		}
 	}
 
 	s.vmUp = !o.Reset && s.running()
 	if !s.checks() {
-		return errStop
-	}
-	inst, err := s.get(s.name)
-	if err != nil {
-		s.warnf("Error: could not query Lima: %v", err)
 		return errStop
 	}
 	if !o.Reset && s.configErr(inst) {
@@ -522,6 +533,16 @@ func (s *start) ensureRunningLocked() error {
 		return errStop
 	}
 	want, _ := s.shares(wantWritable)
+	if cageWritableGit() && wasRunning && !s.opts.Scratch {
+		currentRoot := false
+		for _, mount := range inst.Mounts {
+			currentRoot = currentRoot || paths.Equal(paths.Host(mount.Location), paths.Host(s.dir)) && mount.MountPoint == paths.Guest(s.dir)
+		}
+		if !currentRoot {
+			s.warnf("下载目录与运行中的文件共享不一致。请先保存工作，运行 cage stop 后重新启动；项目文件、会话和登录状态会保留。")
+			return errStop
+		}
+	}
 	wasProtected := len(inst.Mounts) > 0 && unprotected(inst, nil) == ""
 	gitStale := !o.Scratch && wasProtected != s.protect
 	namesStale := s.protect && wasProtected && unprotected(inst, s.names) != ""

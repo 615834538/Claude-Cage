@@ -78,7 +78,7 @@ func stopWindowsCore(profile string) error {
 	}
 	handle, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION|windows.PROCESS_TERMINATE|windows.SYNCHRONIZE, false, record.PID)
 	if errors.Is(err, windows.ERROR_INVALID_PARAMETER) {
-		return os.Remove(path)
+		return removeStaleCore(profile, path)
 	}
 	if errors.Is(err, windows.ERROR_ACCESS_DENIED) && !recordedCoreRunning(record) {
 		// The core runs as the current user, so a PID that cannot be
@@ -114,8 +114,7 @@ func stopWindowsCore(profile string) error {
 			return errors.New("Cage 代理进程未能及时停止")
 		}
 	}
-	_ = os.Remove(Socket(profile))
-	return os.Remove(path)
+	return removeStaleCore(profile, path)
 }
 
 func sameCore(record windowsCoreRecord, image string, created int64) bool {
@@ -133,11 +132,27 @@ func recordedCoreRunning(record windowsCoreRecord) bool {
 }
 
 func removeStaleCore(profile, path string) error {
-	_ = os.Remove(Socket(profile))
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+	if err := removeWindowsCoreSocket(profile); err != nil {
 		return err
 	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return &coreError{stage: "record.remove", err: err}
+	}
 	return nil
+}
+
+func removeWindowsCoreSocket(profile string) error {
+	if err := os.Remove(Socket(profile)); err != nil && !os.IsNotExist(err) {
+		return &coreError{stage: "socket.remove", err: err}
+	}
+	return nil
+}
+
+func stopWindowsCoreAfterFailure(profile string, cause error) error {
+	if err := stopWindowsCore(profile); err != nil {
+		return errors.Join(cause, &coreError{stage: "startup.cleanup", err: err})
+	}
+	return cause
 }
 
 func startWindowsCore(ctx context.Context, profile string, s Store) error {
@@ -179,7 +194,9 @@ func startWindowsCore(ctx context.Context, profile string, s Store) error {
 	if err := Write(path, b); err != nil {
 		return err
 	}
-	_ = os.Remove(Socket(profile))
+	if err := removeWindowsCoreSocket(profile); err != nil {
+		return err
+	}
 	log := diagnostics.New(profile).Stream("proxy", "warn")
 
 	cmd := exec.Command(core, "-d", Dir(profile), "-f", path)
@@ -219,56 +236,21 @@ func startWindowsCore(ctx context.Context, profile string, s Store) error {
 	defer ticker.Stop()
 	timeout := time.NewTimer(15 * time.Second)
 	defer timeout.Stop()
+	var lastReadiness error
 	for {
 		select {
 		case <-ctx.Done():
-			_ = stopWindowsCore(profile)
-			return ctx.Err()
+			return stopWindowsCoreAfterFailure(profile, ctx.Err())
 		case <-timeout.C:
-			_ = stopWindowsCore(profile)
-			return errors.New("代理核心启动超时，请查看私有代理日志")
+			return stopWindowsCoreAfterFailure(profile, errors.Join(errors.New("代理核心启动超时，请查看私有代理日志"), lastReadiness))
 		case <-ticker.C:
-			if Running(ctx, profile, s) {
+			lastReadiness = checkRunning(ctx, profile, s)
+			if lastReadiness == nil {
 				if err := host.ProtectFile(Socket(profile)); err != nil {
-					_ = stopWindowsCore(profile)
-					return err
+					return stopWindowsCoreAfterFailure(profile, &coreError{stage: "socket.protect", err: err})
 				}
 				return nil
 			}
 		}
 	}
-}
-
-func windowsPhysicalInterface(ctx context.Context) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	// Select only hardware adapters with a usable IPv4 default route. Virtual
-	// VPN/TUN adapters never become the proxy's underlying host connection.
-	const script = `$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); $candidates=@(Get-NetAdapter -Physical | Where-Object Status -eq 'Up' | ForEach-Object { $a=$_; $ip=Get-NetIPAddress -InterfaceIndex $a.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.AddressState -eq 'Preferred' -and $_.IPAddress -notlike '169.254.*' }; $routes=Get-NetRoute -InterfaceIndex $a.ifIndex -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue; if ($ip) { $routes | Where-Object { $_.NextHop -ne '0.0.0.0' } | ForEach-Object { [pscustomobject]@{Name=$a.Name;Index=$a.ifIndex;Metric=($_.RouteMetric+$_.InterfaceMetric)} } } }); $best=$candidates | Sort-Object Metric,Index | Select-Object -First 1; if (!$best) { exit 2 }; $best | ConvertTo-Json -Compress`
-	root := os.Getenv("SystemRoot")
-	if root == "" {
-		root = `C:\Windows`
-	}
-	cmd := exec.CommandContext(ctx, filepath.Join(root, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"), "-NoProfile", "-NonInteractive", "-Command", script)
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	out, err := cmd.Output()
-	if err != nil {
-		var exited *exec.ExitError
-		if errors.As(err, &exited) && exited.ExitCode() == 2 {
-			return "", errors.New("未找到可用的物理 IPv4 网卡。请连接以太网或 Wi-Fi；仅有虚拟网卡的 Windows 虚拟机和云主机暂不可用。Cage 外网保持关闭")
-		}
-		return "", errors.New("无法读取 Windows 物理网卡信息，请确认系统网络服务正常后重试；Cage 外网保持关闭")
-	}
-	var selected struct {
-		Name  string
-		Index int
-	}
-	if json.Unmarshal(out, &selected) != nil || selected.Name == "" || selected.Index <= 0 {
-		return "", errors.New("Windows 物理网卡信息无效")
-	}
-	iface, err := net.InterfaceByIndex(selected.Index)
-	if err != nil || iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-		return "", errors.New("物理网卡已断开，请重试")
-	}
-	return iface.Name, nil
 }

@@ -76,9 +76,8 @@ func (d *displayViewDemand) reset() {
 }
 
 func (s *Server) updateDesktopVisibility(show bool) error {
-	// Linux uses a dedicated virtual X display. Native Windows/macOS capture
-	// already follows viewer lifetime and retains its ordinary guest windows.
-	if s.windowsGuest != nil || s.macosGuest != nil || !s.vmRunning() {
+	// The guest uses a dedicated virtual X display.
+	if !s.vmRunning() {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(s.lifetimeContext(), 5*time.Second)
@@ -87,7 +86,7 @@ func (s *Server) updateDesktopVisibility(show bool) error {
 		return ctx.Err()
 	}
 	script := "/usr/bin/python3 - " + strconv.FormatBool(show) + " <<'CAGE_DESKTOP_VISIBILITY'\n" + linuxDesktopVisibility + "\nCAGE_DESKTOP_VISIBILITY\n"
-	_, err := s.guest(ctx, script)
+	_, err := s.guestQuick(ctx, script)
 	if err != nil && ctx.Err() == nil {
 		_ = diagnostics.New(s.profile).Record("warn", "desktop-visibility", "应用窗口显示状态未能同步："+err.Error())
 	}
@@ -95,9 +94,6 @@ func (s *Server) updateDesktopVisibility(show bool) error {
 }
 
 func (s *Server) acquireDesktopView() (func(), error) {
-	if s.windowsGuest != nil || s.macosGuest != nil {
-		return func() {}, nil
-	}
 	return s.desktopViews.acquire(s.changeDesktopVisibility)
 }
 
@@ -109,9 +105,6 @@ func (s *Server) changeDesktopVisibility(show bool) error {
 }
 
 func (s *Server) changeBrowserVisibility(show bool) error {
-	if s.macosGuest != nil || s.windowsGuest != nil {
-		return nil
-	}
 	s.mu.Lock()
 	ready, token := s.ready, s.credentials.Token
 	s.mu.Unlock()

@@ -6,9 +6,13 @@
 
 <img src="assets/claude-cage-character.png" alt="Claude Cage" width="320" />
 
-[![Release](https://img.shields.io/github/v/release/Lee-xeo/Claude-Cage?include_prereleases)](https://github.com/Lee-xeo/Claude-Cage/releases) [![CI](https://github.com/Lee-xeo/Claude-Cage/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Lee-xeo/Claude-Cage/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/Lee-xeo/Claude-Cage?include_prereleases)](https://github.com/Lee-xeo/Claude-Cage/releases) [![MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**[د پروژې ویب پاڼه](https://lee-xeo.github.io/Claude-Cage/) · [اپلیکیشن ډاونلوډ کړئ](https://lee-xeo.github.io/Claude-Cage/ps/#download) · [پیل کول](docs/getting-started.md) · [FAQ](docs/troubleshooting.md) · [د کارولو لارښود (په چینایي)](https://lee-xeo.github.io/Claude-Cage/docs/)**
+<a href="https://trendshift.io/repositories/339051#achievements"><img src="https://trendshift.io/api/badge/trendshift/repositories/339051/daily?language=Go" alt="Trendshift — Go Repository of the Day" width="250" height="55" /></a> <a href="https://trendshift.io/repositories/339051#achievements"><img src="https://trendshift.io/api/badge/trendshift/repositories/339051/weekly?language=Go" alt="Trendshift — Go Repository of the Week" width="250" height="55" /></a>
+
+<a href="https://trendshift.io/repositories/339051#achievements"><img src="https://trendshift.io/api/badge/trendshift/repositories/339051/daily" alt="Trendshift — Repository of the Day" width="250" height="55" /></a> <a href="https://trendshift.io/repositories/339051#achievements"><img src="https://trendshift.io/api/badge/trendshift/repositories/339051/weekly" alt="Trendshift — Repository of the Week" width="250" height="55" /></a>
+
+**[د پروژې ویب پاڼه](https://claude-cage.com/) · [اپلیکیشن ډاونلوډ کړئ](https://claude-cage.com/ps/#download) · [پیل کول](docs/getting-started.md) · [FAQ](docs/troubleshooting.md) · [د کارولو لارښود (په چینایي)](https://claude-cage.com/docs/)**
 
 [简体中文](README.md) · [繁體中文](README.zh-TW.md) · [Русский](README.ru.md) · [العربية](README.ar.md) · [فارسی](README.fa.md) · [한국어](README.ko.md) · [Español](README.es.md) · [မြန်မာဘာသာ](README.my.md) · [Беларуская](README.be.md) · [پښتو](README.ps.md) · [دری](README.prs.md) · [አማርኛ](README.am.md) · [Soomaali](README.so.md) · [ትግርኛ](README.ti.md) · [Français](README.fr.md)
 
@@ -18,7 +22,7 @@
 
 د عادي کاروونکو په توګه چې یوازې د کلاډ سره خبرې کول او همکاري کول غواړي، موږ د VPS مثالونو، د براوزر د ګوتو نښې پروفایلونه، او د چاپیریال چکونو تنظیمولو څخه ستړي شوي یو، پداسې حال کې چې د حساب بندیز او مالي زیانونو په اړه اندیښنه لرو. موږ وړاندې کوو **Claude Cage** — **د کارونې لپاره چمتو ډیسټاپ غوښتنلیک: خپل د شبکې پراکسي تنظیم کړئ او خپل جلا چاپیریال ، د وخت زون ، ژبه او چاپیریال چیکونه په یو ځای کې اداره کړئ.**
 
-Claude Cage ټرمینل، براوزر، سمونګر او رسمي Claude Desktop په یوه جلا کاري چاپېریال کې راټولوي. په Mac کې macOS مجازي ماشین، په سازګار Windows کمپیوټر کې Windows، یا سپک Linux چاپېریال وکاروئ. ټاکلې پروژې شریکې کړئ، شبکه جلا اداره کړئ، خپل سرور ته په SSH ونښلئ او له موبایل څخه کار ته دوام ورکړئ. مهمې ځانګړنې:
+Claude Cage ټرمینل، براوزر، سمونګر او رسمي Claude Desktop په یوه جلا کاري چاپېریال کې راټولوي. په macOS، Windows او Linux کې هماغه یو کوچنی Debian 13 چاپېریال کارول کېږي. ټاکلې پروژې شریکې کړئ، شبکه جلا اداره کړئ، خپل سرور ته په SSH ونښلئ او له موبایل څخه کار ته دوام ورکړئ. مهمې ځانګړنې:
 
 - د شبکې ترتیبات د کوربه څخه جلا شوي؛ Cage د خپل چاپیریال دننه د خپل شبکې پراکسي له لارې ټول د شبکې ټرافيکي لارې کوي
 - د براوزر د ګوتو نښې تنظیمات له کوربه څخه جلا شوي، په شمول د وخت زون او ژبه، د شبکې پراکسي IP موقعیت ته د اتوماتیک همغږي کولو سره
@@ -31,6 +35,8 @@ Claude Cage ټرمینل، براوزر، سمونګر او رسمي Claude Desk
 | :---: | :---: |
 | <a href="assets/network-checks.png"><img src="assets/network-checks.png" alt="د شبکې او جلاوالي کتنې" width="400" /></a> | <a href="assets/community-browser-check.png"><img src="assets/community-browser-check-cropped.png" alt="د ټولنې د براوزر کتنه" width="400" /></a> |
 
+[FuckClaude](https://fuck-claude.vercel.app/) · [LinXiaoTao / GitHub](https://github.com/LinXiaoTao/FuckClaude)
+
 **د Cage اصلي انٹرفیس:**
 
 ![Cage](www/public/workbench-2026-11.jpg)
@@ -38,7 +44,7 @@ Claude Cage ټرمینل، براوزر، سمونګر او رسمي Claude Desk
 ## تاسو د Cage سره څه کولی شئ
 
 - **په یوه کړکۍ کې کار وکړئ.** په ټرمینل کې د کلاډ کوډ چل کړئ، په مدیر کې بدلونونه بیاکتنه وکړئ، او د Cage براوزر د خدماتو مخکتنې او لاسلیک کولو لپاره وکاروئ.
-- **په خپل اشنا سیسټم کې پراختیا وکړئ.** د macOS، Windows یا Linux مېلمه سیسټم او اړوند وسیلې وټاکئ، یا د کوربه سیسټم په نقل کولو پاک او خپلواک چاپېریال جوړ کړئ. [د مېلمه سیسټم ټاکنه](docs/guide/guest-systems.md)
+- **په ټولو پلاتفورمونو کې یو چاپېریال.** Cage په macOS، Windows او Linux کې هماغه Debian 13 چاپېریال کاروي، له هماغو وسیلو او هماغه کاري طریقې سره. [د Debian چاپېریال](docs/guide/guest-systems.md)
 - **هغه څه چې تاسو یې شریک کړئ کنټرول کړئ.** یوازې ډیفالټ کاري ځای او په ښکاره ډول خلاص شوي پروژې فولډر شریک شوي. د کوربه کلاډ لاسلیک حالت، د براوزر پروفایلونه، او د SSH کیلي په اوتومات ډول نه واردیږي.
 - **ستاسو د شبکې حالت وګورئ.** د جوړ شوي شبکې پراکسي مدیریت تاسو ته اجازه درکوي ګډون وارد کړئ، پای ټکي وټاکئ، او د وتلو IP چیک کړئ. چاپېریال تر هغه وخته پورې آفلاین پاتې کیږي چې مهمې معاینات تېر شي. که چیرې د شبکې پراکسي شتون ونلري، نو مستقیم اتصال ته بدیل تګ نه کېږي.
 - **بل ځل دوام ورکړئ.** اوزار، فایلونه، او د ننوتلو حالت په مجازی ډیسک کې دوام لري. کله چې تاسو کړکۍ وتړئ د شاليد دندې دوام کولی شي.
@@ -46,13 +52,14 @@ Claude Cage ټرمینل، براوزر، سمونګر او رسمي Claude Desk
 - **له موبایل څخه دوام ورکړئ.** Android یا iPhone د QR یا جوړولو کوډ له لارې کمپیوټر ته ونښلوئ. هماغې Claude Code خبرې تعقیب کړئ، پیغامونه ولېږئ، وسیلې منظورې کړئ او لرې براوزر یا د کمپیوټر Claude Desktop کړکۍ وکاروئ.
 - **Cage په کلاوډ کې وچلوئ.** د SSH له لارې په یوه مناسب Linux x86_64 VPS کې نصب شوي Cage سره وصل شئ؛ KVM ته اړتیا نشته. معلومات او د شبکې وتون په سرور کې وي.
 - **د خصوصي شبکې له لارې ونښلئ.** په Cage کې Tailscale ته ننوځئ او د کوربه او چاپېریال ترمنځ دوه‌اړخیز SSH وکاروئ. [Tailscale / SSH](docs/guide/tailscale.md)
+- **د کوربه وسیلې (ازمایښتي).** په تلواله توګه بندې دي. له فعالولو وروسته، په چاپېریال کې دننه Claude کولای شي ستاسو په کمپیوټر کې د شریکو شویو پروژو په فولډرونو کې امرونه وچلوي؛ هره غوښتنه باید د سیسټم په ډیالوګ کې تایید شي. [پلګینونه](docs/plugins.md)
 
 ## چټک پیل
 
 دا غوښتنه خپل AI اجنټ ته واستوئ (کوډیکس، dsh، کاري ملګري — شاید د کلاډ کوډ نه وي 😁):
 
 ```markdown
-په نصبولو کې راسره مرسته وکړئ https://github.com/Lee-xeo/Claude-Cage او د Cage شبکې پراکسي ترتیب کړئ ترڅو زما په محلي کلاش نصب کې د xxx پای ټکی وکاروئ.
+د https://github.com/Lee-xeo/Claude-Cage وروستی سرچینه کوډ راواخله، جوړ، بسته بندي او نصب یې کړه. د Cage پراکسي داسې تنظیم کړه چې زما د محلي Clash له xx نوډ څخه زما د xx IP له لارې ووځي. ټوله پروسه وڅاره، ستونزې سمې کړه او که اړتیا وي د مطابقت د ښه کولو لپاره په پروژه کې issue ثبت کړه.
 ```
 
 ټول هغه څه چې تاسو ورته اړتیا لرئ د باور وړ شبکې پراکسي پای ټکی دی. دا پروژه هیڅ پراکسي چمتو کونکي ته وده نه ورکوي؛ تاسو کولی شئ پخپله چمتو کوونکی ومومئ، د بیلګې په توګه د تور غلطی ویب پاڼې لټون کولو سره.
@@ -61,11 +68,11 @@ Claude Cage ټرمینل، براوزر، سمونګر او رسمي Claude Desk
 
 Cage د macOS، Windows او Linux ملاتړ کوي: Apple Silicon له macOS 14+ سره، Windows 10 22H2 / 11 x64 او Debian 12 / Ubuntu 22.04 / 24.04 x86_64. Intel Mac، Windows ARM64 او Linux ARM64 لا نه ملاتړ کېږي. [macOS](docs/getting-started.md) · [Windows](docs/windows.md) · [Linux](docs/linux.md).
 
-1. اپلیکیشن ډاونلوډ کړئ: [macOS / Windows / Linux](https://lee-xeo.github.io/Claude-Cage/ps/#download).
+1. اپلیکیشن ډاونلوډ کړئ: [macOS / Windows / Linux](https://claude-cage.com/ps/#download).
 2. macOS: د نصب کولو کڅوړه خلاص کړئ او ډریګ کړئ **Cage** دننه **غوښتنلیکونه**; بیا یې د غوښتنلیکونو څخه پیل کړئ. Windows: [د نصب لارښود](docs/windows.md#安装并开始工作) · Linux: [د نصب لارښود](docs/linux.md#安装并开始工作).
 3. د خپل شبکې پراکسي تنظیم کولو لپاره د ایپ دننه لارښوونې تعقیب کړئ ، چاپیریال پیل کړئ ، او پروژه خلاص کړئ.
 
-د نصب کڅوړه کاري چاپېریال او پراکسي انجن لري. Go، Node.js، Docker یا Clash ته مخکېنی نصب نه پکارېږي. د چاپېریال جوړولو پر مهال مېلمه سیسټم او د ساتلو ځای وټاکئ، بیا رسمي انځور او وسیلې چمتو کړئ. Cage د عملیاتي سیسټم جواز، پراکسي خدمت یا Claude حساب نه برابروي.
+د نصب کڅوړه کاري چاپېریال او پراکسي انجن لري. Go، Node.js، Docker یا Clash ته مخکېنی نصب نه پکارېږي. د چاپېریال جوړولو پر مهال د ساتلو ځای وټاکئ؛ Cage د Debian 13 انځور او د پراختیا وسیلې ښکته کوي. Cage پراکسي خدمت یا Claude حساب نه برابروي.
 
 سرچینه او د نصب کڅوړې عامې دي. د نسخو یادښتونه او د بشپړتیا فایلونه په [Releases](https://github.com/Lee-xeo/Claude-Cage/releases) کې وګورئ.
 
@@ -81,7 +88,7 @@ macOS او لاسلیک شوې Windows نسخې د ټاکلي پراکسي له 
 
 ### 2. چاپیریال پیل کړئ
 
-په لومړي جوړولو کې مېلمه سیسټم یا د کوربه سیسټم نقل او د زېرمه کولو ځای وټاکئ. Cage چاپېریال پیل کړئ او د نصب او اجازو لارښوونې تعقیب کړئ. پرمختګ او تېروتنې د عملیاتو په جزئیاتو کې ښکاري. وروسته هم هماغه چاپېریال کارول کېږي.
+په لومړي جوړولو کې د زېرمه کولو ځای وټاکئ. Cage چاپېریال پیل کړئ او د نصب او اجازو لارښوونې تعقیب کړئ. پرمختګ او تېروتنې د عملیاتو په جزئیاتو کې ښکاري. وروسته هم هماغه چاپېریال کارول کېږي.
 
 ### 3. یوه پروژه پرانیزئ او کلاډ چل کړئ
 
@@ -102,17 +109,20 @@ macOS او لاسلیک شوې Windows نسخې د ټاکلي پراکسي له 
 
 | ستاسو دنده | دلته پیل کړئ |
 |---|---|
-| macOS / Windows / Debian / Ubuntu 22.04 | [د مېلمه سیسټم ټاکنه](https://lee-xeo.github.io/Claude-Cage/docs/guest-systems/) |
+| Debian 13 | [د Debian چاپېریال](https://claude-cage.com/docs/guest-systems/) |
 | د شبکې پراکسي نصب کړئ، تنظیم کړئ، او خپله لومړۍ پروژه پرانیزئ | [پیل کول](docs/getting-started.md) |
 | د ډاونلوډونو، پیل کولو، ارتباطاتو، او لاسلیک کولو ستونزې حل کړئ | [FAQ او بیا رغونه](docs/troubleshooting.md) |
 | د کیبورډ کنټرولونه، بڼه، د معلوماتو دوام، او د وتلو چلند زده کړئ | [ورځنی استعمال](docs/getting-started.md#日常使用) |
 | د بیا تولید وړ مسلې راپور ورکړئ | [GitHub Issues](https://github.com/Lee-xeo/Claude-Cage/issues) |
+| د سمون، ځانګړنې یا اسنادو ونډه: د Issue ارزونه ← د همکار بلنه ← PR | [د ونډې لارښود (چینایي)](.github/CONTRIBUTING.md) |
 
 پروژه په چټکۍ سره وده کوي. د نظر شریکولو لپاره د ټولنې ګروپ کې ګډون وکړئ؛ د ټولنې ساتونکي ښه راغلاست.
 
-<p align="center">
-  <a href="assets/community-qq.png"><img src="assets/community-qq.png" alt="QQ · 1134250870" width="240" /></a>
-</p>
+| QQ group · 273237690 | WeChat |
+| :---: | :---: |
+| <a href="assets/community-qq.png"><img src="assets/community-qq.png" alt="QQ group · 273237690" width="240" /></a> | <a href="www/src/assets/community-wechat.png"><img src="www/src/assets/community-wechat.png" alt="WeChat" width="240" /></a> |
+
+[Telegram](https://t.me/claude_cage)
 
 ## اصل او جواز ورکول
 
@@ -135,6 +145,7 @@ Cage یوه خپلواکه ټولنه پروژه ده او د انتروپیک �
 - [code-server](https://github.com/coder/code-server): د براوزر پر بنسټ کوډ مدیر.
 - [AIO Sandbox](https://github.com/agent-infra/sandbox): د کاري چاپیریال او تعامل ډیزاین لپاره حوالې.
 - [claude-switcher](https://github.com/YOURSJEYO/claude-switcher) او [Claude-Guardian](https://github.com/DUNHKpcc/Claude-Guardian): د شبکې چکونو او امنیت تشخیص لپاره حوالې.
+- [claude-post-ban-cleanup](https://github.com/l2461090/claude-post-ban-cleanup): د دقیقې پلټنې، د معلوماتو د ساتنې او بېرته راګرځېدونکي کش پاکولو د بهیر مرجع؛ په Cage کې خپلواک تطبیق.
 
 
 <a href="https://www.star-history.com/?repos=Lee-xeo%2FClaude-Cage&amp;type=date">

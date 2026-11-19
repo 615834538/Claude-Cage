@@ -58,11 +58,8 @@ func testClaudeAccountSwitchThroughSharedSession(t *testing.T, automatic bool) {
 		t.Fatal(err)
 	}
 	_ = os.WriteFile(filepath.Join(home, ".bash_profile"), []byte("export PATH="+shellescape.Quote(bin)+":/usr/bin:/bin\n"), 0600)
+	installClaudeTestHelpers(t, bin)
 	helper := filepath.Join(bin, "cage-claude-account")
-	original, _ := os.ReadFile("../cage/claude-account.py")
-	if err := os.WriteFile(helper, original, 0700); err != nil {
-		t.Fatal(err)
-	}
 	var resumed atomic.Bool
 	model := mobileTestModel(t, &resumed)
 	t.Cleanup(model.Close)
@@ -72,17 +69,17 @@ func testClaudeAccountSwitchThroughSharedSession(t *testing.T, automatic bool) {
 			body, _ := io.ReadAll(r.Body)
 			r.Body = io.NopCloser(bytes.NewReader(body))
 			if strings.Contains(string(body), "follow-up") {
-				sharedContext.Store(strings.Contains(string(body), "GLOBAL_SHARED_INSTRUCTION") && strings.Contains(string(body), "PROJECT_SHARED_INSTRUCTION") && strings.Contains(string(body), "shared-cage-test-skill") && strings.Contains(string(body), "PROJECT_SHARED_MEMORY"))
+				sharedContext.Store(strings.Contains(string(body), "GLOBAL_SHARED_INSTRUCTION") && strings.Contains(string(body), "PROJECT_SHARED_INSTRUCTION") && strings.Contains(string(body), "shared-example-skill") && strings.Contains(string(body), "PROJECT_SHARED_MEMORY"))
 			}
 		}
 		model.Config.Handler.ServeHTTP(w, r)
 	}))
 	t.Cleanup(observed.Close)
 	proxy, ca := mobileOfficialTestProxy(t, observed)
-	if err := os.MkdirAll(filepath.Join(home, ".claude/skills/shared-cage-test-skill"), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Join(home, ".claude/skills/shared-example-skill"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	_ = os.WriteFile(filepath.Join(home, ".claude/skills/shared-cage-test-skill/SKILL.md"), []byte("---\nname: shared-cage-test-skill\ndescription: Fixture shared skill\n---\nUse for the fixture.\n"), 0600)
+	_ = os.WriteFile(filepath.Join(home, ".claude/skills/shared-example-skill/SKILL.md"), []byte("---\nname: shared-example-skill\ndescription: Fixture shared skill\n---\nUse for the fixture.\n"), 0600)
 	_ = os.WriteFile(filepath.Join(home, ".claude/CLAUDE.md"), []byte("GLOBAL_SHARED_INSTRUCTION"), 0600)
 	_ = os.WriteFile(filepath.Join(project, "CLAUDE.md"), []byte("PROJECT_SHARED_INSTRUCTION"), 0600)
 	memory := filepath.Join(home, ".claude/projects", regexp.MustCompile(`[^a-zA-Z0-9]`).ReplaceAllString(project, "-"), "memory")
@@ -110,6 +107,9 @@ func testClaudeAccountSwitchThroughSharedSession(t *testing.T, automatic bool) {
 			t.Fatal(err)
 		}
 	}
+	if automatic {
+		list.Accounts[0].Enabled = false
+	} // The manually chosen source is outside the automatic pool.
 	if err := s.saveClaudeAccounts(list); err != nil {
 		t.Fatal(err)
 	}
@@ -161,9 +161,25 @@ func testClaudeAccountSwitchThroughSharedSession(t *testing.T, automatic bool) {
 		}
 		return view
 	}
-	response := request(s, "POST", "/api/mobile/cli/sessions", s.origin, `{"id":"`+id+`","workspace":"`+project+`"}`, true)
+	path := "/api/mobile/cli/sessions"
+	body := map[string]any{"id": id, "workspace": project}
+	if automatic {
+		path = "/api/terminals"
+		body = map[string]any{"kind": "claude", "workspace": project, "claude_account_id": list.Accounts[0].ID, "auto_handoff": true}
+	}
+	data, _ := json.Marshal(body)
+	response := request(s, "POST", path, s.origin, string(data), true)
 	if response.Code != 200 {
 		t.Fatal(response.Code, response.Body.String())
+	}
+	if automatic {
+		var started struct {
+			SessionID string `json:"cli_session_id"`
+		}
+		if json.Unmarshal(response.Body.Bytes(), &started) != nil || !mobileID(started.SessionID) {
+			t.Fatal("missing Code conversation", response.Body.String())
+		}
+		id = started.SessionID
 	}
 	wait := func(predicate func(mobileSession) bool) mobileSession {
 		t.Helper()
@@ -210,9 +226,8 @@ func testClaudeAccountSwitchThroughSharedSession(t *testing.T, automatic bool) {
 	if automatic {
 		// The real channel's StopFailure observation and a known exhausted
 		// quota are both required before the same production handoff can run.
-		record.SwitchPolicy = "allow"
-		if err := writePrivate(mobileRecordPath(s.profile, id), record); err != nil {
-			t.Fatal(err)
+		if record.SwitchPolicy != "allow" {
+			t.Fatal("startup did not persist automatic handoff", record.SwitchPolicy)
 		}
 		statePath := filepath.Join(home, ".local/share/cage/cli-channels", record.Connection, "state.json")
 		data, err := os.ReadFile(statePath)
@@ -232,9 +247,9 @@ func testClaudeAccountSwitchThroughSharedSession(t *testing.T, automatic bool) {
 			t.Fatal(err)
 		}
 		epoch, _ := s.account.access()
-		ctx := context.WithValue(context.Background(), mobileEpochKey{}, epoch)
+		ctx := context.WithValue(context.Background(), accountEpochKey{}, epoch)
 		lastUsage := time.Now()
-		s.maybeSwitchClaudeAccount(ctx, id, &lastUsage)
+		s.maybeSwitchClaudeAccount(ctx, id, &lastUsage, nil)
 		m.mu.Lock()
 		latest, err := m.record(s.profile, id)
 		m.mu.Unlock()

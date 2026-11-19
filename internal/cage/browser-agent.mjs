@@ -1,4 +1,3 @@
-import { createTailnetClient } from "./tailnet-client.mjs";
 // Chromium is controlled through inherited pipes, never an exposed CDP port.
 import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -8,21 +7,26 @@ import { open } from "node:fs/promises";
 import http from "node:http";
 import { auditBrowser } from "./browser-audit.mjs";
 import { BrowserVault } from "./browser-vault.mjs";
-import { LoginBrowser } from "./browser-login.mjs";
+import { LoginBrowser, isClaudeSignIn } from "./browser-login.mjs";
 import { PrivateBrowser } from "./browser-private.mjs";
-import { browserCookies } from "./browser-cookies.mjs";
+import { browserCookies, AccountLoginCookies } from "./browser-cookies.mjs";
 import { BrowserExtensions, extensionUploadLimit } from "./browser-extensions.mjs";
 import { BrowserClipboard } from "./browser-clipboard.mjs";
 import { BrowserVisibility } from "./browser-visibility.mjs";
+import { BrowserWheel, createActivitySignal, createPointerProbe } from "./browser-wheel.mjs";
 import { nativeInput } from "./native-input.mjs";
+import { createDisplaySettings, displayDensity } from "./display-density.mjs";
 import { DownloadManager } from "./browser-downloads.mjs";
 import { UploadManager, uploadLimit } from "./browser-uploads.mjs";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 
 const config = JSON.parse(
   readFileSync("/etc/claude-cage/browser-control.json", "utf8"),
 );
 const displayScale = config.display_scale === 1.5 ? 1.5 : 2;
+// Started before Chromium, which then opens at this density.
+const displaySettings = createDisplaySettings({ file: "/home/cage-browser/.cache/cage-display/xsettings.conf", initial: displayScale });
+process.on("exit", () => displaySettings.close());
 const selectionFile = "/home/cage-browser/workbench-state.json";
 const homepageFile = "/home/cage-browser/homepage.json";
 let homeURL = "https://www.bing.com/";
@@ -35,7 +39,7 @@ try {
 } catch {}
 function rememberSelection() {
   const tab = targets.get(activeId);
-  if (tab && !tab.login && !tab.incognito)
+  if (tab && !tab.login && !tab.incognito && !tab.routeScoped)
     try {
       writeFileSync(selectionFile, JSON.stringify({ url: tab.url }), {
         mode: 0o600,
@@ -44,6 +48,7 @@ function rememberSelection() {
 }
 const downloadPath = "/home/cage-browser/Downloads";
 mkdirSync(downloadPath, { recursive: true });
+const browserBinary = "/usr/bin/chromium";
 const splitDirectory = "/usr/local/lib/cage-split";
 const extensionId = createHash("sha256").update(splitDirectory).digest("hex").slice(0, 32)
   .replace(/./g, c => String.fromCharCode(97 + parseInt(c, 16)));
@@ -76,15 +81,16 @@ const flags = [
   "--restore-last-session",
   "--no-default-browser-check",
   "--disable-quic",
+  "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
   "--disable-session-crashed-bubble",
   "--window-size=1440,900",
-  `--force-device-scale-factor=${displayScale}`,
+  ...(displaySettings.available ? [] : [`--force-device-scale-factor=${displayScale}`]),
   `--lang=${process.env.CAGE_LANGUAGE || "en-US"}`,
   `--accept-lang=${process.env.CAGE_LANGUAGE || "en-US"}`,
 ];
 const freshProfile = !existsSync("/home/cage-browser/profile/Default/Sessions");
 if (freshProfile) flags.push("about:blank");
-const chrome = spawn("/usr/bin/chromium", flags, {
+const chrome = spawn(browserBinary, flags, {
   stdio: ["ignore", "ignore", "inherit", "pipe", "pipe"],
 });
 let sequence = 0,
@@ -97,13 +103,31 @@ let navigation = { id: "", back: false, forward: false }, navigationSequence = 0
 // Context IDs and unique blank-page URLs are registered before target creation.
 const auditExclusions = new Set();
 const auditCreations = new Set(), deferredTargetInfo = new Map();
-const loginBrowser = new LoginBrowser(cdp);
+const loginBrowser = new LoginBrowser(cdp, new AccountLoginCookies("/home/cage-browser/LoginProfiles"));
 const privateBrowser = new PrivateBrowser(cdp, downloadPath);
 const browserExtensions = new BrowserExtensions({ directory: "/home/cage-browser", cdp, control: splitController, protectedID: extensionId });
 const pending = new Map(),
   targets = new Map(),
   sessions = new Map();
 const closingTargets = new Map();
+const homepageRedirects = new Map();
+const isNativeNewTab = url => /^chrome:\/\/(newtab|new-tab-page|new-tab-page-third-party)\/?(?:[?#].*)?$/.test(url);
+// Developer tools share the window with the page they inspect, or cover it.
+const inspectors = new Set();
+const pointerProbe = createPointerProbe();
+const displayActivity = createActivitySignal({ path: "/home/cage-browser/.cache/cage-display/activity.sock" });
+process.on("exit", () => { pointerProbe.close(); displayActivity.close(); });
+// A scrolled distance goes to the one page that fills the window. Two panes,
+// developer tools and a hidden window keep the wheel steps of the display.
+const browserWheel = new BrowserWheel({
+  cdp,
+  pointer: pointerProbe,
+  activity: displayActivity,
+  target: async () => {
+    if (!ready || !targets.has(activeId) || splitView || inspectors.size || !visibility.visible) return null;
+    return session(activeId).catch(() => null);
+  },
+});
 let browserVNCViewers = false;
 function canHideBrowser() {
   // Legacy viewers connect directly to the loopback VNC server. Keep their
@@ -132,7 +156,27 @@ const browserClipboard = new BrowserClipboard(cdp, ({ id, text, context }) => {
   if (id !== activeId || !targets.has(id)) return;
   const payload = "event: clipboard\ndata: " + JSON.stringify({ id, text, context }) + "\n\n";
   for (const stream of events) stream.write(payload);
-});
+}, { source: clipboardSource });
+async function clipboardSource() {
+  const { browserContextId } = await cdp("Target.createBrowserContext", { disposeOnDetach: true });
+  auditExclusions.add(browserContextId);
+  try {
+    const origin = "http://127.0.0.1:18500";
+    await cdp("Browser.grantPermissions", { browserContextId, origin, permissions: ["clipboardReadWrite", "clipboardSanitizedWrite"] });
+    const { targetId } = await cdp("Target.createTarget", { browserContextId, url: origin, hidden: true, background: true });
+    const { sessionId } = await cdp("Target.attachToTarget", { targetId, flatten: true });
+    for (let attempt = 0; attempt < 40; attempt++) {
+      const ready = await cdp("Runtime.evaluate", { expression: "!!navigator.clipboard", returnByValue: true }, sessionId);
+      if (ready.result?.value) return sessionId;
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    throw new Error("Clipboard source page unavailable");
+  } catch (error) {
+    await cdp("Target.disposeBrowserContext", { browserContextId }).catch(() => {});
+    auditExclusions.delete(browserContextId);
+    throw error;
+  }
+}
 const vault = new BrowserVault({ cdp, active: () => activeId, tab: id => targets.get(id) });
 const downloads = new DownloadManager({
   directory: "/home/cage-browser",
@@ -172,9 +216,12 @@ function cdp(method, params = {}, sessionId, timeout = 4500) {
 }
 
 function updateTargetInfo(t) {
+  if (t.url.startsWith("devtools://")) inspectors.add(t.targetId);
+  else inspectors.delete(t.targetId);
   if (!isBrowserTab(t)) return;
   const fresh = !targets.has(t.targetId);
   targets.set(t.targetId, privateBrowser.tab(loginBrowser.tab(t, targets.get(t.targetId))));
+  if (isNativeNewTab(t.url)) void restoreHomepage(t.targetId).catch(error => console.error("Could not open homepage:", error.message));
   if (fresh) void session(t.targetId).catch(() => {});
   if (t.targetId === activeId) rememberSelection();
   broadcastState();
@@ -183,6 +230,16 @@ function updateTargetInfo(t) {
     void activate(t.targetId, true).catch(() => {});
   else if (ready && fresh && !visibility.visible)
     void visibility.set(false).catch(() => {});
+}
+
+function restoreHomepage(id) {
+  if (homepageRedirects.has(id)) return homepageRedirects.get(id);
+  const pending = mutate(async () => {
+    if (!isNativeNewTab(targets.get(id)?.url)) return;
+    await cdp("Page.navigate", { url: homeURL }, await session(id));
+  }).finally(() => homepageRedirects.delete(id));
+  homepageRedirects.set(id, pending);
+  return pending;
 }
 
 async function auditCDP(method, params, ...args) {
@@ -258,6 +315,8 @@ chrome.stdio[4].on("data", (chunk) => {
     if (event.method === "Target.targetDestroyed") {
       auditExclusions.delete(p.targetId);
       deferredTargetInfo.delete(p.targetId);
+      inspectors.delete(p.targetId);
+      void mutate(() => loginBrowser.targetClosed(p.targetId)).catch(() => {});
       if (p.targetId === splitTarget) {
         splitTarget = null; splitSession = null;
         if (!shuttingDown) void mutate(async () => {
@@ -277,6 +336,7 @@ chrome.stdio[4].on("data", (chunk) => {
       if (splitView && [splitView.left, splitView.right].includes(p.targetId)) splitView = null;
       uploads.cancelTab(p.targetId);
       for (const [sid, tab] of uploadSessions) if (tab === p.targetId) uploadSessions.delete(sid);
+      sessions.get(p.targetId)?.then(sid => browserWheel.forget(sid), () => {});
       sessions.delete(p.targetId);
       if (wasPrivate) void mutate(() => privateBrowser.prune()).catch(() => {});
       if (activeId === p.targetId) {
@@ -640,21 +700,25 @@ setInterval(() => {
   for (const stream of events) stream.write(": heartbeat\n\n");
 }, 10000).unref();
 let displaySize = "";
-async function resizeDisplay(width, height) {
+async function resizeDisplay(width, height, density) {
+  // A viewer that names no density sized its display for the configured one.
+  const scale = density === undefined || !displaySettings.available ? displayScale : displayDensity(density);
   if (
+    scale === null ||
     !Number.isInteger(width) ||
     !Number.isInteger(height) ||
-    width < 160 * displayScale ||
-    height < 240 * displayScale ||
+    width < 160 * scale ||
+    height < 240 * scale ||
     width > 8192 ||
     height > 8192
   )
     throw new Error("Invalid display size");
+  const result = { ok: true, ...(displaySettings.available ? { scale: displaySettings.set(scale) } : {}) };
   const name = `cage-${width}x${height}`;
   if (displaySize === name) {
     // A viewer attaching at an unchanged size still restores the full rate.
     await runFile("/usr/bin/xrandr", ["--output", "VNC-0", "--mode", name]).catch(() => {});
-    return { ok: true };
+    return result;
   }
   const { stdout } = await runFile("/usr/bin/xrandr", ["--query"]);
   if (!stdout.includes(name)) {
@@ -685,7 +749,7 @@ async function resizeDisplay(width, height) {
       );
       await runFile("/usr/bin/xrandr", ["--rmmode", old[1]]).catch(() => {});
     }
-  return { ok: true };
+  return result;
 }
 let mutations = Promise.resolve();
 function mutate(fn) {
@@ -709,9 +773,6 @@ function pasteImage(png) {
   });
 }
 
-const tailnet = createTailnetClient();
-void tailnet.restore().catch(() => {});
-process.once("exit", () => tailnet.close());
 let phoneBrowser;
 const server = http.createServer(async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
@@ -779,10 +840,11 @@ const server = http.createServer(async (req, res) => {
     let text = "";
     for await (const chunk of req) {
       text += chunk;
-      if (text.length > (req.url === "/paste-image" ? 28 * 1024 * 1024 : req.url === "/paste-text" ? 12 * 1024 * 1024 + 4096 : 65536)) throw new Error("Request too large");
+      if (text.length > (req.url === "/paste-image" ? 28 * 1024 * 1024 : req.url === "/paste-text" ? 12 * 1024 * 1024 + 4096 : req.url === "/cookies" ? 1 << 20 : 65536)) throw new Error("Request too large");
     }
     const input = JSON.parse(text || "{}");
-    if (req.url === "/tailnet") { res.end(JSON.stringify(await tailnet.request(input))); return; }
+    // Ahead of the queue below: a scroll does not wait for a tab operation.
+    if (req.url === "/wheel") { res.end(JSON.stringify(await browserWheel.deliver(input))); return; }
     if (["/phone-desktop/open", "/phone-desktop/frame", "/phone-desktop/action", "/phone-desktop/close"].includes(req.url)) {
       const { phoneDesktop } = await import("./browser-phone-desktop.mjs");
       try { res.end(JSON.stringify(await phoneDesktop(req.url.split("/").pop(), input))); }
@@ -792,7 +854,7 @@ const server = http.createServer(async (req, res) => {
     if (["/phone-browser/open", "/phone-browser/action", "/phone-browser/frame", "/phone-browser/close"].includes(req.url)) {
       // Load only for a phone operation, keeping desktop startup independent.
       const { PhoneBrowser } = await import("./browser-phone.mjs");
-      phoneBrowser ??= new PhoneBrowser();
+      phoneBrowser ??= new PhoneBrowser({ binary: browserBinary });
       try {
         res.end(JSON.stringify(await phoneBrowser.run(req.url.slice("/phone-browser/".length), input)));
       } catch (error) {
@@ -823,7 +885,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.url === "/audit") {
       if (typeof input.timezone !== "string" || input.timezone.length > 128) throw new Error("诊断时区无效");
-      res.end(JSON.stringify(await auditBrowser(auditCDP, auditExclusions, input.network === true, input.timezone)));
+      res.end(JSON.stringify(await auditBrowser(auditCDP, auditExclusions, input.network === true, input.timezone, input.device === true)));
       return;
     }
     const result = await mutate(async () => {
@@ -831,12 +893,14 @@ const server = http.createServer(async (req, res) => {
         try { return await vault.request(input); }
         catch (error) { return { vaultError: error.message }; }
       }
-      if (req.url === "/login-open") {
-        return loginBrowser.open(input.login, input.url, async tab => {
-          if (!targets.has(tab.targetId)) targets.set(tab.targetId, loginBrowser.tab(tab));
+      if (req.url === "/login-open" || (req.url === "/new" && (input.route || isClaudeSignIn(input.url)))) {
+        const external = req.url === "/new" && !isClaudeSignIn(input.url);
+        const privateLogin = !external && !existsSync("/etc/claude-cage/login-browser-mode");
+        return loginBrowser.open(input.login || randomUUID(), input.url, async tab => {
+          targets.set(tab.targetId, loginBrowser.tab(tab));
           await activate(tab.targetId, true);
           return session(tab.targetId);
-        });
+        }, { private: privateLogin, route: input.route, account: input.account, external });
       }
       if (req.url === "/login-finish") {
         await loginBrowser.finish(input.login);
@@ -848,7 +912,7 @@ const server = http.createServer(async (req, res) => {
         writeFileSync(homepageFile, JSON.stringify({ url }), { mode: 0o600 });
         homeURL = url;
         for (const tab of targets.values()) {
-          if (tab.url === "about:blank" || /^chrome:\/\/(newtab|new-tab-page|new-tab-page-third-party)\/?$/.test(tab.url)) {
+          if (tab.url === "about:blank" || isNativeNewTab(tab.url)) {
             const sid = await session(tab.targetId);
             await cdp("Page.navigate", { url: homeURL }, sid);
           }
@@ -887,7 +951,7 @@ const server = http.createServer(async (req, res) => {
         return { ok: true };
       }
       if (req.url === "/resize")
-        return resizeDisplay(input.width, input.height);
+        return resizeDisplay(input.width, input.height, input.scale);
       if (req.url === "/new") return newTab(input.url || undefined, input.incognito === true);
       if (req.url === "/editor") return editor(input.workspace || config.workspace);
       if (req.url === "/editor-restart") return restartEditor(input.workspace);
@@ -989,8 +1053,10 @@ server.listen(18500, "127.0.0.1");
   await cdp("Browser.getVersion", {}, undefined, 30000);
   await cdp("Target.setDiscoverTargets", { discover: true });
   const { targetInfos } = await cdp("Target.getTargets");
-  for (const t of targetInfos)
+  for (const t of targetInfos) {
+    if (t.url.startsWith("devtools://")) inspectors.add(t.targetId);
     if (isBrowserTab(t)) targets.set(t.targetId, t);
+  }
   await cdp("Browser.setDownloadBehavior", {
     behavior: "allowAndName",
     downloadPath,
@@ -1004,7 +1070,8 @@ server.listen(18500, "127.0.0.1");
     );
   await setSplit({}).catch(() => {});
   await browserExtensions.restore();
-  if (freshProfile && activeId)
+  for (const tab of targets.values()) if (isNativeNewTab(tab.url)) await restoreHomepage(tab.targetId);
+  if (freshProfile && activeId && targets.get(activeId)?.url === "about:blank")
     await cdp("Page.navigate", { url: homeURL }, await session(activeId));
   ready = true;
 })().catch(error => {
@@ -1015,6 +1082,6 @@ process.on("SIGTERM", () => {
   shuttingDown = true;
   server.close();
   void phoneBrowser?.dispose();
-  cdp("Browser.close").catch(() => {});
+  void loginBrowser.shutdown().finally(() => cdp("Browser.close")).catch(() => {});
   setTimeout(() => process.exit(0), 2000).unref();
 });
