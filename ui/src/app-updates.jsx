@@ -185,22 +185,22 @@ export function AppUpdateButton({ updates }) {
   const percent = state.totalBytes > 0
     ? Math.max(0, Math.min(100, Math.floor((state.receivedBytes || 0) / state.totalBytes * 100)))
     : null;
-  const label = downloading ? `正在下载更新${percent === null ? "" : ` ${percent}%`}`
-    : state.phase === "verifying" || state.phase === "downloaded" ? "正在验证更新"
-    : state.phase === "installing" ? "正在安装更新，完成后自动重启"
-    : state.phase === "checking" ? "正在准备更新"
-    : coolingDown ? "等待重试更新" : failed ? "重试更新" : manual ? "查看新版本" : state.phase === "ready" ? "安装已下载的更新" : "下载更新";
-  const hint = coolingDown ? `${state.message || "更新源请求受限"}，可于 ${new Date(state.retryAt).toLocaleString()} 后重试`
-    : failed ? `${state.message || "更新未完成"}，点击重试`
+  const label = downloading ? percent === null ? tr("正在下载更新") : tr("正在下载更新 {0}%", percent)
+    : state.phase === "verifying" || state.phase === "downloaded" ? tr("正在验证更新")
+    : state.phase === "installing" ? tr("正在安装更新，完成后自动重启")
+    : state.phase === "checking" ? tr("正在准备更新")
+    : coolingDown ? tr("等待重试更新") : failed ? tr("重试更新") : manual ? tr("查看新版本") : state.phase === "ready" ? tr("安装已下载的更新") : tr("下载更新");
+  const hint = coolingDown ? tr("{0}，可于 {1} 后重试", state.message ? tr(state.message) : tr("更新源请求受限"), new Date(state.retryAt).toLocaleString())
+    : failed ? tr("{0}，点击重试", state.message ? tr(state.message) : tr("更新未完成"))
     : busy ? label
-    : manual ? `新版本 ${state.latestVersion} 已发布。${state.message || ""}点击打开发布页面。`
-    : `更新至 ${state.latestVersion}。先下载并验证，安装前会提示你保存工作并手动停止环境。`;
+    : manual ? tr("新版本 {0} 已发布。{1}点击打开发布页面。", state.latestVersion, state.message ? tr(state.message) + " " : "")
+    : tr("更新至 {0}。先下载并验证，安装前会提示你保存工作并手动停止环境。", state.latestVersion);
   const circumference = 2 * Math.PI * 15;
   return (
     <>
       {visible && <button
         className={`app-update-button${busy ? " busy" : ""}${failed ? " failed" : ""}`}
-        aria-label={tr(label)}
+        aria-label={label}
         title={hint}
         disabled={busy || coolingDown}
         onClick={() => {

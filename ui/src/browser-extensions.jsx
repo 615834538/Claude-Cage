@@ -52,7 +52,7 @@ function LocalExtensionImport({ existing, onUpdated, onClose }) {
         if (alive.current) { onUpdated(next.items); setResults(previous => ({ ...previous, [item.id]: item.state_known && item.enabled ? '已导入并启用' : '已导入，保持停用' })); }
       } catch (error) {
         if (pending && getClientContext().connection_id === connection) await api('/browser/extensions', { mode: 'cancel', session: pending.session }).catch(() => {});
-        if (alive.current) setResults(previous => ({ ...previous, [item.id]: '导入失败：' + error.message }));
+        if (alive.current) setResults(previous => ({ ...previous, [item.id]: tr("导入失败：{0}", error.message) }));
         if (getClientContext().connection_id !== connection) break;
       }
     }

@@ -4,7 +4,7 @@ import { api } from "./api";
 import { InlineSelect } from "./inline-select";
 import crabIcon from "./claude-account-crab.svg";
 import "./claude-accounts.css";
-import { useTranslation } from "./interface-language.mjs";
+import { translate, useTranslation } from "./interface-language.mjs";
 
 // Ordinary reads never start an upstream usage query.
 export function useClaudeAccounts() {
@@ -55,10 +55,10 @@ const usageUpdatedAt = (profile) => Math.max(profile.quota?.five_hour?.observed_
 const ageUnit = (elapsed) => elapsed < 3600 ? 60 : elapsed < 86400 ? 3600 : 86400;
 function relativeTimeLabel(seconds, now) {
   const elapsed = Math.max(0, now - seconds);
-  if (elapsed < 60) return "刚刚";
-  if (elapsed < 3600) return `${Math.floor(elapsed / 60)}分钟前`;
-  if (elapsed < 86400) return `${Math.floor(elapsed / 3600)}小时前`;
-  return `${Math.floor(elapsed / 86400)}天前`;
+  if (elapsed < 60) return translate("刚刚");
+  if (elapsed < 3600) return translate("{0} 分钟前", Math.floor(elapsed / 60));
+  if (elapsed < 86400) return translate("{0} 小时前", Math.floor(elapsed / 3600));
+  return translate("{0} 天前", Math.floor(elapsed / 86400));
 }
 
 const QuotaTime = createContext(0);
@@ -100,12 +100,12 @@ function QuotaClock({ accounts, children }) {
 }
 
 function resetCountdown(seconds) {
-  if (seconds < 60) return `${seconds}秒后`;
+  if (seconds < 60) return translate("{0} 秒后", seconds);
   const minutes = Math.ceil(seconds / 60);
-  if (minutes < 60) return `${minutes}分后`;
+  if (minutes < 60) return translate("{0} 分钟后", minutes);
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}时 ${minutes % 60}分后`;
-  return `${Math.floor(hours / 24)}天 ${hours % 24}时后`;
+  if (hours < 24) return translate("{0} 小时 {1} 分钟后", hours, minutes % 60);
+  return translate("{0} 天 {1} 小时后", Math.floor(hours / 24), hours % 24);
 }
 
 const usageLabels = {
@@ -358,7 +358,7 @@ export function ClaudeAccountsPanel({ proxySources, desktopNetwork, store, runni
   };
   const cancelDraft = async (profile) => {
     const last = accounts.length === 1;
-    if (await onConfirm({ title: `撤销添加「${profile.label}」？`,
+    if (await onConfirm({ title: translate("撤销添加「{0}」？", profile.label),
       body: last
         ? "这是列表中的最后一个账号。撤销后，新建 Claude 终端会沿用环境原有的登录。虚拟机中的资料会保留。"
         : "此账号会从列表中移除，虚拟机中的资料会保留。",

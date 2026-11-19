@@ -12,7 +12,7 @@ import { InlineSelect } from "./inline-select";
 import { api } from "./api";
 import { AccountIconNumber } from "./agent-icon";
 import { runtimeSocketURL } from "./client-context.mjs";
-import { useTranslation } from "./interface-language.mjs";
+import { translate, useTranslation } from "./interface-language.mjs";
 
 const title = (a) => a.number ? `#${String(a.number).padStart(2, "0")} ${a.label}` : a.label;
 const entry = (id) => "/desktop-instances/" + id;
@@ -74,9 +74,9 @@ export function useAccountDesktops(onShow, onHide, notify, confirm, visible, rev
       if (
         action === "stop" &&
         !(await confirm({
-          title: "关闭 " + title(account) + "？",
-          body: "请先保存这个 Desktop 中的工作。",
-          confirm: "关闭实例",
+          title: translate("关闭 {0}？", title(account)),
+          body: translate("请先保存这个 Desktop 中的工作。"),
+          confirm: translate("关闭实例"),
         }))
       )
         return;

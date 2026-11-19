@@ -6,7 +6,7 @@ import {
 import { api, writeClipboard } from "./api";
 import { runtimeURL } from "./client-context.mjs";
 import "./host-plugins.css";
-import { useTranslation } from "./interface-language.mjs";
+import { translate, useTranslation } from "./interface-language.mjs";
 
 const permissions = {
   files: { title: "读写文件", text: "读取或修改这台电脑上的文件。", icon: FolderOpen },
@@ -21,14 +21,14 @@ const knownIcons = { commands: SquareTerminal, clock: Clock };
 const sources = { builtin: "内置", local: "手动安装", catalog: "随应用附带", market: "插件市场" };
 
 const words = name => name.split(/[-_\s]+/).filter(Boolean);
-export const pluginTitle = plugin => plugin.built_in && builtIn[plugin.name]?.title || plugin.display_name
+export const pluginTitle = plugin => plugin.built_in && builtIn[plugin.name] && translate(builtIn[plugin.name].title) || plugin.display_name
   || words(plugin.name).map(word => word[0].toUpperCase() + word.slice(1)).join(" ") || plugin.name;
-const pluginText = plugin => plugin.built_in && builtIn[plugin.name]?.description || plugin.description || "插件没有提供说明";
-const permissionText = list => list?.length ? list.map(name => permissions[name]?.title || name).join("、") : "未声明任何权限";
+const pluginText = plugin => plugin.built_in && builtIn[plugin.name] && translate(builtIn[plugin.name].description) || plugin.description || translate("插件没有提供说明");
+const permissionText = list => list?.length ? list.map(name => permissions[name]?.title ? translate(permissions[name].title) : name).join(translate("、")) : translate("未声明任何权限");
 // The app explains in problem when a plugin needs a newer app: a guest plugin,
 // an unmet engines range or more than one MCP server. Otherwise an unsupported
 // plugin was not built for this system.
-const unsupportedLabel = item => item.problem ? "需要更新 Cage" : "不支持此系统";
+const unsupportedLabel = item => item.problem ? translate("需要更新 Cage") : translate("不支持此系统");
 
 // contributions lists what a plugin adds to the app beyond its tools: pages in
 // the sidebar. Every MCP plugin has a server, so servers alone are not shown
@@ -40,12 +40,12 @@ function contributions(item) {
   const list = [];
   for (const view of contributes.views || []) {
     const hosts = [...new Set((view.open_urls || []).map(urlHost))];
-    list.push({ key: `view:${view.id}`, icon: PanelLeft, title: `页面「${view.title || view.id}」`,
-      text: `在侧栏添加一个页面。页面在隔离的框架中运行，只能使用这个插件自己的工具。${hosts.length ? `它可以在内置浏览器中打开：${hosts.join("、")}。` : "它不能打开网页。"}` });
+    list.push({ key: `view:${view.id}`, icon: PanelLeft, title: translate("页面「{0}」", view.title || view.id),
+      text: hosts.length ? translate("在侧栏添加一个页面。页面在隔离的框架中运行，只能使用这个插件自己的工具。它可以在内置浏览器中打开：{0}。", hosts.join(", ")) : translate("在侧栏添加一个页面。页面在隔离的框架中运行，只能使用这个插件自己的工具。它不能打开网页。") });
   }
   return list;
 }
-const contributionText = item => contributions(item).map(entry => entry.title).join("；");
+const contributionText = item => contributions(item).map(entry => entry.title).join(translate("；"));
 
 // purposes are what a plugin is for: abilities for Claude, from its MCP
 // servers, and changes to the app, from its pages. A plugin without
@@ -63,10 +63,11 @@ export function purposes(item) {
 const categoryNames = { desktop: "桌面控制", developer: "开发", system: "系统与状态", network: "网络", files: "文件", productivity: "效率", example: "示例" };
 const categoriesOf = item => (item?.categories || []).filter(name => categoryNames[name]);
 function PurposeTags({ item }) {
+  const tr = useTranslation();
   const list = purposes(item), categories = categoriesOf(item);
   return list.length || categories.length ? <span className="plugin-purposes">
-    {categories.map(name => <span key={`category:${name}`} className="plugin-purpose category">{categoryNames[name]}</span>)}
-    {list.map(label => <span key={label} className="plugin-purpose">{label}</span>)}
+    {categories.map(name => <span key={`category:${name}`} className="plugin-purpose category">{tr(categoryNames[name])}</span>)}
+    {list.map(label => <span key={label} className="plugin-purpose">{tr(label)}</span>)}
   </span> : null;
 }
 const size = bytes => !bytes ? "" : bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -162,8 +163,8 @@ function entryInfo(entry, view) {
 }
 
 export function pluginPageTitle(model, page) {
-  if (page.kind === "market") return "插件市场";
-  if (page.kind !== "plugin") return "插件设置";
+  if (page.kind === "market") return translate("插件市场");
+  if (page.kind !== "plugin") return translate("插件设置");
   const { installed, available } = pluginEntries(model);
   const entry = [...installed, ...available].find(item => item.name === page.name);
   return entry ? pluginTitle(entry.plugin || entry.offer) : pluginTitle({ name: page.name });
@@ -188,7 +189,7 @@ export function PluginIcon({ name, src, builtIn: isBuiltIn, size: pixels = 36 })
 }
 
 function StateChip({ state }) {
-  return <span className={`plugin-state ${state.tone}`}><i />{state.label}</span>;
+  return <span className={`plugin-state ${state.tone}`}><i />{translate(state.label)}</span>;
 }
 
 // installPlugin asks before third-party code from the market is installed.
@@ -197,13 +198,13 @@ async function installPlugin(model, entry, onConfirm) {
   const replace = Boolean(entry.plugin);
   const adds = contributionText(offer);
   const runs = offer.kind === "guest"
-    ? `插件在 Cage 环境中以普通用户身份运行，它声明需要：${permissionText(offer.permissions)}。`
-    : `插件以你的系统账户权限在这台电脑上运行，它声明需要：${permissionText(offer.permissions)}。调用前会弹窗征求你的同意，你可以选择始终允许。`;
+    ? translate("插件在 Cage 环境中以普通用户身份运行，它声明需要：{0}。", permissionText(offer.permissions))
+    : translate("插件以你的系统账户权限在这台电脑上运行，它声明需要：{0}。调用前会弹窗征求你的同意，你可以选择始终允许。", permissionText(offer.permissions));
   // A plugin with tools can be allowed for good at install: the user's nod is remembered.
   const offerAlways = !replace && offer.source === "market" && purposes(offer).includes("Claude 工具");
   const answer = offer.source === "market" ? await onConfirm({
-    title: replace ? `更新「${pluginTitle(offer)}」到 ${offer.version}？` : `安装「${pluginTitle(offer)}」？`,
-    body: `${runs}${adds ? `它还会添加：${adds}。` : ""}只安装你信任的插件。${replace ? "旧版本会移到数据目录的 plugins-removed 中保留。" : ""}`,
+    title: replace ? translate("更新「{0}」到 {1}？", pluginTitle(offer), offer.version) : translate("安装「{0}」？", pluginTitle(offer)),
+    body: [runs, adds && translate("它还会添加：{0}。", adds), translate("只安装你信任的插件。"), replace && translate("旧版本会移到数据目录的 plugins-removed 中保留。")].filter(Boolean).join(" "),
     confirm: replace ? "更新" : "安装",
     ...(offerAlways ? { check: "安装后始终允许它的工具，不再逐次询问" } : {}),
   }) : true;
@@ -283,7 +284,7 @@ function PluginRow({ entry, view, selected, busy, onSelect, onInstall }) {
         <span className="plugin-row-text">
           <span className="plugin-row-title"><strong>{info.title}</strong>{info.version && <small>{info.version}</small>}</span>
           <span className="plugin-row-description">{info.text}</span>
-          <span className="plugin-row-meta">{entry.plugin || !info.item.supported ? <StateChip state={info.state} /> : <span>{sources[entry.source]}</span>}</span>
+          <span className="plugin-row-meta">{entry.plugin || !info.item.supported ? <StateChip state={info.state} /> : <span>{translate(sources[entry.source])}</span>}</span>
         </span>
       </button>
       {action && <button type="button" className="plugin-row-action" disabled={Boolean(busy)} onClick={onInstall}>
@@ -504,7 +505,7 @@ function Grants({ model, plugin, onConfirm }) {
     };
     const allow = async () => {
       if (!project || !await onConfirm({ title: "在这个项目中始终允许运行命令？", confirm: "始终允许",
-        body: `之后 Claude 在 ${project} 中运行命令时不再询问。命令以你的系统账户权限在这台电脑上运行，可以随时在这里撤销。` })) return;
+        body: translate("之后 Claude 在 {0} 中运行命令时不再询问。命令以你的系统账户权限在这台电脑上运行，可以随时在这里撤销。", project) })) return;
       await change({ plugin: plugin.name, always: true, project }, key);
     };
     return (
@@ -582,7 +583,7 @@ function Detail({ model, name, onConfirm, onPage }) {
   const installing = busy === `install:${name}`, removing = busy === `remove:${name}`, switching = busy === `switch:${name}`;
   const on = plugin?.enabled !== false;
   const remove = async () => {
-    if (!await onConfirm({ title: `卸载「${info.title}」？`, body: "插件会停止运行。它的文件夹不会被删除，而是移到数据目录的 plugins-removed 中保留。", confirm: "卸载" })) return;
+    if (!await onConfirm({ title: translate("卸载「{0}」？", info.title), body: "插件会停止运行。它的文件夹不会被删除，而是移到数据目录的 plugins-removed 中保留。", confirm: "卸载" })) return;
     // A plugin the market offers stays on its page, ready to install again.
     if (await change({ remove: name }, `remove:${name}`) && entry.source === "local") onPage(null);
   };
@@ -594,7 +595,7 @@ function Detail({ model, name, onConfirm, onPage }) {
         <div className="plugin-hero-text">
           <div className="plugin-hero-name"><h2>{info.title}</h2><code>{name}</code></div>
           <div className="plugin-hero-meta">
-            <span>{sources[entry.source]}</span>
+            <span>{translate(sources[entry.source])}</span>
             {info.version && <span>{tr("版本") + " "}{info.version}</span>}
             {!plugin && offer?.bytes > 0 && <span>{size(offer.bytes)}</span>}
             {plugin && <StateChip state={info.state} />}
@@ -644,7 +645,7 @@ function Detail({ model, name, onConfirm, onPage }) {
           </> : tab !== "permissions" ? tools.length ? <ul className="plugin-tool-list">
             {tools.map(tool => <li key={tool.name}>
               <span className="plugin-tool-icon"><Wrench size={15} /></span>
-              <div><code>{tool.name}</code><p>{toolNotes[tool.name] || tool.description || tr("没有说明")}</p></div>
+              <div><code>{tool.name}</code><p>{toolNotes[tool.name] ? tr(toolNotes[tool.name]) : tool.description || tr("没有说明")}</p></div>
             </li>)}
           </ul> : <div className="plugin-empty compact">
             <Wrench size={22} />
@@ -656,7 +657,7 @@ function Detail({ model, name, onConfirm, onPage }) {
               {declared.map(key => {
                 const known = permissions[key] || { title: key, text: "插件声明的其他权限。", icon: ShieldCheck };
                 const Icon = known.icon;
-                return <li key={key}><span><Icon size={17} /></span><div><strong>{known.title}</strong><p>{known.text}</p></div></li>;
+                return <li key={key}><span><Icon size={17} /></span><div><strong>{tr(known.title)}</strong><p>{tr(known.text)}</p></div></li>;
               })}
             </ul> : <div className="plugin-empty compact"><ShieldCheck size={22} /><p>{tr("这个插件没有声明需要任何权限。")}</p></div>}
           </>}
@@ -666,9 +667,9 @@ function Detail({ model, name, onConfirm, onPage }) {
           <dl>
             <div><dt>{tr("标识符")}</dt><dd><code>{name}</code></dd></div>
             {info.version && <div><dt>{tr("版本")}</dt><dd>{info.version}</dd></div>}
-            <div><dt>{tr("来源")}</dt><dd>{sources[entry.source]}</dd></div>
+            <div><dt>{tr("来源")}</dt><dd>{translate(sources[entry.source])}</dd></div>
             {(plugin || offer).kind && <div><dt>{tr("运行位置")}</dt><dd>{(plugin || offer).kind === "guest" ? tr("Cage 环境") : tr("这台电脑")}</dd></div>}
-            <div><dt>{tr("状态")}</dt><dd>{plugin ? info.state.label : offer.supported ? tr("未安装") : unsupportedLabel(offer)}</dd></div>
+            <div><dt>{tr("状态")}</dt><dd>{plugin ? tr(info.state.label) : offer.supported ? tr("未安装") : unsupportedLabel(offer)}</dd></div>
             {!plugin && offer?.bytes > 0 && <div><dt>{tr("大小")}</dt><dd>{size(offer.bytes)}</dd></div>}
           </dl>
           {plugin && !plugin.built_in && <>

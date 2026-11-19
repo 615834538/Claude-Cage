@@ -58,7 +58,7 @@ export function BrowserVaultBar({ tab, vault, onManage, ready, menu = false }) {
     <div className="vault-browser-heading">
       <button className={menu ? "browser-menu-item" : "text-button"} role={menu ? "menuitem" : undefined}
         aria-expanded={open} onClick={() => setOpen(!open)}>
-        <KeyRound size={16} /><span>{tr("密码")}{entries.length ? " " + tr("· {0} 个账号", (entries.length)) : ""}</span>
+        <KeyRound size={16} /><span>{tr("密码")}{entries.length ? " · " + tr("{0} 个账号", entries.length) : ""}</span>
       </button>
       {message && <span role="status">{message}</span>}
     </div>
@@ -67,16 +67,16 @@ export function BrowserVaultBar({ tab, vault, onManage, ready, menu = false }) {
         <span>{candidate.origin} · {candidate.username || tr("未填写用户名")}</span>
         <small>{tr("请确认网站登录成功后保存。")}</small></div>
       <div className="vault-actions">
-        <button className="primary" disabled={busy} onClick={() => run({ action: "save", candidate: candidate.id }, "密码已保存")}>{candidate.update ? tr("更新密码") : tr("保存密码")}</button>
+        <button className="primary" disabled={busy} onClick={() => run({ action: "save", candidate: candidate.id }, tr("密码已保存"))}>{candidate.update ? tr("更新密码") : tr("保存密码")}</button>
         <button disabled={busy} onClick={() => run({ action: "dismiss", candidate: candidate.id }, "")}>{tr("暂不保存")}</button>
-        <button className="text-button" disabled={busy} onClick={() => run({ action: "never", candidate: candidate.id }, "此网站不再提示保存")}>{tr("此网站不再提示")}</button>
+        <button className="text-button" disabled={busy} onClick={() => run({ action: "never", candidate: candidate.id }, tr("此网站不再提示保存"))}>{tr("此网站不再提示")}</button>
       </div>
     </div>}
     {open && <div className="vault-picker" role="region" aria-label={tr("当前网站的密码")}>
       <p>{state.origin && state.tab === tab.id ? state.origin : tr("在 HTTPS 网站的登录页选择账号填充")}</p>
       {!ready ? <p>{tr("启动环境后可填写网站密码。")}</p> : !state.available ? <p>{state.message || tr("正在连接浏览器密码功能…")}</p> :
         entries.length ? entries.map(entry => <button className="vault-account-choice" key={entry.id} disabled={busy}
-          onClick={() => run({ action: "fill", tab: tab.id, id: entry.id, document: state.document }, "已填写，请在网页中提交登录")}>
+          onClick={() => run({ action: "fill", tab: tab.id, id: entry.id, document: state.document }, tr("已填写，请在网页中提交登录"))}>
           <span>{entry.username || tr("未填写用户名")}</span><span>{tr("填入账号密码")}</span>
         </button>) : <p>{tr("此网站尚未保存账号密码。")}</p>}
       <button className="text-button" onClick={onManage}>{tr("管理密码保险箱")}</button>
@@ -117,7 +117,7 @@ export function PasswordVaultSettings({ onConfirm, onDirty }) {
       const result = await api("/vault", input);
       if (!alive.current) return;
       if (input.action === "reveal") {
-        if (verify.mode === "copy") { await writeClipboard(result.password); setMessage("密码已复制到本机剪贴板"); }
+        if (verify.mode === "copy") { await writeClipboard(result.password); setMessage(tr("密码已复制到本机剪贴板")); }
         else setRevealed({ id: input.id, password: result.password });
         setVerify(null);
       } else { setDraft(null); setRevealed(null); await refresh(); setMessage(success); }
@@ -134,7 +134,7 @@ export function PasswordVaultSettings({ onConfirm, onDirty }) {
     <div className="vault-toolbar"><label className="vault-search"><span><Search size={14} />{tr("搜索网站或账号")}</span>
       <input type="search" value={search} onChange={event => setSearch(event.target.value)} /></label>
       <button disabled={busy || Boolean(draft) || loading || Boolean(error && !store.entries.length)} onClick={() => { setDraft(newEntry()); setVerify(null); setRevealed(null); }}><Plus size={15} />{tr("添加密码")}</button></div>
-    {draft && <form className="vault-editor" onSubmit={event => { event.preventDefault(); void run({ action: "save", entry: draft }, "密码记录已保存"); }}>
+    {draft && <form className="vault-editor" onSubmit={event => { event.preventDefault(); void run({ action: "save", entry: draft }, tr("密码记录已保存")); }}>
       <h4>{draft.id ? tr("编辑密码") : tr("添加密码")}</h4>
       <fieldset disabled={busy}>
         <label>{tr("网站地址")}<input type="url" required autoFocus placeholder="https://mail.example.com" value={draft.origin} onChange={event => setDraft({ ...draft, origin: event.target.value })} /></label>
@@ -146,7 +146,7 @@ export function PasswordVaultSettings({ onConfirm, onDirty }) {
     {verify && <form className="vault-editor" onSubmit={event => { event.preventDefault(); void run({ action: "reveal", id: verify.entry.id, account_password: accountPassword }); }}>
       <h4>{verify.mode === "copy" ? tr("验证后复制密码") : tr("验证后查看密码")}</h4><p>{verify.entry.origin} · {verify.entry.username}</p>
       <label>{tr("Cage 账户密码")}<input type="password" autoComplete="off" autoFocus required maxLength={1024} value={accountPassword} onChange={event => setAccountPassword(event.target.value)} /></label>
-      <div className="vault-actions"><button className="primary" disabled={busy} type="submit">{tr("验证并")}{verify.mode === "copy" ? tr("复制") : tr("查看")}</button>
+      <div className="vault-actions"><button className="primary" disabled={busy} type="submit">{verify.mode === "copy" ? tr("验证并复制") : tr("验证并查看")}</button>
         <button type="button" disabled={busy} onClick={() => { setVerify(null); setAccountPassword(""); }}>{tr("取消验证")}</button></div>
     </form>}
     {loading ? <p>{tr("正在读取密码保险箱…")}</p> : !entries.length ? <div className="vault-empty"><KeyRound size={24} /><p>{search ? tr("没有找到匹配的账号") : tr("还没有保存密码")}</p><small>{tr("网页登录后可以确认保存，也可以手动添加。")}</small></div> :
@@ -157,10 +157,10 @@ export function PasswordVaultSettings({ onConfirm, onDirty }) {
           <button disabled={busy || Boolean(draft)} onClick={() => askReveal(entry, "view")}>{tr("查看密码")}</button>
           <button disabled={busy || Boolean(draft)} onClick={() => askReveal(entry, "copy")}>{tr("复制密码")}</button>
           <button disabled={busy || Boolean(draft)} onClick={() => { setDraft({ ...entry, password: "" }); setVerify(null); setRevealed(null); }}>{tr("编辑")}</button>
-          <button disabled={busy || Boolean(draft)} onClick={async () => { if (await onConfirm({ title: "删除此密码？", body: `${entry.origin} · ${entry.username || "未填写用户名"}。删除后无法恢复。`, confirm: "删除密码" })) await run({ action: "delete", id: entry.id }, "密码记录已删除"); }}>{tr("删除")}</button>
+          <button disabled={busy || Boolean(draft)} onClick={async () => { if (await onConfirm({ title: tr("删除此密码？"), body: tr("{0} · {1}。删除后无法恢复。", entry.origin, entry.username || tr("未填写用户名")), confirm: tr("删除密码") })) await run({ action: "delete", id: entry.id }, tr("密码记录已删除")); }}>{tr("删除")}</button>
         </div>
       </article>)}</div>}
-    {store.blocked.length > 0 && <section className="vault-blocked"><h4>{tr("不再提示保存的网站")}</h4>{store.blocked.map(origin => <div key={origin}><span>{origin}</span><button disabled={busy} onClick={() => run({ action: "unblock", origin }, "已恢复此网站的保存提示")}>{tr("恢复提示")}</button></div>)}</section>}
+    {store.blocked.length > 0 && <section className="vault-blocked"><h4>{tr("不再提示保存的网站")}</h4>{store.blocked.map(origin => <div key={origin}><span>{origin}</span><button disabled={busy} onClick={() => run({ action: "unblock", origin }, tr("已恢复此网站的保存提示"))}>{tr("恢复提示")}</button></div>)}</section>}
     <p className="footnote">{tr("目前支持 HTTPS 顶层网页的常见登录表单。密码不会同步到其他设备；备份时需同时保留本地账户文件与密码库。")}</p>
   </section>;
 }

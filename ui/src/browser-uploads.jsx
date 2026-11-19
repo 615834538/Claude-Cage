@@ -40,7 +40,7 @@ export function BrowserUploads({ requests = [], onStatus }) {
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        setProgress(`正在传递 ${i + 1}/${files.length}：${file.name}`);
+        setProgress(tr("正在传递 {0}/{1}：{2}", i + 1, files.length, file.name));
         setPercent(0);
         await uploadFile(
           `/input/files/${target}/${request.id}?${new URLSearchParams({ name: file.name })}`,
@@ -63,7 +63,7 @@ export function BrowserUploads({ requests = [], onStatus }) {
         setProgress("");
         // A failed batch must not retain half of the selected files.
         await api(action("cancel"), body).catch(() => {});
-        onStatus(`${error.message}；请重新点击上传按钮`);
+        onStatus(tr("{0}；请重新点击上传按钮", error.message));
       }
     }
   };
@@ -80,7 +80,7 @@ export function BrowserUploads({ requests = [], onStatus }) {
     } catch (error) {
       setError(error.message); setProgress("");
       await api(action("cancel"), body).catch(() => {});
-      onStatus(`${error.message}；请重新点击上传按钮`);
+      onStatus(tr("{0}；请重新点击上传按钮", error.message));
     }
   };
   return (

@@ -20,7 +20,7 @@ import {
   isRemoteClient,
   runtimeURL,
 } from "./client-context.mjs";
-import { useTranslation } from "./interface-language.mjs";
+import { translate, useTranslation } from "./interface-language.mjs";
 
 export function useDownloadNotifications(
   downloads = [],
@@ -42,7 +42,7 @@ export function useDownloadNotifications(
         observed.current.add(item.id);
       if (item.state === "failed" && previous.current.get(item.id)?.state !== "failed")
         onStatus(
-          `“${item.name}”未能保存：${item.error || "请在下载列表中重试"}`,
+          translate("“{0}”未能保存：{1}", item.name, item.error ? translate(item.error) : translate("请在下载列表中重试")),
         );
       if (
         item.target === "desktop" &&
@@ -50,9 +50,9 @@ export function useDownloadNotifications(
         previous.current.get(item.id)?.state !== item.state
       ) {
         if (item.state === "downloading")
-          onStatus(`正在下载“${item.name}”，可在浏览器右上角的下载列表查看`);
+          onStatus(translate("正在下载“{0}”，可在浏览器右上角的下载列表查看", item.name));
         if (item.state === "saved")
-          onStatus(`“${item.name}”已保存到下载暂存目录`);
+          onStatus(translate("“{0}”已保存到下载暂存目录", item.name));
       }
       if (item.openError && previous.current.get(item.id)?.openError !== item.openError)
         onStatus(`“${item.name}”${item.openError}`);

@@ -28,7 +28,7 @@ export function SetupProgress({ job, onDetails, onStop, onRetry, disconnected })
   const knownSize = hasBytes && Number.isFinite(total) && total > 0 && received <= total;
   const percent = knownSize ? Math.floor(received / total * 100) : null;
   const failed = Boolean(job.error);
-  const meter = knownSize ? `${bytes(received)} / ${bytes(total)}` : hasBytes ? `已接收 ${bytes(received)}` : "";
+  const meter = knownSize ? `${bytes(received)} / ${bytes(total)}` : hasBytes ? tr("已接收 {0}", bytes(received)) : "";
   return <section className={`setup-progress${failed ? " setup-progress-failed" : ""}`} aria-label={tr("环境安装进度")}>
     <ol className="setup-stages" aria-label={tr("安装阶段")}>
       {stages.map(([key, name]) => <li key={key} aria-current={key === phase ? "step" : undefined}>{native && key === "image" ? tr("安装材料") : native && key === "packages" ? tr("系统安装") : name}</li>)}

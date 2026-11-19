@@ -3,7 +3,7 @@ import { Folder, ListFilter, RefreshCw, Search, Trash2 } from "lucide-react";
 import { api } from "./api";
 import { InlineSelect } from "./inline-select";
 import "./cli-sessions.css";
-import { useTranslation } from "./interface-language.mjs";
+import { translate, useTranslation } from "./interface-language.mjs";
 
 export const desktopSessionRequest = (path, options = {}) => api("/cli" + path, options.body);
 export const sessionsChanged = () => window.dispatchEvent(new Event("cage-cli-sessions-changed"));
@@ -104,11 +104,11 @@ export function ArchivedSessions({ request = desktopSessionRequest, ready, onRes
       setSelected(previous => new Set([...previous].filter(id => !completed.has(id))));
       if (completed.size) {
         setConfirming("");
-        setResultMessage(`已${operation === "restore" ? "取消归档" : "永久删除"} ${completed.size} 个会话。`);
+        setResultMessage(operation === "restore" ? translate("已取消归档 {0} 个会话。", completed.size) : translate("已永久删除 {0} 个会话。", completed.size));
         sessionsChanged();
       }
       setBulkConfirm(null);
-      if (failures.length) setError(`${failures.length} 个会话处理失败：${failures.map(({session,message}) => `“${session.title || "新会话"}”：${message}`).join("；")}`);
+      if (failures.length) setError(translate("{0} 个会话处理失败：{1}", failures.length, failures.map(({session,message}) => translate("“{0}”：{1}", session.title || translate("新会话"), message)).join("; ")));
       if (operation === "restore") for (const id of completed) onRestored?.(id);
     } finally { setBusy(false); setProgress(null); }
   };

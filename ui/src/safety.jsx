@@ -141,7 +141,7 @@ export function SafetyPanel({
             <ShieldAlert size={27} />
           )}
           <div>
-            <h3>{network.label}</h3>
+            <h3>{tr(network.label)}</h3>
             <p>
               {busy
                 ? status.job.message

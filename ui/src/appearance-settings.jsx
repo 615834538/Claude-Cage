@@ -93,7 +93,7 @@ function FontSizeInput({ label, value, min, onChange }) {
     </div>
   );
 }
-function ColorField({ label, value, onChange, onReset }) {
+function ColorField({ theme, name, value, onChange, onReset }) {
   const tr = useTranslation();
   const [text, setText] = useState(value);
   useEffect(() => setText(value), [value]);
@@ -103,17 +103,17 @@ function ColorField({ label, value, onChange, onReset }) {
   };
   return (
     <div className="theme-color-field">
-      <span>{label.replace(/^(浅色|深色)主题(终端)?/, "")}</span>
+      <span>{name}</span>
       <div className="theme-color-value">
         <input
           type="color"
-          aria-label={label + tr("取色")}
+          aria-label={tr("选取{0}的{1}", theme, name)}
           value={value}
           onChange={(e) => onChange(e.target.value)}
         />
         <input
           type="text"
-          aria-label={tr(label)}
+          aria-label={tr("{0}的{1}", theme, name)}
           aria-invalid={invalid}
           value={text}
           maxLength={7}
@@ -134,7 +134,7 @@ function ColorField({ label, value, onChange, onReset }) {
         {onReset && (
           <button
             className="icon-button"
-            aria-label={label + tr("恢复自动")}
+            aria-label={tr("将{0}的{1}恢复为自动颜色", theme, name)}
             title={tr("恢复自动颜色")}
             onClick={onReset}
           >
@@ -151,7 +151,7 @@ function ColorField({ label, value, onChange, onReset }) {
 function ThemeCard({ variant, value, active, onChange, codeFonts }) {
   const tr = useTranslation();
   const [advanced, setAdvanced] = useState(false);
-  const label = variant === "light" ? "浅色主题" : "深色主题";
+  const label = variant === "light" ? tr("浅色主题") : tr("深色主题");
   const options = presets[variant];
   const patch = (delta) => onChange({ ...value, preset: "custom", ...delta });
   const vars = themeVariables(value, variant);
@@ -165,32 +165,32 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
   return (
     <section
       className={`appearance-theme-card ${active ? "current" : ""}`}
-      aria-label={tr(label)}
+      aria-label={label}
     >
       <div className="theme-card-heading">
-        <strong>{tr(label)}</strong>
+        <strong>{label}</strong>
         {active && <small>{tr("当前使用")}</small>}
         <InlineSelect
-          aria-label={label + tr("预设")}
+          aria-label={tr("{0}预设", label)}
           value={value.preset}
           onValueChange={(next) =>
             onChange(applyThemePreset(value, variant, next))
           }
         >
           {presetGroups.map((group) => (
-            <optgroup key={group} label={group}>
+            <optgroup key={group} label={tr(group)}>
               {themeCatalog
                 .filter((item) => item.group === group && options[item.id])
                 .map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name}
+                    {tr(item.name)}
                   </option>
                 ))}
             </optgroup>
           ))}
           {!options[value.preset] && (
             <option value={value.preset} disabled>
-              {presetNames[value.preset] || tr("自定义")}
+              {presetNames[value.preset] ? tr(presetNames[value.preset]) : tr("自定义")}
             </option>
           )}
         </InlineSelect>
@@ -218,12 +218,13 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
       </div>
       <div className="theme-preset-summary">
         <p>
-          {presetInfo[value.preset]?.description ||
-            tr("自定义配色，可另存为主题以便下次使用。")}
+          {presetInfo[value.preset]?.description
+            ? tr(presetInfo[value.preset].description)
+            : tr("自定义配色，可另存为主题以便下次使用。")}
         </p>
         <div
           className="theme-status-preview"
-          aria-label={label + tr("状态配色预览")}
+          aria-label={tr("{0}状态配色预览", label)}
           style={{ background: value.surface }}
         >
           <span style={{ color: vars["--success"] }}>
@@ -242,13 +243,14 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
       </div>
       <div className="theme-base-colors">
         {[
-          ["accent", "强调色"],
-          ["surface", "背景"],
-          ["ink", "文字"],
+          ["accent", tr("强调色")],
+          ["surface", tr("背景")],
+          ["ink", tr("文字")],
         ].map(([key, name]) => (
           <ColorField
             key={key}
-            label={label + name}
+            theme={label}
+            name={name}
             value={value[key]}
             onChange={(color) => patch({ [key]: color })}
           />
@@ -269,11 +271,12 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
           </p>
           {colorGroups.map((group) => (
             <details className="theme-color-group" key={group.label}>
-              <summary>{group.label}</summary>
+              <summary>{tr(group.label)}</summary>
               {group.entries.map(([key, name]) => (
                 <ColorField
                   key={key}
-                  label={label + name}
+                  theme={label}
+                  name={tr(name)}
                   value={vars[colorTokens[key]]}
                   onChange={(color) => setColor("colors", key, color)}
                   onReset={
@@ -287,11 +290,12 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
           ))}
           {terminalColorGroups.map((group) => (
             <details className="theme-color-group" key={group.label}>
-              <summary>{group.label}</summary>
+              <summary>{tr(group.label)}</summary>
               {group.entries.map(([key, name]) => (
                 <ColorField
                   key={key}
-                  label={label + tr("终端") + name}
+                  theme={label}
+                  name={tr("终端{0}", tr(name))}
                   value={terminal[key]}
                   onChange={(color) => setColor("terminal", key, color)}
                   onReset={
@@ -309,7 +313,7 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
               background: terminal.background,
               color: terminal.foreground,
             }}
-            aria-label={label + tr("终端预览")}
+            aria-label={tr("{0}终端预览", label)}
           >
             <span style={{ color: terminal.green }}>~/cage</span> ${" "}
             <span style={{ color: terminal.blue }}>echo</span> hello
@@ -329,7 +333,7 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
           <label>
             {tr("对比度") + " "}<output>{value.contrast}</output>
             <input
-              aria-label={label + tr("对比度")}
+              aria-label={tr("{0}对比度", label)}
               type="range"
               min="0"
               max="100"
@@ -340,7 +344,7 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
           <label>
             {tr("界面字体")}
             <InlineSelect editable
-              aria-label={label + tr("界面字体")}
+              aria-label={tr("{0}界面字体", label)}
               value={value.fonts.ui}
               placeholder={tr("系统默认")}
               onValueChange={(next) =>
@@ -356,7 +360,7 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
           <label>
             {tr("代码字体")}
             <InlineSelect editable
-              aria-label={label + tr("代码字体")}
+              aria-label={tr("{0}代码字体", label)}
               value={value.fonts.code}
               placeholder={tr("系统等宽字体")}
               onValueChange={(next) =>
@@ -371,7 +375,7 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
             <input
               type="checkbox"
               role="switch"
-              aria-label={label + tr("半透明侧栏")}
+              aria-label={tr("{0}半透明侧栏", label)}
               checked={!value.opaqueWindows}
               onChange={(e) => patch({ opaqueWindows: !e.target.checked })}
             />
@@ -420,7 +424,7 @@ function ThemeLibrary({ appearance, update, saving, onError }) {
     run(async () => {
       const title = validateThemeName(name);
       if (!replace && themes.length >= customThemeLimit)
-        throw new Error("最多保存 50 个自定义主题，请先删除不需要的主题");
+        throw new Error(tr("最多保存 50 个自定义主题，请先删除不需要的主题"));
       const document = themeDocument(title, appearance);
       const item = {
         id: replace ? current.id : crypto.randomUUID(),
@@ -446,7 +450,7 @@ function ThemeLibrary({ appearance, update, saving, onError }) {
   const importText = async (text) => {
     const document = parseThemeDocument(text);
     if (themes.length >= customThemeLimit)
-      throw new Error("最多保存 50 个自定义主题，请先删除不需要的主题");
+      throw new Error(tr("最多保存 50 个自定义主题，请先删除不需要的主题"));
     const item = {
       id: crypto.randomUUID(),
       name: document.name,
@@ -478,7 +482,7 @@ function ThemeLibrary({ appearance, update, saving, onError }) {
   };
   const exportFile = () =>
     run(async () => {
-      const title = name.trim() || matching?.name || "我的主题";
+      const title = name.trim() || matching?.name || tr("我的主题");
       const text =
         JSON.stringify(themeDocument(title, appearance), null, 2) + "\n";
       const filename =
@@ -533,7 +537,7 @@ function ThemeLibrary({ appearance, update, saving, onError }) {
           if (file)
             void run(async () => {
               if (file.size > themeFileLimit)
-                throw new Error("主题文件不能超过 256 KB");
+                throw new Error(tr("主题文件不能超过 256 KB"));
               await importText(await file.text());
             });
         }}
@@ -554,7 +558,7 @@ function ThemeLibrary({ appearance, update, saving, onError }) {
           {themes.map((item) => (
             <option key={item.id} value={item.id}>
               {item.name}
-              {item.id === current?.id && dirty ? " " + tr("· 已修改") : ""}
+              {item.id === current?.id && dirty ? " · " + tr("已修改") : ""}
             </option>
           ))}
         </InlineSelect>
@@ -592,7 +596,7 @@ function ThemeLibrary({ appearance, update, saving, onError }) {
             disabled={busy || saving}
             onClick={() =>
               run(async () => {
-                if (!confirm(`删除主题“${current.name}”？当前配色会保留。`))
+                if (!confirm(tr("删除主题“{0}”？当前配色会保留。", current.name)))
                   return;
                 if (
                   await update((previous) => ({
@@ -690,7 +694,7 @@ export function AppearanceSettings() {
         />
         {themeError && (
           <div className="error-message" role="alert">
-            {themeError}
+            {tr(themeError)}
           </div>
         )}
         <div className="theme-card-grid">

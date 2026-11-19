@@ -23,7 +23,7 @@ import logo from "./logo.png";
 import "./account.css";
 import { Modal } from "./modal";
 import { TokenUsagePanel } from "./token-usage.jsx";
-import { useTranslation } from "./interface-language.mjs";
+import { translate, useTranslation } from "./interface-language.mjs";
 import { LanguageSettings } from "./language-settings";
 
 const AccountContext = createContext(null);
@@ -257,11 +257,11 @@ export function AccountGate({ children }) {
           await trustedLogin(rememberThisDevice ? "enable" : "disable", password);
           await refresh();
         } catch (e) {
-          setDeviceNotice(`已登录，${rememberThisDevice ? "记住我未能开启" : "记住我未能关闭"}：${e.message}。可在「设置 → 账户」中重试。`);
+          setDeviceNotice(rememberThisDevice ? translate("已登录，记住我未能开启：{0}。可在「设置 → 账户」中重试。", e.message) : translate("已登录，记住我未能关闭：{0}。可在「设置 → 账户」中重试。", e.message));
         }
       } else if (creating && rememberThisDevice && deviceSupport?.supported && deviceSupport.device_status) {
         try { await deviceAction("enable", "automatic"); }
-        catch (e) { setDeviceNotice(`账户已创建，记住登录未能开启：${e.message}。可在「设置 → 账户」中重试。`); }
+        catch (e) { setDeviceNotice(translate("账户已创建，记住登录未能开启：{0}。可在「设置 → 账户」中重试。", e.message)); }
       }
       setPassword("");
       setConfirmation("");

@@ -332,7 +332,7 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
       linkHandler: { activate(event, uri) {
         if (isClaudeLoginLink(uri)) return void activateLogin(event, uri);
         // Keep xterm's user confirmation for other explicit HTTP(S) links.
-        if (window.confirm(`打开此终端链接？\n${uri}`)) window.open(uri, "_blank", "noopener,noreferrer");
+        if (window.confirm(translate("打开此终端链接？\n{0}", uri))) window.open(uri, "_blank", "noopener,noreferrer");
       } },
       fontFamily: theme.fonts.code || systemCodeFont,
       fontSize: appearance.codeFontSize,
@@ -489,8 +489,8 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
         if (terminal.modes.mouseTrackingMode !== "none")
           void enqueue(() => send("\x1b[99;6u")).catch(() => {});
         onStatus(terminal.modes.mouseTrackingMode === "none"
-          ? "请先拖选要复制的终端文字"
-          : `当前程序接管了鼠标。请按住 ${isMac ? "Option" : "Shift"} 拖选文字，再复制。`);
+          ? translate("请先拖选要复制的终端文字")
+          : translate("当前程序接管了鼠标。请按住 {0} 拖选文字，再复制。", isMac ? "Option" : "Shift"));
         return;
       }
       void writeClipboard(text)

@@ -23,7 +23,7 @@ import { ProxyYAMLInput } from "./proxy-yaml-input";
 import { LocalConfigImport } from "./local-config-import";
 import { getClientContext } from "./client-context.mjs";
 import "./proxy.css";
-import { useTranslation } from "./interface-language.mjs";
+import { translate, useTranslation } from "./interface-language.mjs";
 
 const bytes = (v) => {
   const n = Math.max(0, Number(v) || 0);
@@ -40,7 +40,7 @@ function usageLabel(raw) {
   return [
     values.total ? `${bytes(used)} / ${bytes(values.total)}` : "",
     Number(values.expire) > 0
-      ? `到期 ${new Date(Number(values.expire) * 1000).toLocaleDateString()}`
+      ? translate("到期 {0}", new Date(Number(values.expire) * 1000).toLocaleDateString())
       : "",
   ]
     .filter(Boolean)
@@ -206,8 +206,10 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
               : null;
         setNotice(
           importedSource
-            ? `已导入 ${importedSource.nodes.length} 个节点，跳过 ${importedSource.skipped?.length || 0} 个${importedSource.skipped?.length ? "；可在来源下查看跳过原因" : ""}`
-            : current.message || "已完成",
+            ? importedSource.skipped?.length
+              ? tr("已导入 {0} 个节点，跳过 {1} 个；可在来源下查看跳过原因", importedSource.nodes.length, importedSource.skipped.length)
+              : tr("已导入 {0} 个节点，跳过 {1} 个", importedSource.nodes.length, 0)
+            : current.message || tr("已完成"),
         );
         setDelays({});
         if (action === "import-local") { setTab("nodes"); setSearch(""); setSource(""); setNotice("配置已导入。请在下方选择出口，再点击“应用代理”。"); }
@@ -413,7 +415,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
           </strong>
           {savedRoute.length > 1 && (
             <span className="proxy-current-route">
-              {tr("当前链路：")}{savedRoute.map(routeName).join(" → ")}
+              {tr("当前链路：{0}", savedRoute.map(routeName).join(" → "))}
             </span>
           )}
           <span>
@@ -422,7 +424,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                 ? tr("Cage 自带核心运行中")
                 : tr("核心未就绪")
               : tr("请选择节点后应用，未配置时无法联网")}{" "}
-            {tr("· 独立端口") + " "}{proxy.port}
+            {"· " + tr("独立端口 {0}", proxy.port)}
           </span>
         </div>
         <span className={`proxy-badge ${proxy.network_open ? "online" : ""}`}>
@@ -431,8 +433,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
       </div>
       {proxy.active && status.location && (
         <p className="field-help">
-          {tr("最近检测出口：")}{status.location.ip} · {status.location.country}{" "}
-          {status.location.city}{tr("。联网是否放行以工作台检查状态为准。")}
+          {tr("最近检测出口：{0}。联网是否放行以工作台检查状态为准。", `${status.location.ip} · ${status.location.country} ${status.location.city}`.trim())}
         </p>
       )}
       {!proxy.core_available && (
@@ -501,8 +502,8 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                 {route.map((id, index) => {
                   const final = index === route.length - 1;
                   const label = final
-                    ? "最终出口"
-                    : `中转节点${route.length > 2 ? ` ${index + 1}` : ""}`;
+                    ? tr("最终出口")
+                    : route.length > 2 ? tr("中转节点 {0}", index + 1) : tr("中转节点");
                   return (
                     <li
                       key={index}
@@ -522,7 +523,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                           onValueChange={(next) => updateHop(index, next)}
                         >
                           <option value="" disabled>
-                            {tr("请选择")}{label}
+                            {tr("请选择{0}", label)}
                           </option>
                           {Boolean(id) &&
                             !allNodes.some((n) => n.id === id) && (
@@ -776,7 +777,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
           </p>
           <div className="proxy-toolbar">
             <span>
-              {proxy.sources.length}{" " + tr("个来源 ·") + " "}{allNodes.length}{" " + tr("个节点")}
+              {tr("{0} 个来源 · {1} 个节点", proxy.sources.length, allNodes.length)}
             </span>
             <button
               disabled={busy}
@@ -794,13 +795,13 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
               <div>
                 <strong>{s.name}</strong>
                 <small>
-                  {s.remote ? s.host : tr("本地导入")} · {s.nodes.length}{" " + tr("个节点 ·")}{" "}
+                  {s.remote ? s.host : tr("本地导入")} · {tr("{0} 个节点", s.nodes.length)} ·{" "}
                   {s.interval_hours && s.remote
                     ? tr("每 {0} 小时更新", (s.interval_hours))
                     : tr("手动更新")}
                 </small>
                 <small>
-                  {tr("更新于") + " "}{new Date(s.updated_at).toLocaleString()}
+                  {tr("更新于 {0}", new Date(s.updated_at).toLocaleString())}
                   {usageLabel(s.usage) && ` · ${usageLabel(s.usage)}`}
                 </small>
                 {s.error && (
@@ -809,12 +810,12 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                 {s.skipped?.length > 0 && (
                   <details className="proxy-source-skipped">
                     <summary>
-                      {tr("已导入") + " "}{s.nodes.length}{" " + tr("个节点，跳过") + " "}{s.skipped.length}{" " + tr("个 · 查看原因")}
+                      {tr("已导入 {0} 个节点，跳过 {1} 个 · 查看原因", s.nodes.length, s.skipped.length)}
                     </summary>
                     <ul>
                       {s.skipped.map((issue) => (
                         <li key={issue.index}>
-                          {tr("第") + " "}{issue.index}{" " + tr("个节点")}
+                          {tr("第 {0} 个节点", issue.index)}
                           {issue.name && `「${issue.name}」`}
                           {issue.type && `（${issue.type}）`}：{issue.reason}
                         </li>
@@ -860,10 +861,10 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                   onClick={async () => {
                     if (
                       await onConfirm({
-                        title: `删除来源“${s.name}”？`,
+                        title: tr("删除来源“{0}”？", s.name),
                         body: s.nodes.some((n) => n.id === proxy.selected)
-                          ? "当前节点来自此来源。删除后 Cage 会保持离线，直到你选择其他节点。"
-                          : "将移除此来源及其节点，本地项目文件不受影响。",
+                          ? tr("当前节点来自此来源。删除后 Cage 会保持离线，直到你选择其他节点。")
+                          : tr("将移除此来源及其节点，本地项目文件不受影响。"),
                         confirm: "删除来源",
                       })
                     )
@@ -1187,7 +1188,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
       {tab === "diagnostics" && (
         <>
           <p className="field-help">
-            {tr("随附核心") + " "}{proxy.version || tr("未运行")}{tr("。以下为 Cage 状态摘要；含凭据风险的核心原始日志不向页面公开。")}
+            {tr("随附核心 {0}。以下为 Cage 状态摘要；含凭据风险的核心原始日志不向页面公开。", proxy.version || tr("未运行"))}
           </p>
           <div className="proxy-diagnostics" role="log">
             {logs.map((line, i) => (

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { FolderOpen } from "lucide-react";
 import { api, native, nativeAvailable } from "./api";
 import { SafetyMessage } from "./safety-message";
-import { useTranslation } from "./interface-language.mjs";
+import { translate, useTranslation } from "./interface-language.mjs";
 
 export function EnvironmentStorage({ status, onConfirm }) {
   const tr = useTranslation();
@@ -46,7 +46,7 @@ export function EnvironmentStorage({ status, onConfirm }) {
     const path = directory.trim();
     if (location.has_environment && !(await onConfirm({
       title: "迁移本机环境？",
-      body: `请先保存文件。Cage 会停止环境和终端，将虚拟磁盘复制到 ${path}，校验后再切换位置。原数据保留为备份，迁移完成后可手动启动环境。`,
+      body: translate("请先保存文件。Cage 会停止环境和终端，将虚拟磁盘复制到 {0}，校验后再切换位置。原数据保留为备份，迁移完成后可手动启动环境。", path),
       confirm: "迁移环境",
     }))) return;
     setSubmitting(true);

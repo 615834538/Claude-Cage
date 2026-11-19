@@ -65,7 +65,7 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
       !(await onConfirm({
         title: "移除配对手机？",
         body: device?.model
-          ? `移除 ${device.model} 后，这部手机需要重新扫码才能访问工作台。`
+          ? tr("移除 {0} 后，这部手机需要重新扫码才能访问工作台。", device.model)
           : "这部手机需要重新扫码才能访问工作台。",
         confirm: "移除手机",
       }))

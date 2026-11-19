@@ -85,7 +85,7 @@ export function TerminalMenu({ choice, busy, profiles, usesOfficialCLI, onClose,
         <InlineSelect inline aria-label={tr("启动账号")} value={account} disabled={busy} onValueChange={selectAccount}>
           <option value="auto">{tr("自动选择账号")}</option>
           {(profiles.accounts || []).map(a => <option key={a.id} value={a.id}>
-            {`#${String(a.number).padStart(2, "0")} ${a.label}${a.status === "ready" ? "" : " · 需要登录"}`}
+            {`#${String(a.number).padStart(2, "0")} ${a.label}${a.status === "ready" ? "" : " · " + tr("需要登录")}`}
           </option>)}
           <option value="login">{tr("在此终端登录")}</option>
         </InlineSelect>

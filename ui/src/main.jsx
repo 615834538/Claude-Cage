@@ -1350,8 +1350,8 @@ function App() {
   const terminalHeader = tab => {
     const path = tab?.workspace || workspace;
     const account = tab?.claude_account_id && terminalAccountName(tab);
-    const detail = tab?.terminalKind === "claude-login" ? `登录 · ${account || "新账号"}`
-      : account ? `Claude · ${account}${tab.claude_account_source === "default" ? "（启动时账号）" : ""}` : "";
+    const detail = tab?.terminalKind === "claude-login" ? tr("登录 · {0}", account || tr("新账号"))
+      : account ? tab.claude_account_source === "default" ? tr("Claude · {0}（启动时账号）", account) : `Claude · ${account}` : "";
     const location = split && tab ? `heading-${tab.id}` : "heading";
     return <TerminalHeader tab={tab} project={projectName(path, groups, tr("新项目"))} metadata={metadata}
       contentWorkspace={path} terminalDetail={detail} terminalDetailHint={tab?.claude_account_source === "default"
@@ -1738,7 +1738,7 @@ function App() {
                           ? status.environment_update_error || "浏览器连接尚未就绪，可以恢复连接或继续使用终端。"
                           : network.mode === "open"
                             ? "环境已连接，网络检查通过。可以浏览网页或打开本地项目。"
-                            : `${network.label}。终端与本地文件仍可使用。`
+                            : tr("{0}。终端与本地文件仍可使用。", tr(network.label))
                         : setupProxy
                           ? "先连接你的代理，再启动浏览器、终端和编辑器。无需安装额外的代理软件。"
                           : "准备独立的浏览器和终端，完成网络检查后开始工作。"} />
@@ -1787,7 +1787,7 @@ function App() {
                         {busy
                           ? runtimeLabel
                           : running
-                            ? network.label
+                            ? tr(network.label)
                             : setupProxy
                               ? tr("等待配置代理")
                               : tr("环境已停止")}
@@ -1923,7 +1923,7 @@ function App() {
                 size={14}
                 healthy={status.ready && network.mode === "open"}
               />
-              <span>{running ? network.label : tr("网络检查")}</span>
+              <span>{running ? tr(network.label) : tr("网络检查")}</span>
             </button>
             <span className="status-divider" />
             <button onClick={() => openSettings("network")}>

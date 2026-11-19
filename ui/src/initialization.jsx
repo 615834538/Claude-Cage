@@ -12,7 +12,7 @@ import { DiagnosticSettings } from "./diagnostics.jsx";
 import { InitializationDetails } from "./initialization-checks";
 import { Modal } from "./modal";
 import { SafetyMessage } from "./safety-message";
-import { needsProxySetup } from "./onboarding-state.mjs";
+import { needsEnvironmentRestart, needsProxySetup } from "./onboarding-state.mjs";
 import { beginInstall, formatSpeed, mirrorNames } from "./debian-mirrors.mjs";
 import { networkState } from "./safety-state.mjs";
 import { useSSHNavigation } from "./remote-hosts";
@@ -87,7 +87,8 @@ function Initialization({ initial, onComplete }) {
   const job = status?.job || {};
   const busy = submitting || Boolean(job.running);
   const network = networkState(status);
-  const showReady = entering || Boolean(status?.ready && status.vm_running && !busy && !job.error && network.mode === "open");
+  const needsRestart = needsEnvironmentRestart(status);
+  const showReady = entering || Boolean(status?.ready && status.vm_running && !busy && !job.error && !needsRestart && network.mode === "open");
   const confirm = options => new Promise(resolve => setDialog({ ...options, resolve }));
   const settleDialog = value => { dialog?.resolve(value); setDialog(null); };
 
@@ -165,12 +166,45 @@ function Initialization({ initial, onComplete }) {
       setMirrors(null);
       const { accepted } = outcome;
       setStep("install");
-      setStatus(current => ({ ...current, job: { ...accepted, running: true, kind: accepted.kind || "start", message: accepted.message || "正在准备客机环境…" } }));
+      setStatus(current => ({ ...current, job: { ...accepted, running: true, kind: accepted.kind || "start", message: accepted.message || tr("正在准备客机环境…") } }));
     });
   }
   async function stop() {
     if (!await confirm({ title: "停止当前安装？", body: "安装进度、已下载文件和虚拟磁盘会保留。你可以在此界面继续安装。", confirm: "停止安装" })) return;
     await run(async () => { const accepted = await api("/stop", {}); setStatus(current => ({ ...current, job: { ...accepted, running: true } })); });
+  }
+  async function waitForJob(accepted, kind) {
+    if (!accepted.id) throw new Error(tr("操作未返回任务编号，请核对状态后重试。"));
+    while (alive.current) {
+      const next = await api("/status");
+      if (!alive.current) break;
+      setStatus(next);
+      const current = next.job;
+      if (current?.id !== accepted.id || current.kind !== kind) throw new Error(tr("操作状态已变化，请核对状态后重试。"));
+      if (current.error || current.canceled) throw new Error(current.error || tr("操作已取消，请核对状态后重试。"));
+      if (!current.running) return next;
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+    throw new Error(tr("初始化页面已关闭，操作未继续。"));
+  }
+  // A changed exit or environment configuration only takes effect after a full
+  // stop. Confirm first, then start only after the accepted stop has finished.
+  async function restart() {
+    await run(async () => {
+      const running = status.vm_running;
+      if (!await confirm({ title: running ? tr("重启环境并重新检测？") : tr("启动环境并重新检测？"), body: tr("请先保存文件。当前终端会话会结束，浏览器登录和项目文件会保留。重新检测通过前，外网保持关闭。"), confirm: running ? tr("重启并检查") : tr("启动并检测") })) return;
+      const current = await api("/status");
+      if (!alive.current) return;
+      if (current.job?.running) throw new Error(tr("其他操作仍在进行，请等待完成后重试。"));
+      if (current.vm_running) {
+        const stopped = await waitForJob(await api("/stop", {}), "stop");
+        if (stopped.vm_running) throw new Error(tr("环境尚未停止，请核对状态后重试。"));
+      }
+      if (!alive.current) return;
+      const accepted = await api("/start", startOptions());
+      if (!accepted.id) throw new Error(tr("启动请求未返回任务编号，请核对状态后重试。"));
+      setStatus(current => ({ ...current, job: { ...accepted, running: true, kind: "start", message: accepted.message || tr("正在启动并检查环境…") } }));
+    });
   }
   async function enter() {
     await run(async () => {
@@ -187,7 +221,7 @@ function Initialization({ initial, onComplete }) {
   async function checkNetwork() {
     await run(async () => {
       const accepted = await api("/safety/check", {});
-      setStatus(current => ({ ...current, job: { ...accepted, running: true, kind: "safety", message: "正在检查代理出口和环境隔离…" } }));
+      setStatus(current => ({ ...current, job: { ...accepted, running: true, kind: "safety", message: tr("正在检查代理出口和环境隔离…") } }));
     });
   }
   async function back() {
@@ -239,9 +273,10 @@ function Initialization({ initial, onComplete }) {
           </>}
           {step === "proxy" && <><ProxySettings initializing status={status} onConfirm={confirm} onDirty={setProxyDirty} onApplied={async () => { setProxy(await api("/proxy")); pollNow.current?.(); }} /></>}
           {step === "install" && (showReady ? <div className="initialization-ready"><ShieldCheck size={36} /><h2>{tr(entering ? "正在进入工作台" : "环境已就绪")}</h2><p role={entering ? "status" : undefined}>{tr(entering ? "正在等待后台检查结束并确认环境状态，请稍候…" : "独立系统已安装，工具、文件和登录状态会持续保存。以后打开 Cage 可直接进入工作台。")}</p></div> : <>
-            {progress ? <SetupProgress job={progress} onDetails={() => setDetails(true)} onStop={stop} onRetry={install} disconnected={Boolean(connectionError) || submitting} /> : <div className="initialization-operation" role="status">{busy && <LoaderCircle size={22} className="spin" />}<p>{measuring ? tr("正在经所选代理测量 Debian 软件源的下载速度，最多约 20 秒…") : stopped ? tr("安装已停止，已有下载和磁盘会保留。点击「继续安装」接着完成。") : job.message || (status.vm_running ? tr("请完成客机连接和网络检查。") : tr("准备继续原安装，已有文件和磁盘会保留。"))}</p>{!busy && !job.error && !mirrors && <button className="primary" disabled={Boolean(connectionError)} onClick={install}>{status.ready ? tr("重新启动并检查") : tr("继续安装")}</button>}{busy && !measuring && <button onClick={stop} disabled={submitting}>{tr("停止安装")}</button>}</div>}
-            {job.error && !progress && <div className="initialization-notice" role="alert"><SafetyMessage message={job.error} />{!networkPending && <button className="primary" disabled={busy || Boolean(connectionError)} onClick={install}>{tr("继续安装")}</button>}</div>}
-            {status.ready && network.mode !== "open" && !busy && <>
+            {needsRestart && <section className="initialization-notice" aria-label={tr("需要重启环境")}><h2>{tr("下一步：重启环境并重新检测")}</h2><p>{tr("环境设置已变化。请先保存文件，再点击下方按钮。重启并通过检查前，外网保持关闭。")}</p><button className="primary" disabled={busy || Boolean(connectionError)} onClick={restart}>{status.vm_running ? tr("重启环境并重新检测") : tr("启动环境并重新检测")}</button></section>}
+            {progress ? <SetupProgress job={progress} onDetails={() => setDetails(true)} onStop={stop} onRetry={needsRestart ? restart : install} disconnected={Boolean(connectionError) || submitting} /> : <div className="initialization-operation" role="status">{busy && <LoaderCircle size={22} className="spin" />}<p>{measuring ? tr("正在经所选代理测量 Debian 软件源的下载速度，最多约 20 秒…") : stopped ? tr("安装已停止，已有下载和磁盘会保留。点击「继续安装」接着完成。") : job.message || (status.vm_running ? tr("请完成客机连接和网络检查。") : tr("准备继续原安装，已有文件和磁盘会保留。"))}</p>{!busy && !job.error && !mirrors && !needsRestart && <button className="primary" disabled={Boolean(connectionError)} onClick={install}>{status.ready ? tr("重新启动并检查") : tr("继续安装")}</button>}{busy && !measuring && <button onClick={stop} disabled={submitting}>{tr("停止安装")}</button>}</div>}
+            {job.error && !progress && <div className="initialization-notice" role="alert"><SafetyMessage message={job.error} />{!networkPending && !needsRestart && <button className="primary" disabled={busy || Boolean(connectionError)} onClick={install}>{tr("继续安装")}</button>}</div>}
+            {status.ready && network.mode !== "open" && !busy && !needsRestart && <>
               <div className="initialization-network"><p>{status.safety?.error || job.error || status.network_error || tr("客机已经连接，请完成网络和隔离检查后进入工作台。")}</p><button disabled={Boolean(connectionError)} onClick={checkNetwork}>{tr("运行网络与隔离检查")}</button></div>
             </>}
             {(progress?.setup_progress.phase === "image" || (failed && !networkPending)) && <p>{tr("系统镜像遵循主机代理设置。下载失败时，可在操作详情中查看当前文件和重试记录。客机内的联网请求使用 Cage 代理。")}</p>}

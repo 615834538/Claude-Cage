@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { api } from "./api";
 import "./environment-cache.css";
-import { useTranslation } from "./interface-language.mjs";
+import { translate, useTranslation } from "./interface-language.mjs";
 
 function size(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -42,7 +42,7 @@ export function EnvironmentCache({ status, onConfirm }) {
       const confirmed = await onConfirm({
         title: cleaning ? "清理所选缓存？" : "恢复这批缓存？",
         body: cleaning
-          ? `将移动 ${choices.length} 项缓存（${size(choices.reduce((total, item) => total + item.bytes, 0))}）到恢复批次。\n${choices.map(item => item.title).join("、")}。\n账户、登录、会话、项目和持久磁盘保留。恢复副本仍占用空间，客户端下次使用时可能重新生成缓存。`
+          ? translate("将移动 {0} 项缓存（{1}）到恢复批次。\n{2}。\n账户、登录、会话、项目和持久磁盘保留。恢复副本仍占用空间，客户端下次使用时可能重新生成缓存。", choices.length, size(choices.reduce((total, item) => total + item.bytes, 0)), choices.map(item => translate(item.title)).join(translate("、")))
           : "只恢复这批缓存。正在使用的缓存和原位置新生成的数据都会保留，恢复不会覆盖它们。",
         confirm: cleaning ? "清理缓存" : "恢复缓存",
       });

@@ -22,7 +22,7 @@ import { applyInterfaceLanguage } from "./interface-language.mjs";
 import { HostForm } from "./remote-host-form";
 import logo from "./logo.png";
 import "./remote-hosts.css";
-import { useTranslation } from "./interface-language.mjs";
+import { translate, useTranslation } from "./interface-language.mjs";
 import { LanguageSettings } from "./language-settings";
 
 const Navigation = createContext(null);
@@ -48,12 +48,12 @@ function remember(value) {
   }
 }
 function localSummary(status) {
-  if (!status?.known) return "本机状态待确认";
-  if (status.busy) return "本机正在处理环境操作";
+  if (!status?.known) return translate("本机状态待确认");
+  if (status.busy) return translate("本机正在处理环境操作");
   if (status.live_terminals)
-    return `本机有 ${status.live_terminals} 个活动终端`;
-  if (status.running) return "本机环境正在运行";
-  return status.service_running ? "本机控制服务已启动" : "本机环境已停止";
+    return translate("本机有 {0} 个活动终端", status.live_terminals);
+  if (status.running) return translate("本机环境正在运行");
+  return status.service_running ? translate("本机控制服务已启动") : translate("本机环境已停止");
 }
 
 export function ClientRoot({ children }) {
@@ -185,8 +185,8 @@ function Environment({ context, refresh, children }) {
   const needsDeploy = connectionHostID === selected && connection?.error_code === "deployment_required";
   const phase = connection?.phase || "";
   const connectingLabel = phase.startsWith("cloud_upload_")
-    ? `正在上传部署包 ${phase.slice("cloud_upload_".length)}%`
-    : { cloud_install: "正在安装云端环境…", cloud_detect: "正在检测服务器…", cloud_start: "正在启动服务…" }[phase] || "正在验证…";
+    ? translate("正在上传部署包 {0}%", phase.slice("cloud_upload_".length))
+    : translate({ cloud_install: "正在安装云端环境…", cloud_detect: "正在检测服务器…", cloud_start: "正在启动服务…" }[phase] || "正在验证…");
   const hostName = remote
     ? context.name || "远程主机"
     : local
