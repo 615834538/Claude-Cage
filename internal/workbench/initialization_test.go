@@ -30,6 +30,49 @@ func initializationRequest(s *Server, action string, trusted bool) *httptest.Res
 	return w
 }
 
+func TestInitializationBeginAndInstallAfterFirstAccountCreation(t *testing.T) {
+	s := testServer(t)
+	account, err := loadLocalAccount(s.profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.account = account
+	t.Cleanup(account.lock)
+
+	actions := []string{"begin", "install"}
+	for _, action := range actions {
+		if w := initializationRequest(s, action, true); w.Code != http.StatusLocked {
+			t.Fatalf("%s before account creation: %d %s", action, w.Code, w.Body.String())
+		}
+	}
+	path := filepath.Join(s.profile, "initialization.json")
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("expected no initialization record before account creation, stat error: %v", err)
+	}
+
+	w := request(s, http.MethodPost, "/api/account/create", s.origin, `{"username":"firstuser","password":"test-password","confirm_password":"test-password"}`, true)
+	if w.Code != http.StatusOK {
+		t.Fatalf("create first account: %d %s", w.Code, w.Body.String())
+	}
+	for _, action := range actions {
+		if w := initializationRequest(s, action, true); w.Code != http.StatusOK {
+			t.Fatalf("%s after account creation: %d %s", action, w.Code, w.Body.String())
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var record initializationRecord
+		if err := json.Unmarshal(data, &record); err != nil {
+			t.Fatal(err)
+		}
+		want := initializationRecord{Version: 1, Started: action == "install"}
+		if record != want {
+			t.Fatalf("%s wrote %+v, want %+v", action, record, want)
+		}
+	}
+}
+
 func TestInitializationPersistsBeforeDiskCreationAndDoesNotResetExisting(t *testing.T) {
 	s := testServer(t)
 	read := func() initializationView {

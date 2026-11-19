@@ -75,7 +75,7 @@ Cage 支持含中文的安装目录。启动时优先读取随附 QEMU 的 UEFI 
 | 工具 | 版本与用途 |
 | --- | --- |
 | [PowerShell 7](https://learn.microsoft.com/powershell/scripting/install/install-powershell-on-windows) | 用 `pwsh --version` 检查。系统自带的 `powershell.exe` 是 5.1。 |
-| [Git](https://git-scm.com/install/windows)、[Node.js](https://nodejs.org/en/download) | Git 用于获取源码，CI 使用 Node.js 24 和随附的 npm 构建工作台。建议使用 24.x 的最新补丁版。旧版 Node 在部分 Windows 路径环境曾以 `0xC0000409` 退出。 |
+| [Git](https://git-scm.com/install/windows)、[Node.js](https://nodejs.org/en/download) | Git 用于获取源码，CI 使用 Node.js 24 和随附的 npm 构建工作台。建议使用 24.x 的最新补丁版。若旧版 Node 以 `0xC0000409` 退出，可切换到较新的 Node 24。Node 24.22.1 已在相同的 Windows 检出目录通过复验。[#301](https://github.com/Lee-xeo/Claude-Cage/issues/301) |
 | [Go](https://go.dev/dl/) | 核对根目录 [go.mod](../go.mod) 和 [tools/tailnet/go.mod](../tools/tailnet/go.mod)。当前最低版本分别为 1.26.10 和 1.27.3。安装 Go 1.27.3 可同时满足两者。使用 `GOTOOLCHAIN=auto` 时可联网下载所需工具链。 |
 | [.NET SDK](https://dotnet.microsoft.com/download/dotnet/10.0) | 在仓库根目录运行 `dotnet --version`，应输出 [global.json](../global.json) 锁定的 10.0.404。构建还会核对 [dependencies.json](../packaging/windows/dependencies.json) 中的 .NET 运行时 10.0.15。 |
 | [uv](https://docs.astral.sh/uv/getting-started/installation/)、[7-Zip](https://www.7-zip.org/) | 工作台构建需要 `uv` 运行 noVNC 补丁脚本。Windows 构建需要 `7z` 或 `7zz` 解包依赖。可用 `uv --version` 和 `Get-Command 7z, 7zz -ErrorAction SilentlyContinue` 检查。 |
@@ -85,7 +85,7 @@ Cage 支持含中文的安装目录。启动时优先读取随附 QEMU 的 UEFI 
 把 MSYS2 安装到简短、只含 ASCII 且无空格的本地路径，例如 `C:\msys64`。打开 **MSYS2 UCRT64**，运行 `pacman -Syu` 更新。若更新时终端关闭，重新打开 UCRT64 再运行一次。更新完成后安装下列依赖，包清单与 CI 一致。[Windows CI 工具配置](../.github/actions/windows-toolchain/action.yml)
 
 ```bash
-pacman -S --needed make patch diffutils git findutils curl \
+pacman -S --needed make patch diffutils git tar gzip findutils curl \
   mingw-w64-ucrt-x86_64-{gcc,glib2,pixman,libslirp,dtc,ninja,python,pkgconf}
 ```
 
@@ -96,11 +96,15 @@ $env:CAGE_MSYS2_ROOT = 'C:\msys64'
 .\scripts\build-windows.ps1
 ```
 
-首次构建会下载并校验 QEMU 源码，再编译 `qemu-system-x86_64.exe` 和 `qemu-img.exe`。源码优先使用项目发行页上的归档，下载失败时回退到 Git。两种方式都校验源码 tar 文件的 SHA-256。Cage 仓库路径可以有空格；QEMU 会在另一个短路径目录下编译，默认尝试 MSYS2 的 `tmp`。如果该目录不可写，可在当前会话设置 `$env:CAGE_QEMU_BUILD_ROOT = 'D:\CageBuildTemp'`，使用普通用户可写、无空格且仅含 ASCII 字符的路径。
+首次构建会下载并校验 QEMU 源码，再编译 `qemu-system-x86_64.exe` 和 `qemu-img.exe`。源码优先使用项目发行页上的归档，下载失败时回退到 Git。两种方式都校验源码 tar 文件的 SHA-256。MSYS2 的 tar 会将归档里的相对链接展开为普通文件或目录，普通账户即可解包。QEMU 在独立的短路径目录下编译，默认尝试 MSYS2 的 `tmp`，Cage 仓库路径可以有空格和中文。如果该目录不可写，可设置 `$env:CAGE_QEMU_BUILD_ROOT = 'D:\CageBuildTemp'`，使用普通用户可写、无空格且仅含 ASCII 字符的路径。
 
-依赖默认缓存到 `_output/windows-deps`，可给构建和打包命令传入相同的 `-DependencyCache` 复用缓存。云部署包的 Linux Mihomo 归档缓存在 `_output/linux-deps`，下载完成并通过 SHA-256 校验后才写入缓存。也可先运行 `.\scripts\fetch-windows-dependencies.ps1` 预取。若公司网络要求代理，在当前构建会话按需设置 `HTTPS_PROXY`、`HTTP_PROXY` 和获准使用的 `GOPROXY`，再重试 NuGet、Go 或构建依赖下载。保留原有证书与哈希校验。
+QEMU 下载前会分别编译、链接并运行最小 C 和 C++ 程序。默认 GCC 和 G++ 的 `-B` 指向 MSYS2 的 `ucrt64/bin`，使汇编器和链接器从同一目录加载工具链 DLL。这能避开 `System32` 内旧版 `zlib1.dll` 与 GCC 默认子工具的冲突。如果设置了 `CC` 或 `CXX`，构建沿用对应的显式配置。预检失败时查看编译器输出。配置失败时，脚本会显示 `config.log` 和 `meson-logs/meson-log.txt` 所在目录。
 
-应用输出到 `_output/windows-amd64/app`。本地默认自检目录是仓库内的 `_output/workbench-smoke`。源码如果检出到 AppData 或重解析到其他私有目录，构建会在开始前提示把 `RUNNER_TEMP` 指向 AppData 外的普通本地目录，例如 `D:\CageBuildTemp`。若自检失败，可查看 `smoke.json` 和 `profile/logs/events.jsonl`。`prepareStatus=prepared` 是自检结束时后台的停止确认。
+依赖默认缓存到 `_output/windows-deps`，可给构建和打包命令传入相同的 `-DependencyCache` 复用缓存。QEMU 按源码、构建脚本和 `CC`/`CXX` 分目录缓存。完整运行时通过加载及哈希校验后才写入缓存，失败后可以直接重试。云部署包的 Linux Mihomo 归档缓存在 `_output/linux-deps`，下载完成并通过 SHA-256 校验后才写入缓存。也可先运行 `.\scripts\fetch-windows-dependencies.ps1` 预取。若公司网络要求代理，在当前构建会话按需设置 `HTTPS_PROXY`、`HTTP_PROXY` 和获准使用的 `GOPROXY`，再重试 NuGet、Go 或构建依赖下载。保留原有证书与哈希校验。
+
+NuGet 报 `Central Directory corrupt` 时，检查代理是否截断了运行时包的下载。可通过 `NuGet.Config` 配置本地包源，补入从官方来源下载的完整同版本 `.nupkg`，再重试还原。
+
+应用输出到 `_output/windows-amd64/app`。本地默认自检目录是仓库内的 `_output/workbench-smoke`。源码如果检出到 AppData 或重解析到其他私有目录，构建会在开始前提示把 `RUNNER_TEMP` 指向 AppData 外的普通本地目录，例如 `D:\CageBuildTemp`。若自检失败，构建输出会显示已识别的共享目录错误、候选应用目录和诊断路径。可查看 `smoke.json` 和 `profile/logs/events.jsonl`。`prepareStatus=prepared` 是自检结束时后台的停止确认。
 
 生成未签名安装包时，用仓库脚本安装校验过的 NSIS，再打包刚构建的应用。
 

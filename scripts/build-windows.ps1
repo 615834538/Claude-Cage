@@ -50,12 +50,14 @@ $node = $tools['Node.js']
 $sevenZip = $tools['7-Zip']
 $dependencies = Get-Content -LiteralPath (Join-Path $repository 'packaging/windows/dependencies.json') -Raw | ConvertFrom-Json
 $stage = Join-Path $repository ("_output/windows-build-" + [guid]::NewGuid().ToString('N'))
+$retainStage = $false
 $savedGoOS, $savedGoArch, $savedCGO = $env:GOOS, $env:GOARCH, $env:CGO_ENABLED
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
 Push-Location $repository
 try {
     $sdk = (Get-Content -LiteralPath 'global.json' -Raw | ConvertFrom-Json).sdk.version
-    $actualSdk = (& $dotnet '--version' | Select-Object -Last 1)
+    try { $actualSdk = (& $dotnet '--version' | Select-Object -Last 1) }
+    catch { throw "Install .NET SDK $sdk from global.json before building. $($_.Exception.Message)" }
     if ($actualSdk -ne $sdk) { throw "Expected .NET SDK $sdk from global.json; found $actualSdk." }
     foreach ($module in @('.', 'tools/tailnet')) {
         Push-Location $module
@@ -65,8 +67,7 @@ try {
             Invoke-BuildTool $go @('list', '-m')
         } finally { Pop-Location }
     }
-    $qemuBuilt = Join-Path $DependencyCache 'qemu-cage'
-    & (Join-Path $PSScriptRoot 'build-qemu-windows.ps1') -DependencyCache $DependencyCache -OutputDirectory $qemuBuilt
+    $qemuBuilt = & (Join-Path $PSScriptRoot 'build-qemu-windows.ps1') -DependencyCache $DependencyCache -UseFingerprintCache
     Invoke-BuildTool $node @('scripts/bundle-cloud-kit.mjs', '--prefetch')
     if (-not $SkipUI) {
         Invoke-BuildTool $tools['npm'] @('--prefix', 'ui', 'ci', '--no-audit', '--no-fund')
@@ -209,7 +210,12 @@ try {
         [IO.File]::WriteAllText((Join-Path $app 'DEVELOPMENT-BUILD.txt'), "Unsigned development build. Automatic update installation is disabled. Windows 10/11 runtime acceptance is still required.`n")
     }
     Assert-WindowsQemuRuntime $qemuTarget -Firmware
-    Assert-WindowsWorkbench $app
+    try { Assert-WindowsWorkbench $app }
+    catch {
+        $retainStage = $true
+        Write-Warning "Workbench acceptance failed. Build candidate retained at $app"
+        throw
+    }
     # Cage may have initialized storage in the old build while this build was running.
     Assert-NoCageDataInBuildOutput $OutputDirectory
     $previousOutput = $null
@@ -232,7 +238,7 @@ try {
 } finally {
     Pop-Location
     $env:GOOS = $savedGoOS; $env:GOARCH = $savedGoArch; $env:CGO_ENABLED = $savedCGO
-    if (Test-Path -LiteralPath $stage) {
+    if (-not $retainStage -and (Test-Path -LiteralPath $stage)) {
         try { Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction Stop }
         catch { Write-Warning "Temporary build files remain at $stage. Cleanup did not complete: $($_.Exception.Message)" }
     }
