@@ -8,11 +8,22 @@ param(
     [string]$DependencyCache
 )
 . (Join-Path $PSScriptRoot 'windows-common.ps1')
+
+function Assert-NoCageDataInBuildOutput {
+    param([string]$Directory)
+
+    $dataPath = Join-Path $Directory 'CageData'
+    if (Test-Path -LiteralPath $dataPath) {
+        throw "Build output contains CageData user data at '$dataPath'. Choose a separate -OutputDirectory or move the storage using Cage Settings."
+    }
+}
+
 $repository = Split-Path $PSScriptRoot -Parent
 if (-not $OutputDirectory) { $OutputDirectory = Join-Path $repository '_output/windows-amd64/app' }
 if (-not $DependencyCache) { $DependencyCache = Join-Path $repository '_output/windows-deps' }
 $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
 if (Test-Path -LiteralPath (Join-Path $OutputDirectory 'Uninstall.exe')) { throw 'Do not build over an installed application. Choose a separate output directory and use the installer to upgrade.' }
+Assert-NoCageDataInBuildOutput $OutputDirectory
 Assert-WindowsWorkbenchTestBase
 $version = Get-CageVersion $repository
 $signed = $Release -or $Sign
@@ -199,6 +210,8 @@ try {
     }
     Assert-WindowsQemuRuntime $qemuTarget -Firmware
     Assert-WindowsWorkbench $app
+    # Cage may have initialized storage in the old build while this build was running.
+    Assert-NoCageDataInBuildOutput $OutputDirectory
     $previousOutput = $null
     if (Test-Path -LiteralPath $OutputDirectory) {
         $marker = Join-Path $OutputDirectory 'Cage.install-id'
