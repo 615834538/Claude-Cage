@@ -244,8 +244,10 @@ var DebianPrepareScript = DebianPrepareScriptFor("")
 
 // DebianMirrorEnv carries the workbench's Debian source choice to the host
 // cage CLI. It stays on the host: the guest receives the validated value as
-// a non-exported shell variable of the preparation script.
-const DebianMirrorEnv = "CAGE_DEBIAN_MIRROR"
+// a non-exported shell variable of the preparation script. The cloud image
+// build's CAGE_DEBIAN_MIRROR names a mirror URL instead, hence the distinct
+// name.
+const DebianMirrorEnv = "CAGE_DEBIAN_MIRROR_ORDER"
 
 // ValidDebianMirror reports whether preference names a Debian source policy:
 // "auto" (official first), "official" (pinned), or "nju" / "ustc" (that
