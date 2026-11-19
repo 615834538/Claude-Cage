@@ -6,7 +6,17 @@ on:
   # this workflow). A branch without a pull request can be run by hand.
   push:
     branches: [main]
-    paths-ignore: ['README*.md', 'www/**', 'docs/guide/**', 'docs/releases/**']
+    paths-ignore:
+      - 'README*.md'
+      - 'www/**'
+      - 'docs/guide/**'
+      - 'docs/releases/**'
+      - 'assets/claude-cage-character.png'
+      - 'assets/community-browser-check-cropped.png'
+      - 'assets/community-browser-check.png'
+      - 'assets/community-qq.png'
+      - 'assets/community-wechat.png'
+      - 'assets/network-checks.png'
   workflow_call:
   workflow_dispatch:
 permissions:
@@ -36,22 +46,18 @@ jobs:
         run: |
           node scripts/check-repository-files.mjs
           node scripts/check-version.mjs
-          node --test scripts/release-version.test.mjs scripts/release-control.test.mjs scripts/prepare-release-assets.test.mjs scripts/esigner.test.mjs scripts/contribution-invite.test.mjs scripts/issue-system-labels.test.mjs
+          node --test scripts/release-version.test.mjs scripts/release-control.test.mjs scripts/prepare-release-assets.test.mjs scripts/esigner.test.mjs scripts/contribution-invite.test.mjs scripts/issue-system-labels.test.mjs scripts/fetch-build-artifact.test.mjs
           pwsh -NoProfile -File scripts/test-windows-signing.ps1
       - name: Validate workflow syntax
         run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.11 -color
       - name: Guest creation preference contracts
         run: |
-          node scripts/guest-os/tests/browser-profile.test.mjs
           node internal/cage/device-observation.test.mjs
           node internal/cage/browser-audit.test.mjs
   browser-popups:
     needs: workflow-checks
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-22.04, windows-2025]
-    runs-on: ${{ matrix.os }}
+    # The Debian guest controller is Linux-only; hosts never run it directly.
+    runs-on: ubuntu-22.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -60,29 +66,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Install Linux isolation and display tools
-        if: runner.os == 'Linux'
+      - name: Install isolation and display tools
         run: sudo apt-get update && sudo apt-get install -y bubblewrap xvfb
-      - name: Test real Chromium popups through the native controller
-        shell: pwsh
+      - name: Test real Chromium popups through the guest browser controller
         run: |
-          $prefix = Join-Path $env:RUNNER_TEMP 'popup-playwright'
-          npm install --prefix $prefix --no-save --ignore-scripts playwright-core@1.65.0
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $cli = Join-Path $prefix 'node_modules/playwright-core/cli.js'
-          if ($IsLinux) { node $cli install --with-deps chromium }
-          else { node $cli install chromium }
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $env:CAGE_BROWSER_TEST_PLAYWRIGHT = Join-Path $prefix 'node_modules/playwright-core/index.mjs'
-          $env:CAGE_BROWSER_TEST_CHROMIUM = node --input-type=module -e "import { pathToFileURL } from 'node:url'; const { chromium } = await import(pathToFileURL(process.env.CAGE_BROWSER_TEST_PLAYWRIGHT)); console.log(chromium.executablePath());"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (!(Test-Path -LiteralPath $env:CAGE_BROWSER_TEST_CHROMIUM)) { throw 'Chromium is required; popup tests must not skip.' }
-          if ($IsLinux) {
-            xvfb-run -a node --test internal/cage/browser-popup.integration.mjs
-          } else {
-            node --test --test-name-pattern='popup close|private window popups|a login popup' scripts/guest-os/tests/windows-browser.test.mjs
-          }
-          exit $LASTEXITCODE
+          prefix="$RUNNER_TEMP/popup-playwright"
+          npm install --prefix "$prefix" --no-save --ignore-scripts playwright-core@1.65.0
+          node "$prefix/node_modules/playwright-core/cli.js" install --with-deps chromium
+          CAGE_BROWSER_TEST_CHROMIUM="$(node --input-type=module -e "const { chromium } = await import(process.argv[1]); console.log(chromium.executablePath());" "$prefix/node_modules/playwright-core/index.mjs")"
+          test -x "$CAGE_BROWSER_TEST_CHROMIUM" || { echo 'Chromium is required; popup tests must not skip.' >&2; exit 1; }
+          export CAGE_BROWSER_TEST_CHROMIUM
+          xvfb-run -a node --test internal/cage/browser-popup.integration.mjs
   macos:
     needs: workflow-checks
     uses: ./.github/workflows/macos-build.yml

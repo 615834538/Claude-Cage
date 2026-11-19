@@ -46,9 +46,11 @@ func TestJobManagerStopPreemptsAndFencesOldExecution(t *testing.T) {
 	var old *jobExecution
 	first, err := manager.submit(&operation, "start", 17, nil, nil, func() error {
 		old = manager.execution()
+		old.settingsSaved()
 		close(started)
 		<-old.ctx.Done()
 		old.message("stale message")
+		old.settingsSaved()
 		_, _ = old.Write([]byte("stale output"))
 		close(canceled)
 		return errors.New("stale error")
@@ -57,7 +59,7 @@ func TestJobManagerStopPreemptsAndFencesOldExecution(t *testing.T) {
 		t.Fatal(err)
 	}
 	awaitJobSignal(t, started)
-	if old.id != first.ID || old.pauseVersion != 17 {
+	if old.id != first.ID || old.pauseVersion != 17 || !manager.snapshot().SettingsSaved {
 		t.Fatal("execution lost admission identity or pause generation")
 	}
 	if _, err := manager.submit(&operation, "settings", 0, func() error {
@@ -76,7 +78,7 @@ func TestJobManagerStopPreemptsAndFencesOldExecution(t *testing.T) {
 	awaitJobSignal(t, canceled)
 	awaitJobSignal(t, stopped)
 	state := awaitJobIdle(t, &manager)
-	if state.ID != stop.ID || state.Error != "" || state.Log != "" || state.Message != "已完成" {
+	if state.ID != stop.ID || state.Error != "" || state.Log != "" || state.Message != "已完成" || state.SettingsSaved {
 		t.Fatalf("old execution changed stop result: %+v", state)
 	}
 
@@ -93,10 +95,11 @@ func TestJobManagerStopPreemptsAndFencesOldExecution(t *testing.T) {
 	}
 	awaitJobSignal(t, startedAgain)
 	old.message("late message")
+	old.settingsSaved()
 	_, _ = old.Write([]byte("late output"))
 	state = manager.snapshot()
 	close(release)
-	if state.Log != "" || state.Message != "正在准备…" {
+	if state.Log != "" || state.Message != "正在准备…" || state.SettingsSaved {
 		t.Fatalf("late output reached another job: %+v", state)
 	}
 }
@@ -257,8 +260,11 @@ func TestJobManagerFinalizationAndOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	state := awaitJobIdle(t, &manager)
-	if state.Error != "无法写入账户锁定状态" || len(state.Log) > 24000 || !strings.Contains(state.Log, "12499 additional times") || !strings.HasSuffix(state.Log, "tail\n") {
+	// Check finalization and log bounds after the worker exits. Redacting bulk
+	// output under -race must not depend on the short polling deadline.
+	manager.workers.Wait()
+	state := manager.snapshot()
+	if state.Running || state.Error != "无法写入账户锁定状态" || len(state.Log) > 24000 || !strings.Contains(state.Log, "12499 additional times") || !strings.HasSuffix(state.Log, "tail\n") {
 		t.Fatalf("finalization error or bounded log lost: %+v", state)
 	}
 	_, err = manager.submit(&operation, "stop", 0, nil, nil, func() error {
@@ -272,8 +278,9 @@ func TestJobManagerFinalizationAndOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	state = awaitJobIdle(t, &manager)
-	if len(state.Log) != 24000 || !strings.HasSuffix(state.Log, "different line 3999\n") {
+	manager.workers.Wait()
+	state = manager.snapshot()
+	if state.Running || len(state.Log) != 24000 || !strings.HasSuffix(state.Log, "different line 3999\n") {
 		t.Fatal("distinct output lost its bound or final line")
 	}
 }

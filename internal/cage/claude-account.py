@@ -48,6 +48,14 @@ class SharedResourceConflict(ValueError):
     pass
 
 
+class SubscriptionStatusError(ValueError):
+    pass
+
+
+class SubscriptionStatusTimeout(SubscriptionStatusError):
+    pass
+
+
 def profile(account_id):
     if account_id != DEFAULT and not re.fullmatch("[0-9a-f]{24}", account_id):
         raise ValueError("invalid account ID")
@@ -81,15 +89,23 @@ def cli_environment(base):
 
 def identity(binary, env, cwd, settings=(), timeout=10, pass_fds=()):
     sink = subprocess.PIPE if _controller_context.get("CAGE_REMOTE_APP_CONTAINER") == "1" else subprocess.DEVNULL
-    result = subprocess.run([_runtime["path"](binary), *settings, "auth", "status"], cwd=cwd, env=env, timeout=timeout,
-                            stdin=sink, stdout=subprocess.PIPE, stderr=sink, pass_fds=pass_fds)
+    try:
+        result = subprocess.run([_runtime["path"](binary), *settings, "auth", "status"], cwd=cwd, env=env, timeout=timeout,
+                                stdin=sink, stdout=subprocess.PIPE, stderr=sink, pass_fds=pass_fds)
+    except subprocess.TimeoutExpired as error:
+        raise SubscriptionStatusTimeout("Subscription status timed out") from error
     # Exit code 1 with JSON is the CLI's documented logged-out response. Any
     # other failure (including missing JSON) must not sign a known user out.
-    data = json.loads(result.stdout)
+    try:
+        data = json.loads(result.stdout)
+    except (ValueError, TypeError) as error:
+        raise SubscriptionStatusError("Invalid subscription status") from error
+    if not isinstance(data, dict):
+        raise SubscriptionStatusError("Invalid subscription status")
     reported_dir = data.get("configDirectory")
     correct_dir = isinstance(reported_dir, str) and Path(reported_dir).resolve() == Path(env.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude").resolve()
     if result.returncode not in (0, 1) or not correct_dir:
-        raise ValueError("unexpected auth status")
+        raise SubscriptionStatusError("Unexpected subscription status")
     ok = (result.returncode == 0 and data.get("loggedIn") is True and data.get("authMethod") == "claude.ai"
           and data.get("apiProvider") == "firstParty")
     if not ok:
@@ -106,28 +122,54 @@ def subject(summary):
     return hashlib.sha256(f"{email}\n{organization}".encode()).hexdigest()
 
 
-def recover_login(binary, target, source_id, expected):
+def recover_login(binary, target, source_id, expected, *, archive=False):
     """Recover a missing file-backed login without moving an account's history."""
-    if target.name == DEFAULT or source_id == DEFAULT or source_id == target.name:
+    if target.name == DEFAULT or (source_id == DEFAULT and not archive) or source_id == target.name:
         raise ValueError("recovery requires distinct private profiles")
     source = profile(source_id)
     env = cli_environment(target)
-    current = identity(binary, env, Path.home())
-    if subject(current) == expected:
-        return current
-    if subject(current) is not None:
-        return {"logged_in": False}
+    # auth status itself initializes .claude.json in an empty profile. A new
+    # archive needs to publish its verified identity before the CLI first runs.
+    if not archive or any(config_directory(target).iterdir()):
+        current = identity(binary, env, Path.home())
+        if subject(current) == expected:
+            return current
+        if archive or subject(current) is not None:
+            return {"logged_in": False}
     authenticated = identity(binary, cli_environment(source), Path.home())
     if not expected or subject(authenticated) != expected:
         return {"logged_in": False}
     credential = config_directory(source) / ".credentials.json"
     destination = config_directory(target) / ".credentials.json"
-    for path in (source, target, config_directory(source), config_directory(target), credential):
+    paths = [target, config_directory(target), credential]
+    if source_id != DEFAULT:
+        paths += [source, config_directory(source)]
+    elif config_directory(source).is_symlink() or os.name != "nt" and config_directory(source).stat().st_uid != os.getuid():
+        raise ValueError("unexpected default login directory")
+    for path in paths:
         info = path.lstat()
-        if path.is_symlink() or (os.name != "nt" and (info.st_uid != os.getuid() or info.st_mode & 0o077)):
+        if path.is_symlink() or getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT or (os.name != "nt" and (info.st_uid != os.getuid() or info.st_mode & 0o077)):
             raise ValueError("unexpected login file permissions")
     if not credential.is_file():
         raise ValueError("file-backed login required")
+    if archive:
+        # The controller allocated this fresh directory and publishes its ID
+        # only after verification. O_EXCL protects concurrent file creation.
+        if source.name == DEFAULT:
+            source_directory = cli_environment(source).get("CLAUDE_CONFIG_DIR")
+            if source_directory and Path(source_directory).resolve() != config_directory(source).resolve():
+                raise ValueError("default subscription uses a different directory")
+        metadata = (Path.home() if source.name == DEFAULT else config_directory(source)) / ".claude.json"
+        if metadata.is_symlink():
+            raise ValueError("unexpected login metadata")
+        account = json_file(metadata).get("oauthAccount")
+        if isinstance(account, dict):
+            with (config_directory(target) / ".claude.json").open("x") as output:
+                json.dump({"oauthAccount": account}, output)
+        with credential.open("rb") as stream, destination.open("xb") as output:
+            shutil.copyfileobj(stream, output)
+        recovered = identity(binary, env, Path.home())
+        return recovered if subject(recovered) == expected else {"logged_in": False}
     # Publish opaque bytes only inside the guest. The hard link is atomic and
     # refuses to overwrite a credential created by a concurrent original login.
     with tempfile.NamedTemporaryFile(dir=destination.parent) as temporary:
@@ -485,6 +527,53 @@ def shared_launch_arguments(base, args, settings_fd=None):
         return shared_launch_arguments_locked(base, args, settings_fd)
 
 
+def shared_memory_path(memory):
+    """Recover only an owned memory directory; never replace runtime executables."""
+    try:
+        return _runtime["path"](memory)
+    except _runtime["RuntimePathConflict"] as error:
+        alias = error.alias
+    if alias.is_symlink() or not alias.is_dir() or os.name == "nt" and alias.is_junction():
+        raise SharedResourceConflict("项目记忆的运行路径异常，原数据已保留，请同步环境组件后重试")
+    if os.name != "nt" and alias.stat().st_uid != os.getuid():
+        raise SharedResourceConflict("项目记忆的运行路径归属异常，原数据已保留，请检查目录权限")
+    # Inspect the entire tree before copying. A conflicting note must never be
+    # overwritten, and links must not redirect recovery outside this directory.
+    entries = sorted(alias.rglob("*"))
+    for source in entries:
+        destination = memory / source.relative_to(alias)
+        if source.is_symlink() or os.name == "nt" and source.is_junction() or destination.is_symlink():
+            raise SharedResourceConflict("项目记忆包含异常链接，原数据已保留，请先核对记忆目录")
+        if source.is_dir():
+            conflict = destination.exists() and not destination.is_dir()
+        elif source.is_file():
+            conflict = destination.exists() and (not destination.is_file() or source.read_bytes() != destination.read_bytes())
+        else:
+            conflict = True
+        if conflict:
+            raise SharedResourceConflict("项目记忆存在同名内容冲突，两份记忆均已保留，请先核对后重试")
+    backup = shared_root() / "backups/runtime-memory" / (alias.name + "-" + str(time.time_ns()))
+    backup.parent.mkdir(mode=PRIVATE_MODE, parents=True, exist_ok=True)
+    shutil.copytree(alias, backup, symlinks=True)
+    for source in entries:
+        destination = memory / source.relative_to(alias)
+        if source.is_dir():
+            destination.mkdir(mode=PRIVATE_MODE, exist_ok=True)
+        else:
+            # Exclusive publication also preserves a note written by an active
+            # CLI after preflight. On failure both the source and backup remain.
+            try:
+                with destination.open("xb") as output, source.open("rb") as input:
+                    shutil.copyfileobj(input, output)
+            except FileExistsError:
+                if not destination.is_file() or destination.read_bytes() != source.read_bytes():
+                    raise SharedResourceConflict("项目记忆在恢复期间发生冲突，两份记忆均已保留，请先核对后重试")
+    # Retain the original directory too: an older process may still hold it
+    # open or write to it. Nothing in recovery recursively deletes user notes.
+    alias.rename(alias.with_name(backup.name + ".recovered"))
+    return _runtime["path"](memory)
+
+
 def shared_launch_arguments_locked(base, args, settings_fd):
     directory = Path.cwd().resolve()
     try:
@@ -527,7 +616,7 @@ def shared_launch_arguments_locked(base, args, settings_fd):
             _platform["resource_link"](own_memory, memory)
         else:
             own_memory.symlink_to(memory, target_is_directory=True)
-    settings = {"autoMemoryDirectory": _runtime["path"](memory)}
+    settings = {"autoMemoryDirectory": shared_memory_path(memory)}
     # Only local behavior is shared. Never copy env, apiKeyHelper, login/org
     # constraints, OAuth metadata, or account-synced remote configuration.
     common_settings = json_file(Path.home() / ".claude/settings.json")
@@ -616,6 +705,12 @@ def main(args, *, mobile_settings_fd=None, verify_mobile=None):
     binary = os.environ.get("CAGE_CLI_BINARY") if os.name == "nt" else shutil.which("claude", path=env["PATH"])
     if not binary:
         raise ValueError("Claude is not installed")
+    if mode == "archive-login":
+        # Only authentication follows a user who signs into a different account.
+        if len(rest) != 2 or base.name == DEFAULT or base.name == rest[0]:
+            raise ValueError("invalid account archive")
+        print(json.dumps(recover_login(binary, base, *rest, archive=True)))
+        return 0
     if mode == "recover-login":
         if len(rest) != 2:
             raise ValueError("recovery requires source and expected identity")
@@ -640,9 +735,12 @@ def main(args, *, mobile_settings_fd=None, verify_mobile=None):
             summary["quota"] = quota
         print(json.dumps(summary))
         return 0
+    owner = _controller_context.get("CAGE_LOGIN_OWNER", "")
+    owner_args = ["--account-id", owner] if re.fullmatch("[0-9a-f]{24}", owner) else []
+    scoped = _controller_context.get("CAGE_ACCOUNT_BROWSER")
     if mode == "login":
         if os.name != "nt":
-            env["BROWSER"] = _runtime["launcher"](OPEN, executable=True, arguments=["--login-id", account_id])
+            env["BROWSER"] = _runtime["launcher"](scoped or OPEN, executable=True, arguments=[*owner_args, "--login-id", account_id])
         # Set the handler before spawning so SSH/window closure also disposes
         # the ephemeral browser and its cookies.
         def interrupted(_signum, _frame):
@@ -655,9 +753,12 @@ def main(args, *, mobile_settings_fd=None, verify_mobile=None):
             return subprocess.call([_runtime["path"](binary), "auth", "login", *([] if os.name == "nt" else ["--claudeai"])], cwd=Path.home(), env=env)
         finally:
             if os.name != "nt":
-                subprocess.run([OPEN, "--login-id", account_id, "--finish-login"], env=os.environ, timeout=8, check=False,
+                finish = [scoped or OPEN, *owner_args, "--login-id", account_id, "--finish-login"]
+                subprocess.run(finish, env=os.environ, timeout=8, check=False,
                                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if mode == "run":
+        if os.name != "nt" and (owner_args or scoped or sys.platform == "darwin"):
+            env["BROWSER"] = _runtime["launcher"](scoped or OPEN, executable=True, arguments=owner_args, login_config=config_directory(base))
         shared_profile_resources(base)
         if not settings_flags(rest) and not has_status_line(base):
             rest = ["--settings", json.dumps({"statusLine": {"type": "command", "command": _runtime["command_text"](__file__, ["statusline", account_id])}}), *rest]
@@ -686,18 +787,35 @@ def main(args, *, mobile_settings_fd=None, verify_mobile=None):
 
 def macos_open(args):
     login = _controller_context.get("CAGE_CLAUDE_LOGIN", "")
-    if len(args) == 3 and args[0] == "--login-id":
-        login, args = args[1], args[2:]
-    if len(args) != 1 or not re.fullmatch("[0-9a-f]{24}", login):
+    account = ""
+    while len(args) >= 3:
+        flag, value, *args = args
+        if not re.fullmatch("[a-f0-9]{24}", value):
+            return 2
+        if flag == "--login-id":
+            login = value
+        elif flag == "--account-id":
+            account = value
+        else:
+            return 2
+    if len(args) != 1:
         return 2
     finish = args[0] == "--finish-login"
-    data = {"action": "login-finish" if finish else "login-open", "login": login}
     if not finish:
         from urllib.parse import urlsplit
         url = urlsplit(args[0])
-        if len(args[0]) > 8192 or url.scheme != "https" or url.username or url.password or url.hostname not in (
-                "claude.ai", "claude.com", "console.anthropic.com", "platform.claude.com", "platform.anthropic.com"):
+        if len(args[0]) > 8192 or url.scheme != "https" or url.username or url.password or url.port not in (None,443):
             return 2
+        if url.hostname not in ("claude.ai", "claude.com", "console.anthropic.com", "platform.claude.com", "platform.anthropic.com"):
+            if not login:
+                os.execv("/usr/bin/open", ["open", args[0]])
+            return 2
+        if not login:
+            login = hashlib.sha256(args[0].encode()).hexdigest()[:24]
+    if not re.fullmatch("[0-9a-f]{24}", login):
+        return 2
+    data = {"action": "login-finish" if finish else "login-open", "login": login, "account": account}
+    if not finish:
         data["url"] = args[0]
     address = Path.home() / "Library/Application Support/Cage/Login/open.sock"
     owner = address.lstat()
@@ -712,15 +830,24 @@ def macos_open(args):
             return 0 if reply.read(4) == b"OK" else 1
 
 
-if __name__ == "__main__":
+def entrypoint(args):
     try:
-        sys.exit(macos_open(sys.argv[1:]) if sys.platform == "darwin" and Path(sys.argv[0]).name == "cage-open" else main(sys.argv[1:]))
+        return macos_open(args) if sys.platform == "darwin" and Path(sys.argv[0]).name == "cage-open" else main(args)
     except KeyboardInterrupt:
-        sys.exit(130)
+        return 130
     except SharedResourceConflict as error:
         print(str(error), file=sys.stderr)
-        sys.exit(1)
+    except SubscriptionStatusTimeout:
+        print("读取 Claude 订阅状态超时，请稍后重试；现有登录信息已保留。", file=sys.stderr)
+    except SubscriptionStatusError:
+        print("无法读取 Claude 订阅状态，请确认官方 CLI 可正常运行后重试；现有登录信息已保留。", file=sys.stderr)
+    except _runtime["RuntimePathConflict"]:
+        print("终端运行路径发生冲突，原数据已保留，请同步环境组件后重试。", file=sys.stderr)
     except (OSError, ValueError, subprocess.SubprocessError, TypeError):
         # No raw CLI output, paths, credentials or callback URLs go to logs.
-        print("无法读取 Claude 订阅状态或启动官方 CLI，请检查环境组件与登录状态。", file=sys.stderr)
-        sys.exit(1)
+        print("准备终端或启动官方 Claude CLI 失败，请检查目录权限并同步环境组件后重试；现有登录信息已保留。", file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(entrypoint(sys.argv[1:]))

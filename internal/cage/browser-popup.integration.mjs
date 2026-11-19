@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawn, execFileSync } from "node:child_process";
 import { once } from "node:events";
 import { existsSync } from "node:fs";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -122,20 +122,28 @@ if (process.argv.includes("--linux-inner")) {
       await rm(scratch, { recursive: true, force: true });
     });
     for (const name of ["home", "config"]) await mkdir(path.join(scratch, name));
-    const wrapper = path.join(scratch, "chromium");
-    await writeFile(wrapper, '#!/bin/sh\nexec /browser/chrome --disable-popup-blocking "$@"\n', { mode: 0o700 });
+    // The controller always starts /usr/bin/chromium and loads its extension
+    // from /usr/local/lib/cage-split, as in the Debian guest image. Replace
+    // /usr/bin with links to the host binaries so only chromium is swapped.
     const browser = path.resolve(process.env.CAGE_BROWSER_TEST_CHROMIUM);
+    assert.notEqual(browser, "/usr/bin/chromium", "Point CAGE_BROWSER_TEST_CHROMIUM at the browser binary itself, such as /usr/lib/chromium/chromium");
+    const wrapper = path.join(scratch, "chromium");
+    await writeFile(wrapper, `#!/bin/sh\nexec ${JSON.stringify(browser)} --disable-popup-blocking "$@"\n`, { mode: 0o700 });
+    const hostBinaries = (await readdir("/usr/bin")).filter(name => name !== "chromium")
+      .flatMap(name => ["--symlink", "/run/host-bin/" + name, "/usr/bin/" + name]);
+    const browserMount = browser.startsWith("/usr/") ? [] : ["--ro-bind", path.dirname(browser), path.dirname(browser)];
     const args = ["--die-with-parent", "--unshare-user", "--unshare-pid", "--unshare-net",
       "--ro-bind", "/usr", "/usr", "--ro-bind", "/lib", "/lib",
       ...(existsSync("/lib64") ? ["--ro-bind", "/lib64", "/lib64"] : []),
       "--symlink", "usr/bin", "/bin", "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp",
+      "--dir", "/run", "--ro-bind", "/usr/bin", "/run/host-bin", "--tmpfs", "/usr/bin", ...hostBinaries,
+      "--ro-bind", wrapper, "/usr/bin/chromium", ...browserMount,
       "--dir", "/etc", "--ro-bind", "/etc/fonts", "/etc/fonts", "--ro-bind", "/etc/passwd", "/etc/passwd",
       "--ro-bind", "/etc/group", "/etc/group", "--bind", path.join(scratch, "config"), "/etc/claude-cage",
       "--bind", path.join(scratch, "home"), "/home/cage-browser", "--ro-bind", root, "/project",
-      "--ro-bind", path.dirname(browser), "/browser", "--ro-bind", process.execPath, "/runtime/node",
-      "--tmpfs", "/usr/local/lib", "--dir", "/usr/local/lib/workbench-browser",
-      "--ro-bind", wrapper, "/usr/local/lib/workbench-browser/chromium",
-      "--ro-bind", path.join(root, "internal/cage/split-extension"), "/var/snap/chromium/common/workbench-extension",
+      "--ro-bind", process.execPath, "/runtime/node",
+      "--tmpfs", "/usr/local/lib", "--dir", "/usr/local/lib/cage-split",
+      "--ro-bind", path.join(root, "internal/cage/split-extension"), "/usr/local/lib/cage-split",
       "--ro-bind", "/tmp/.X11-unix", "/tmp/.X11-unix",
       "--setenv", "HOME", "/home/cage-browser", "--setenv", "TMPDIR", "/tmp",
       "--setenv", "PATH", "/usr/bin:/bin", "--setenv", "DISPLAY", process.env.DISPLAY];
