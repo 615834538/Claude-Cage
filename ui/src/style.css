@@ -280,6 +280,12 @@ button.primary:hover:not(:disabled) {
   background: var(--accent);
   border-color: var(--accent);
 }
+button.primary.danger,
+button.primary.danger:hover:not(:disabled) {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
 button.large {
   padding: 12px 19px;
   min-height: 44px;
@@ -733,6 +739,9 @@ button.large {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.status-feedback.error {
+  color: var(--danger);
 }
 .safety-checklist-link {
   margin-inline-start: 12px;
@@ -1400,6 +1409,11 @@ svg {
   flex: 1;
   min-width: 0;
 }
+.workspace-sidebar-stack {
+  position: relative;
+  flex: none;
+  display: flex;
+}
 .workspace-sidebar {
   width: var(--sidebar-width);
   flex: none;
@@ -1427,23 +1441,6 @@ svg {
   font-size: 1.1429rem;
   letter-spacing: -0.4px;
   color: var(--strong);
-}
-.guest-system-icon {
-  display: inline-flex;
-  width: 17px;
-  height: 17px;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-}
-.guest-system-icon svg { width: 100%; height: 100%; }
-/* Linux mark: Simple Icons, CC0-1.0. */
-.guest-system-icon-linux {
-  width: 100%;
-  height: 100%;
-  background: currentColor;
-  -webkit-mask: url("./linux-icon.svg") center / contain no-repeat;
-  mask: url("./linux-icon.svg") center / contain no-repeat;
 }
 .sidebar-top .icon-button {
   color: var(--muted);
@@ -1529,6 +1526,36 @@ svg {
   align-items: center;
   position: relative;
 }
+.sidebar-project {
+  position: relative;
+}
+.project-disclosure[aria-keyshortcuts] {
+  touch-action: none;
+  user-select: none;
+}
+.project-disclosure[aria-keyshortcuts]:hover,
+.sidebar-tab > button[aria-keyshortcuts]:hover {
+  cursor: grab;
+}
+.sidebar-project[data-project-dragging] > .project-heading {
+  opacity: .5;
+}
+.sidebar-project[data-project-dragging] .project-disclosure,
+.sidebar-tab.dragging > button[aria-keyshortcuts] {
+  cursor: grabbing;
+}
+:is(.sidebar-project, .sidebar-tab)[data-drop-position]::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset-inline: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  pointer-events: none;
+}
+:is(.sidebar-project, .sidebar-tab)[data-drop-position="before"]::after { top: 0; }
+:is(.sidebar-project, .sidebar-tab)[data-drop-position="after"]::after { bottom: 0; }
 .project-disclosure {
   flex: 1;
   min-width: 0;
@@ -2431,7 +2458,8 @@ svg {
   }
 }
 @media (max-width: 520px) {
-  .workspace-sidebar {
+  .workspace-sidebar-stack,
+  .ssh-sidebar {
     position: absolute;
     z-index: 12;
     inset: 0 auto 0 0;

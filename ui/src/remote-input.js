@@ -43,6 +43,7 @@ export function installRemoteInput(
     nativeOwned = false,
     nativeFailed = false,
     focusHandoff = null,
+    lateSymbolComposition = false,
     disposed = false;
   const target = document.createElement("textarea");
   target.setAttribute("aria-label", inputLabel);
@@ -225,6 +226,42 @@ export function installRemoteInput(
       if (!disposed) onStatus("文字输入未完成，请重新连接画面后重试");
     });
   };
+  // ASCII punctuation is left to the host input method so it can choose e.g.
+  // fullwidth "？". Some methods (Sogou) never answer with an input event, so
+  // the key would be dropped and the surface appears stuck. Each such key
+  // waits, bound to the target it was pressed in, for one answer. Without one
+  // by its release or a short wait the literal character is committed, and a
+  // later answer for that key is discarded so only one of the two is sent.
+  const symbols = [];
+  // Punctuation answers only: emoji and dictated text are never discarded.
+  const symbolAnswer = /^[\p{P}\p{Sm}\p{Sc}\p{Sk}]{1,2}$/u;
+  const forgetSymbol = (entry) => {
+    clearTimeout(entry.timer);
+    const index = symbols.indexOf(entry);
+    if (index >= 0) symbols.splice(index, 1);
+  };
+  const cancelSymbols = () => {
+    for (const entry of symbols) clearTimeout(entry.timer);
+    symbols.length = 0;
+  };
+  const symbolTargetValid = (entry) =>
+    !disposed && entry.target === getTargetId() && focused();
+  const fallbackSymbol = (entry) => {
+    if (entry.state !== "pending") return;
+    clearTimeout(entry.timer);
+    // A different tab or a lost focus must not receive the earlier key.
+    if (composing || !symbolTargetValid(entry)) { forgetSymbol(entry); return; }
+    entry.state = "committed";
+    commit(entry.text);
+    entry.timer = setTimeout(() => forgetSymbol(entry), 1000);
+  };
+  // Returns true when this input answers a pending key and must not be sent.
+  const answerSymbol = (text) => {
+    const entry = symbols[0];
+    if (!entry || !symbolAnswer.test(text)) return false;
+    forgetSymbol(entry);
+    return entry.state === "committed" || !symbolTargetValid(entry);
+  };
   const queueComposition = (value) => {
     const targetId = compositionTarget;
     if (!insertComposition || !compositionSession || !targetId || disposed ||
@@ -256,6 +293,10 @@ export function installRemoteInput(
   };
   const startComposition = () => {
     acted();
+    // A late answer may also arrive as a composition. Its key already sent
+    // the literal character, so the composition must not send it again.
+    lateSymbolComposition = symbols.some(entry => entry.state === "committed");
+    cancelSymbols();
     composing = true;
     compositionTarget = getTargetId();
     if (insertComposition && caretState?.context && caretState.target === compositionTarget &&
@@ -271,7 +312,11 @@ export function installRemoteInput(
     void syncCaret();
   });
   const endComposition = (text) => {
-    if (composing) {
+    const late = lateSymbolComposition;
+    lateSymbolComposition = false;
+    if (composing && late && symbolAnswer.test(text)) {
+      if (compositionSession) queueComposition({ mode: "cancel" });
+    } else if (composing) {
       if (compositionSession) queueComposition({ mode: "commit", text, selectionStart: 0, selectionEnd: 0 });
       else if (compositionTarget === getTargetId()) commit(text);
     }
@@ -281,6 +326,7 @@ export function installRemoteInput(
   on(target, "compositionend", (event) => endComposition(event.data || ""));
   on(target, "input", (event) => {
     if (document.activeElement !== target) {
+      cancelSymbols();
       if (!composing) target.value = "";
       return;
     }
@@ -303,17 +349,18 @@ export function installRemoteInput(
       !["insertFromComposition", "insertCompositionText"].includes(
         event.inputType,
       )
-    )
+    && !answerSymbol(target.value))
       commit(target.value);
     target.value = "";
   });
   on(target, "blur", () => {
+    cancelSymbols();
     if (nativeOwned) return;
     if (composing && compositionSession) queueComposition({ mode: "cancel", text: "", selectionStart: 0, selectionEnd: 0 });
     resetComposition();
   });
   on(document, "focusin", (event) => {
-    if (!container.contains(event.target)) cancelCopy();
+    if (!container.contains(event.target)) { cancelCopy(); cancelSymbols(); }
     if (nativeOwned && !container.contains(event.target)) deactivateNative();
   });
   on(document, "pointerdown", (event) => {
@@ -343,7 +390,7 @@ export function installRemoteInput(
       showPreedit();
       queueComposition({ mode: "update", text: value.text, selectionStart: value.selectionStart, selectionEnd: value.selectionEnd });
     } else if (value.kind === "compositionend") endComposition(value.text || "");
-    else if (value.kind === "input") commit(value.text);
+    else if (value.kind === "input") { if (!answerSymbol(value.text || "")) commit(value.text); }
     else if (["keydown", "keyup"].includes(value.kind)) {
       const key = new KeyboardEvent(value.kind, { ...value, bubbles: true, cancelable: true });
       key.cageNativeTextKey = value.textKey;
@@ -516,6 +563,7 @@ export function installRemoteInput(
   });
   const release = () => {
     cancelCopy();
+    cancelSymbols();
     for (const [code, keysym] of remote) transport.sendKey(keysym, code, false);
     remote.clear();
     physical.clear();
@@ -658,6 +706,11 @@ export function installRemoteInput(
           event.key.length === 1 && /[^a-zA-Z0-9 ]/.test(event.key)) {
         // Let the host input method choose punctuation (e.g. ? -> ？).
         // The resulting input event carries the actual character to insert.
+        // If it never arrives (some third-party methods), submit the literal
+        // key on release or after a short wait instead of dropping it.
+        const entry = { code, text: event.key, target: getTargetId(), state: "pending" };
+        entry.timer = setTimeout(() => fallbackSymbol(entry), 150);
+        symbols.push(entry);
         event.stopImmediatePropagation();
       }
     },
@@ -668,6 +721,14 @@ export function installRemoteInput(
     "keyup",
     (event) => {
       const code = getKeycode(event);
+      // The host input method had no answer for this punctuation key; commit
+      // the literal character before its release could reach noVNC.
+      const symbol = symbols.find(entry => entry.state === "pending" && entry.code === code);
+      if (symbol) {
+        fallbackSymbol(symbol);
+        event.stopImmediatePropagation();
+        return;
+      }
       // noVNC ignores releases for keys it never sent. Let keyup through so a
       // modifier pressed before composition can still be released normally.
       physical.delete(code);

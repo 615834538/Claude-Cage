@@ -114,11 +114,14 @@ function App() {
       readLocal(clientStorageKey("cage-browser-tab-layout"), "horizontal"),
     ),
     [selectedProject, setSelectedProject] = useState(""),
+    [savedProjectOrder, setSavedProjectOrder] = useState(() =>
+      readLocal(clientStorageKey("cage-sidebar-project-order"), {})),
     [savedTabs, setSavedTabs] = useState(readLocal(clientStorageKey("cage-tab-layout"), {})),
     [privateTabMetadata, setPrivateTabMetadata] = useState({}),
     [projectDialog, setProjectDialog] = useState(null),
     [rename, setRename] = useState(null),
     [toast, setToast] = useState(""),
+    [toastTone, setToastTone] = useState(""),
     [projectRefreshing, setProjectRefreshing] = useState(false),
     [fatal, setFatal] = useState(""),
     [connectionError, setConnectionError] = useState(""),
@@ -294,7 +297,8 @@ function App() {
   useEffect(() => {
     if (finishedLogins) claudeProfiles.load();
   }, [finishedLogins, claudeProfiles.load]);
-  const notify = (text) => setToast(text);
+  // A plugin page may mark its notice as an error, shown in the error color.
+  const notify = (text, tone) => { setToast(text); setToastTone(tone === "error" ? "error" : ""); };
   const accountDesktops = useAccountDesktops(
     () => {setManagementPage(""); setHome(false); setDesktopOpen(true);},
     () => {setDesktopOpen(false); setHome(true);}, notify, (...args) => confirm(...args), desktopOpen && running && status?.account_desktops_supported && !managementPage, status?.desktop_catalog_revision);
@@ -1389,7 +1393,7 @@ function App() {
                   {dialog.secondary}
                 </button>
               )}
-              <button className="primary" disabled={dialog.pending} onClick={() => finishDialog(true)}>
+              <button className={dialog.danger ? "primary danger" : "primary"} disabled={dialog.pending} onClick={() => finishDialog(true)}>
                 {dialog.pending ? dialog.pendingLabel : dialog.confirm}
               </button>
             </>
@@ -1499,9 +1503,9 @@ function App() {
               pages, pageOpen: managementPage === "plugin-view" ? pluginView : "", onView: openPluginView } : null}
             updateAction={<AppUpdateButton updates={appUpdates} />}
             workspace={selectedProject || status.workspace}
-            guestSystem={account?.guest_system || status.guest_system || guestSystem?.guest_system || "debian-13"}
             projects={projects}
             projectGroups={groups}
+            projectOrder={savedProjectOrder[tabLayoutKey]}
             tabs={displayTabs}
             sessions={cliSessions.sessions.map(session => ({ ...session,
               claudeAccountNumber: claudeNumbers.get(session.account_id) }))}
@@ -1531,7 +1535,8 @@ function App() {
             onRename={renameTab}
             onPin={pinTab}
             splitDrag={splitDrag}
-            onReorder={reorder}
+            onProjectReorder={order => persist("cage-sidebar-project-order",
+              { ...savedProjectOrder, [tabLayoutKey]: order }, setSavedProjectOrder)}
             onSessionReorder={(path, order) => changeTabMetadata({ ...metadata,
               sessionOrder: { ...metadata.sessionOrder, [path]: order } })}
             onProjectSelect={setSelectedProject}
@@ -1944,7 +1949,7 @@ function App() {
             <span className="status-spacer" />
             <AudioControls audio={audio} />
             <EnvironmentClock timezone={settings.timezone} clock12Hour={settings.clock_12_hour} />
-            <span className="status-feedback" role="status">
+            <span className={`status-feedback${toast && toastTone ? ` ${toastTone}` : ""}`} role="status">
               <SafetyMessage message={toast ||
                 (busy
                   ? status.job.message

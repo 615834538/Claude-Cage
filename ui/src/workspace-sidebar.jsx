@@ -22,20 +22,19 @@ import {
 import { EnvironmentShield } from "./environment-shield";
 import logo from "./logo.png";
 import claudeLogo from "./claude-logo.svg";
-import { projectName } from "./workspace-state.mjs";
+import { dropAfter, moveItem, projectName } from "./workspace-state.mjs";
 import { WorkspaceTabs } from "./workspace-tabs";
 import { projectSessionRows, sessionKey } from "./session-order.mjs";
 import { AccountMenu } from "./account";
 import { useSSHNavigation } from "./remote-hosts";
-import { GuestSystemIcon } from "./guest-system-icon";
 
 const SESSION_PREVIEW_LIMIT = 5;
 
 export function WorkspaceSidebar({
   workspace,
-  guestSystem,
   projects,
   projectGroups = [],
+  projectOrder = [],
   tabs,
   sessions = [],
   sessionError,
@@ -60,6 +59,7 @@ export function WorkspaceSidebar({
   onHome,
   onOpenProject,
   onProjectSelect,
+  onProjectReorder,
   onSelect,
   onClose,
   onRename,
@@ -90,6 +90,44 @@ export function WorkspaceSidebar({
   const [collapsed, setCollapsed] = useState({});
   const [allSessionsShown, setAllSessionsShown] = useState({});
   const sessionBaseline = useRef(new Map());
+  const scroll = useRef(null);
+  const projectPointer = useRef(null);
+  const suppressProjectClick = useRef(false);
+  const [projectDrag, setProjectDrag] = useState(null);
+  const projectRanks = new Map(projectOrder.map((path, index) => [path, index]));
+  const projectRank = path => projectRanks.get(path) ?? projectRanks.size;
+  const orderedProjects = [...projects].sort((a, b) => projectRank(a) - projectRank(b));
+  const moveProject = (from, to, after) => {
+    const order = moveItem(orderedProjects, from, to, after);
+    if (order !== orderedProjects) onProjectReorder(order);
+  };
+  const projectDrop = (event, from) => {
+    const section = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-sidebar-project]");
+    const to = section?.dataset.sidebarProject;
+    if (!to || to === from || !scroll.current?.contains(section)) return null;
+    return { to, after: dropAfter(section.querySelector(".project-heading"), event.clientY) };
+  };
+  const endProjectDrag = (event, commit = false) => {
+    const current = projectPointer.current;
+    if (!current || current.pointerId !== event.pointerId) return;
+    projectPointer.current = null;
+    if (!current.moved) return;
+    suppressProjectClick.current = true;
+    setProjectDrag(null);
+    const drop = commit && projectDrop(event, current.path);
+    if (drop) moveProject(current.path, drop.to, drop.after);
+  };
+  useEffect(() => {
+    if (!projectDrag) return;
+    const cancel = event => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      endProjectDrag(projectPointer.current);
+    };
+    document.addEventListener("keydown", cancel, true);
+    return () => document.removeEventListener("keydown", cancel, true);
+  }, [Boolean(projectDrag)]);
   const activeFolder = tabs.find((tab) => tab.id === active)?.workspace;
   const activeWorkspace = projectGroups.find(group => group.folders.includes(activeFolder))?.workspace || activeFolder;
   useEffect(() => {
@@ -97,16 +135,13 @@ export function WorkspaceSidebar({
       setCollapsed((previous) => ({ ...previous, [activeWorkspace]: false }));
   }, [active, activeWorkspace]);
   if (ssh?.expanded) return null;
-  if (plugins?.open) return <HostPluginsSidebar model={plugins.model} page={plugins.page} onPage={plugins.onPage}
-    onBack={plugins.onBack} onConfirm={plugins.onConfirm} />;
   const healthy = ready && network.mode === "open";
-  return (
-    <aside className="workspace-sidebar" aria-label="项目与终端">
+  const mainSidebar = (
+    <aside className="workspace-sidebar" aria-label="项目与终端" inert={plugins?.open}>
       <div className="sidebar-top">
         <span className="sidebar-brand">
           <img className="brand-logo" src={logo} alt="" />
           Cage
-                <GuestSystemIcon system={guestSystem} />
         </span>
         <button
           className="icon-button"
@@ -148,7 +183,7 @@ export function WorkspaceSidebar({
         </div>
         <button className={`sidebar-link ${tailscaleOpen ? "selected" : ""}`} aria-current={tailscaleOpen ? "page" : undefined} onClick={onTailscale} aria-label="打开 Tailscale"><Network size={17} />Tailscale</button>
         {plugins?.pages?.length > 0 && <PluginPagesNav pages={plugins.pages} selected={plugins.pageOpen} onOpen={plugins.onView} />}
-        {plugins && <HostPluginsNav onOpen={plugins.onOpen} />}
+        {plugins && <HostPluginsNav open={plugins.open} onOpen={plugins.onOpen} />}
         {ssh && <button className="sidebar-link ssh-navigation" onClick={ssh.open} aria-label="SSH 主机"><Server size={17} />SSH</button>}
         {accountDesktops ? <DesktopList model={accountDesktops} disabled={!running || busy} selected={desktopOpen} onDefault={onClaudeDesktop}/> : <button className={`sidebar-link ${desktopOpen?"selected":""}`} onClick={onClaudeDesktop} disabled={!running||busy}><Monitor size={17}/>Claude Desktop</button>}
         <button className={`sidebar-link ${claudeAccountsOpen ? "selected" : ""}`} onClick={onClaudeAccounts}
@@ -156,7 +191,7 @@ export function WorkspaceSidebar({
           <UsersRound size={17} />Claude 账号管理
         </button>
       </nav>
-      <div className="sidebar-scroll">
+      <div className="sidebar-scroll" ref={scroll}>
         <div className="sidebar-section-heading">
           <span>项目</span>
           <span className="sidebar-section-actions">
@@ -201,7 +236,7 @@ export function WorkspaceSidebar({
             </button>
           </div>
         )}
-        {projects.map((path) => {
+        {orderedProjects.map((path, index) => {
           const group = projectGroups.find(group => group.workspace === path);
           const folders = group?.folders || [path];
           const project = projectName(path, projectGroups);
@@ -217,6 +252,9 @@ export function WorkspaceSidebar({
               className="sidebar-project"
               key={path}
               aria-label={`项目 ${project}`}
+              data-sidebar-project={path}
+              data-drop-position={projectDrag?.drop?.to === path ? projectDrag.drop.after ? "after" : "before" : undefined}
+              data-project-dragging={projectDrag?.from === path || undefined}
             >
               <div
                 className={`project-heading ${folders.includes(workspace) ? "current-project" : ""}`}
@@ -225,7 +263,41 @@ export function WorkspaceSidebar({
                   className="project-disclosure"
                   title={folders.join("\n")}
                   aria-expanded={expanded}
-                  onClick={() => {
+                  aria-keyshortcuts={projects.length > 1 ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
+                  onPointerDown={event => {
+                    if (event.button !== 0 || !event.isPrimary) return;
+                    suppressProjectClick.current = false;
+                    if (projects.length < 2) return;
+                    projectPointer.current = { path, pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                  }}
+                  onPointerMove={event => {
+                    const current = projectPointer.current;
+                    if (!current || current.pointerId !== event.pointerId) return;
+                    if (!event.buttons) return endProjectDrag(event);
+                    if (!current.moved && Math.hypot(event.clientX - current.x, event.clientY - current.y) < 5) return;
+                    current.moved = true;
+                    setProjectDrag({ from: path, drop: projectDrop(event, path) });
+                  }}
+                  onPointerUp={event => endProjectDrag(event, true)}
+                  onPointerCancel={endProjectDrag}
+                  onLostPointerCapture={endProjectDrag}
+                  onKeyDown={event => {
+                    if (!event.altKey || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
+                    event.preventDefault();
+                    const after = event.key === "ArrowDown";
+                    const target = orderedProjects[index + (after ? 1 : -1)];
+                    if (target) {
+                      moveProject(path, target, after);
+                      const button = event.currentTarget;
+                      requestAnimationFrame(() => button.focus());
+                    }
+                  }}
+                  onClick={event => {
+                    if (event.detail && suppressProjectClick.current) {
+                      suppressProjectClick.current = false;
+                      return;
+                    }
                     setCollapsed((previous) => ({
                       ...previous,
                       [path]: expanded,
@@ -295,11 +367,14 @@ export function WorkspaceSidebar({
                         if (row?.historySession) onSessionPin(row.historySession);
                         else onPin(id);
                       }}
-                      onReorder={(from, to) => {
-                        const targetIndex = rows.findIndex(row => row.id === to);
-                        const order = rows.map(row => row.id).filter(id => id !== from);
-                        order.splice(targetIndex, 0, from);
-                        onSessionReorder(path, order.map(id => sessionKey(rows.find(row => row.id === id))));
+                      onSidebarReorder={(from, to, after) => {
+                        const keys = rows.map(sessionKey);
+                        const keyFor = id => {
+                          const row = rows.find(row => row.id === id);
+                          return row && sessionKey(row);
+                        };
+                        const order = moveItem(keys, keyFor(from), keyFor(to), after);
+                        if (order !== keys) onSessionReorder(path, order);
                       }}
                       splitDrag={splitDrag}
                     />
@@ -341,5 +416,12 @@ export function WorkspaceSidebar({
         </div>
       </div>
     </aside>
+  );
+  return (
+    <div className="workspace-sidebar-stack">
+      {mainSidebar}
+      {plugins && <HostPluginsSidebar visible={plugins.open} model={plugins.model} page={plugins.page} onPage={plugins.onPage}
+        onBack={plugins.onBack} onConfirm={plugins.onConfirm} />}
+    </div>
   );
 }

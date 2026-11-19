@@ -2,6 +2,7 @@ package workbench
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -11,21 +12,24 @@ func (s *Server) busy() bool { return s.jobs.snapshot().Running }
 // Completion can race the short background status probes even when no job is
 // running. Wait briefly for those probes instead of rejecting a user's click.
 // Callers still recheck readiness and network evidence under the acquired lock.
-func (s *Server) lockCompletion(parent context.Context) bool {
-	ctx, cancel := context.WithTimeout(parent, 2*time.Second)
+func (s *Server) lockCompletion(parent context.Context) error {
+	ctx, cancel := context.WithTimeoutCause(parent, 15*time.Second, errors.New("后台检查仍在进行，尚未进入工作台，请稍后重试；持续出现时请导出诊断包"))
 	defer cancel()
 	tick := time.NewTicker(25 * time.Millisecond)
 	defer tick.Stop()
 	for ctx.Err() == nil {
+		if s.busy() {
+			return errJobBusy
+		}
 		if s.op.TryLock() {
-			return true
+			return nil
 		}
 		select {
 		case <-ctx.Done():
 		case <-tick.C:
 		}
 	}
-	return false
+	return context.Cause(ctx)
 }
 
 // submitJob keeps network intent and account policy in the workbench. The

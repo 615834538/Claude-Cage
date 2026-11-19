@@ -40,7 +40,11 @@ type Manifest struct {
 	Platforms []string `json:"platforms,omitempty"`
 	// Permissions declares what the plugin does on the computer, for the
 	// user to read before enabling it. See KnownPermissions.
-	Permissions      []string `json:"permissions"`
+	Permissions []string `json:"permissions"`
+	// Categories place the plugin in the market's sections, at most three of
+	// KnownCategories. Ones this application does not know are kept but not
+	// shown, so the list can grow without breaking older applications.
+	Categories       []string `json:"categories,omitempty"`
 	ActivationEvents []string `json:"activationEvents,omitempty"`
 	// Command is the first format's single MCP server. After parsing, read
 	// Contributes.MCPServers instead: it holds this one too.
@@ -88,6 +92,21 @@ func IconType(name string) string {
 // KnownPermissions are the values a manifest may declare.
 var KnownPermissions = []string{"files", "commands", "screen", "input", "network"}
 
+// KnownCategories are the market's sections, in the order they are shown.
+var KnownCategories = []string{"desktop", "developer", "system", "network", "files", "productivity", "example"}
+
+// ShownCategories are those of categories this application knows, in their
+// given order.
+func ShownCategories(categories []string) []string {
+	var shown []string
+	for _, category := range categories {
+		if slices.Contains(KnownCategories, category) && !slices.Contains(shown, category) {
+			shown = append(shown, category)
+		}
+	}
+	return shown
+}
+
 var pluginName = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 // LoadManifest reads and checks the manifest of the plugin in dir.
@@ -118,6 +137,9 @@ type RefusedError struct{ Reason error }
 
 func (e *RefusedError) Error() string { return e.Reason.Error() }
 func (e *RefusedError) Unwrap() error { return e.Reason }
+
+// ErrNotForPage is a page asking for a tool its plugin does not offer pages.
+var ErrNotForPage = errors.New("the tool is not offered to pages")
 
 // External is a plugin run as a child program. Its tools are offered under
 // their own names once they pass CheckWording; every call first goes
@@ -167,6 +189,7 @@ func (e *External) startLocked(ctx context.Context) error {
 		cmd = exec.Command(program, command[1:]...)
 		cmd.Dir = e.Dir
 		cmd.Env = userEnv()
+		hideWindow(cmd)
 	}
 	client := mcp.NewClient(&mcp.Implementation{Name: "computer", Version: "1"}, nil)
 	connect, cancel := context.WithTimeout(ctx, 20*time.Second)
@@ -287,7 +310,7 @@ var ErrCallTimedOut = errors.New("the tool did not answer in time")
 // user takes to decide does not count.
 func (e *External) CallFromView(ctx context.Context, name string, arguments json.RawMessage, wait time.Duration) (*mcp.CallToolResult, error) {
 	if !slices.ContainsFunc(e.PageTools(), func(tool *mcp.Tool) bool { return tool.Name == name }) {
-		return nil, &RefusedError{fmt.Errorf("plugin %s has no tool %s for its page", e.Manifest.Name, name)}
+		return nil, &RefusedError{fmt.Errorf("plugin %s, tool %s: %w", e.Manifest.Name, name, ErrNotForPage)}
 	}
 	return e.callWithin(ctx, name, arguments, true, wait)
 }
@@ -410,7 +433,6 @@ func LoadPlugins(ctx context.Context, dir string, options LoadOptions) ([]*Exter
 	var loaded []*External
 	var failures []error
 	names := slices.Clone(taken)
-	schemes := map[string]string{}
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -429,20 +451,6 @@ func LoadPlugins(ctx context.Context, dir string, options LoadOptions) ([]*Exter
 		}
 		if !manifest.Supported() || slices.Contains(off, manifest.Name) || manifest.Unavailable(version, true) == NeedsNewerApplication {
 			continue
-		}
-		conflict := ""
-		for _, scheme := range manifest.Schemes() {
-			if other, used := schemes[scheme]; used {
-				conflict = fmt.Sprintf("plugin %s: links of scheme %s are already handled by %s", manifest.Name, scheme, other)
-				break
-			}
-		}
-		if conflict != "" {
-			failures = append(failures, errors.New(conflict))
-			continue
-		}
-		for _, scheme := range manifest.Schemes() {
-			schemes[scheme] = manifest.Name
 		}
 		if manifest.Unavailable(version, options.Guest != nil) != "" || len(manifest.serverCommand()) == 0 {
 			continue

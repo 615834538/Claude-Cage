@@ -27,6 +27,8 @@ type hostPluginView struct {
 	Version     string   `json:"version,omitempty"`
 	Description string   `json:"description,omitempty"`
 	Permissions []string `json:"permissions"`
+	// Categories are the plugin's market sections this application knows.
+	Categories []string `json:"categories,omitempty"`
 	// Kind is host or guest: where the plugin's programs run.
 	Kind        string               `json:"kind,omitempty"`
 	Contributes *hostContributesView `json:"contributes,omitempty"`
@@ -167,6 +169,7 @@ func (s *Server) hostToolsView() hostToolsView {
 		}
 		unavailable := manifest.Unavailable(version.Version, true)
 		plugin := hostPluginView{Name: manifest.Name, DisplayName: manifest.DisplayName, Version: manifest.Version, Description: manifest.Description,
+			Categories:  hostbridge.ShownCategories(manifest.Categories),
 			Permissions: manifest.Permissions, Kind: manifest.Kind, Contributes: hostContributes(manifest.Contributes),
 			Supported: manifest.Supported() && unavailable == "", Icon: manifest.Icon != "", Enabled: !slices.Contains(off, entry.Name())}
 		// A page of a plugin on this computer has nothing to call while the
@@ -235,6 +238,21 @@ func (s *Server) setHostPluginOn(name string, on bool) error {
 	return s.recordHostPluginOn(name, on)
 }
 
+// hostToolProject finds dir among the project folders the commands may run
+// in, given as listed in folders or with links resolved, and returns it as
+// the commands name it: with links resolved.
+func (s *Server) hostToolProject(dir string) (string, bool) {
+	if dir == "" {
+		return "", false
+	}
+	for _, allowed := range s.hostToolDirs() {
+		if real, err := filepath.EvalSymlinks(allowed); err == nil && (allowed == dir || real == dir) {
+			return real, true
+		}
+	}
+	return "", false
+}
+
 // setHostPluginAlways records that the plugin's tools need no asking, or
 // takes that back. A grant taken back holds for calls already allowed in
 // this start too, so the tools are started again.
@@ -242,7 +260,14 @@ func (s *Server) setHostPluginAlways(name, project string, always bool) error {
 	grants := s.hostGrantStore()
 	if name == hostCommandsPlugin {
 		if always {
-			return errors.New("命令的长期授权按项目在确认窗口里给出")
+			// Commands are allowed for good one project at a time, here as in
+			// the dialog; Windows's dialog has no such choice, so this is the
+			// way there.
+			real, ok := s.hostToolProject(project)
+			if !ok {
+				return errors.New("请选择一个已打开的项目")
+			}
+			return grants.grant(hostGrantProject+real, []string{"commands"})
 		}
 		var err error
 		if project == "" {
@@ -438,6 +463,7 @@ type hostMarketEntryView struct {
 	Version     string               `json:"version"`
 	Description string               `json:"description,omitempty"`
 	Permissions []string             `json:"permissions"`
+	Categories  []string             `json:"categories,omitempty"`
 	Kind        string               `json:"kind,omitempty"`
 	Contributes *hostContributesView `json:"contributes,omitempty"`
 	// Problem is why the plugin cannot be used with this application.
@@ -450,6 +476,11 @@ type hostMarketEntryView struct {
 	// Icon says the list has a picture for the plugin.
 	Icon bool `json:"icon,omitempty"`
 }
+
+const (
+	hostPluginIconPath = "/api/host-tools/icon"
+	hostPluginIconCSP  = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+)
 
 // hostPluginIcon serves a plugin's picture: of the installed plugin, or with
 // market=1 the one the community list names. Pictures come from plugin
@@ -482,7 +513,7 @@ func (s *Server) hostPluginIcon(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", kind)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
+	w.Header().Set("Content-Security-Policy", hostPluginIconCSP)
 	w.Header().Set("Cache-Control", "private, max-age=300")
 	_, _ = w.Write(data)
 }
@@ -490,11 +521,13 @@ func (s *Server) hostPluginIcon(w http.ResponseWriter, r *http.Request) {
 func (s *Server) getHostMarket(w http.ResponseWriter, r *http.Request) {
 	entries, fetched, err := s.hostMarketEntries(r.Context(), r.URL.Query().Get("refresh") == "1")
 	view := struct {
-		Source  string                `json:"source"`
-		Fetched string                `json:"fetched"`
-		Error   string                `json:"error,omitempty"`
-		Entries []hostMarketEntryView `json:"entries"`
-	}{Source: "https://github.com/Lee-xeo/cage-plugins", Entries: []hostMarketEntryView{}}
+		Source  string `json:"source"`
+		Fetched string `json:"fetched"`
+		Error   string `json:"error,omitempty"`
+		// Categories are the market's sections, in the order to show them.
+		Categories []string              `json:"categories"`
+		Entries    []hostMarketEntryView `json:"entries"`
+	}{Source: "https://github.com/Lee-xeo/cage-plugins", Categories: hostbridge.KnownCategories, Entries: []hostMarketEntryView{}}
 	if !fetched.IsZero() {
 		view.Fetched = fetched.UTC().Format(time.RFC3339)
 	}
@@ -505,7 +538,7 @@ func (s *Server) getHostMarket(w http.ResponseWriter, r *http.Request) {
 	for _, entry := range entries {
 		unavailable := hostbridge.Manifest{Kind: entry.Kind, Engines: entry.Engines, Contributes: entry.Contributes}.Unavailable(version.Version, true)
 		item := hostMarketEntryView{Name: entry.Name, DisplayName: entry.DisplayName, Version: entry.Version, Description: entry.Description,
-			Permissions: entry.Permissions, Kind: entry.Kind, Contributes: hostContributes(entry.Contributes), Problem: hostPluginUnavailable(unavailable),
+			Permissions: entry.Permissions, Categories: hostbridge.ShownCategories(entry.Categories), Kind: entry.Kind, Contributes: hostContributes(entry.Contributes), Problem: hostPluginUnavailable(unavailable),
 			Supported: entry.Supported() && unavailable == "", Bytes: entry.Bytes, Icon: entry.Icon != ""}
 		if manifest, err := hostbridge.LoadManifest(filepath.Join(s.hostPluginDir(), entry.Name)); err == nil {
 			item.InstalledVersion = manifest.Version

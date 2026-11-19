@@ -43,6 +43,29 @@ type toolVersion struct {
 	Required string `json:"required"`
 }
 
+const guestVersionSnapshot = `python3 - <<'CAGE_VERSIONS'
+import json,subprocess,os,re
+from pathlib import Path
+p=Path('/etc/claude-cage/components.json')
+try: manifest=json.loads(p.read_text())
+except (OSError,ValueError): manifest=None
+versions={}
+env={**os.environ,'DISABLE_AUTOUPDATER':'1','PATH':str(Path.home()/'.local/bin')+':'+os.environ.get('PATH','')}
+code_server_version=re.compile(r'^v?[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.+-]+)?(?:\s|$)')
+# code-server reads a config even for --version. Use an existing, empty file
+# so a version query neither creates nor depends on the user's config.
+for name,args in {'chromium':['/usr/bin/chromium','--version'],'code_server':['code-server','--version','--config','/dev/null'],'claude':['claude','--version'],'gh':['gh','--version'],'git':['git','--version'],'mise':[str(Path.home()/'.local/bin/mise'),'--version']}.items():
+ try:
+  result=subprocess.run(args,env=env,capture_output=True,text=True,timeout=4)
+  lines=result.stdout.strip().splitlines() if result.returncode==0 else []
+  if name=='code_server':
+   # First-run configuration can print a notice before the version.
+   lines=(line.strip() for line in lines if code_server_version.match(line.lstrip()))
+  versions[name]=next(iter(lines),'')[:200]
+ except (OSError,subprocess.TimeoutExpired): versions[name]=''
+print(json.dumps({'manifest':manifest,'tools':versions}))
+CAGE_VERSIONS`
+
 // Version commands run only for this explicit request, never in status polling.
 func (s *Server) environmentVersions(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
@@ -55,21 +78,7 @@ func (s *Server) environmentVersions(w http.ResponseWriter, r *http.Request) {
 	}
 	var detail string
 	if running {
-		data, err := s.guest(ctx, `python3 - <<'CAGE_VERSIONS'
-import json,subprocess,os
-from pathlib import Path
-p=Path('/etc/claude-cage/components.json')
-try: manifest=json.loads(p.read_text())
-except (OSError,ValueError): manifest=None
-versions={}
-env={**os.environ,'DISABLE_AUTOUPDATER':'1','PATH':str(Path.home()/'.local/bin')+':'+os.environ.get('PATH','')}
-for name,args in {'chromium':['/usr/bin/chromium','--version'],'code_server':['code-server','--version'],'claude':['claude','--version'],'gh':['gh','--version'],'git':['git','--version'],'mise':[str(Path.home()/'.local/bin/mise'),'--version']}.items():
- try:
-  result=subprocess.run(args,env=env,capture_output=True,text=True,timeout=4)
-  versions[name]=result.stdout.strip().splitlines()[0][:200] if result.returncode==0 and result.stdout.strip() else ''
- except (OSError,subprocess.TimeoutExpired): versions[name]=''
-print(json.dumps({'manifest':manifest,'tools':versions}))
-CAGE_VERSIONS`)
+		data, err := s.guest(ctx, guestVersionSnapshot)
 		var snapshot struct {
 			Manifest *cage.GuestManifest `json:"manifest"`
 			Tools    map[string]string   `json:"tools"`
