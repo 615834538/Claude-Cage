@@ -175,7 +175,9 @@ func TestToolDownloadIdleTimeoutAndManualResume(t *testing.T) {
 			run := func() ([]byte, error) {
 				// Shorten only the test's idle interval; use the real curl, TLS,
 				// filesystem, checksum, automatic retries and manual continuation.
-				prelude := strings.Replace(ToolInstallPrelude(), "idle_timeout = 60", "idle_timeout = 0.5", 1)
+				// The idle clock starts before curl connects, so leave room for a
+				// loaded CI host to start curl and finish the TLS handshake.
+				prelude := strings.Replace(ToolInstallPrelude(), "idle_timeout = 60", "idle_timeout = 2", 1)
 				cmd := exec.CommandContext(t.Context(), "bash", "-c", prelude+`cage_download_tool "$DOWNLOAD_URL" "$DOWNLOAD_HASH" "$HOME/package"`)
 				cmd.Env = append(os.Environ(), "CAGE_SETUP_PROGRESS=1", "HOME="+dir, "PATH="+dir+":"+os.Getenv("PATH"), "CURL_CA_BUNDLE="+ca, "DOWNLOAD_URL="+s.URL, fmt.Sprintf("DOWNLOAD_HASH=%x", hash), "NO_PROXY=127.0.0.1", "no_proxy=127.0.0.1")
 				return cmd.CombinedOutput()
