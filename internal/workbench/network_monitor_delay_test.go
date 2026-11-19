@@ -41,10 +41,10 @@ func TestNetworkMonitorWaitsAfterSlowPhysicalProbe(t *testing.T) {
 				if n := len(probeStarts()); n != 1 {
 					t.Fatalf("initial monitor should run immediately, starts=%d", n)
 				}
-				if s.op.TryLock() {
-					s.op.Unlock()
-					t.Fatal("fixture did not hold the lifecycle lock during the probe")
+				if !s.op.TryLock() {
+					t.Fatal("physical probe held the lifecycle lock")
 				}
+				s.op.Unlock()
 				time.Sleep(probeDuration)
 				synctest.Wait()
 				if n := len(probeStarts()); n != 1 {

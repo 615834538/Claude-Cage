@@ -16,11 +16,10 @@ import (
 	"time"
 
 	"github.com/sylvinus/agent-vm/internal/cage"
-	"github.com/sylvinus/agent-vm/internal/guestos"
 )
 
 // These tests use the real middleware, handler, and private record writer, but
-// only isolated profiles and an in-memory ready guest. The synctest clock moves
+// only isolated profiles and a local fixture for the running Debian guest. The synctest clock moves
 // through actual 6s/10s lock holds and the 15s timeout without wall-clock sleeps.
 func initializationWaitServer(t *testing.T) *Server {
 	t.Helper()
@@ -28,8 +27,9 @@ func initializationWaitServer(t *testing.T) *Server {
 	if w := initializationRequest(s, "install", true); w.Code != http.StatusOK {
 		t.Fatalf("prepare tracked initialization: %d %s", w.Code, w.Body.String())
 	}
-	s.windowsGuest = &guestos.WindowsProfile{}
-	s.windowsState.Running = true
+	if err := writePrivate(filepath.Join(s.instanceDir(), "cage-running.json"), map[string]int{"pid": os.Getpid()}); err != nil {
+		t.Fatal(err)
+	}
 	s.ready = true
 	cfg, err := cage.Load(s.configPath)
 	if err != nil {
@@ -270,10 +270,13 @@ func TestInitializationCompletionRechecksStateAfterWait(t *testing.T) {
 				initializationWaitPending(t, done)
 				time.Sleep(6 * time.Second)
 				initializationWaitPending(t, done)
+				if change == "guest-stopped" {
+					if err := os.Remove(filepath.Join(s.instanceDir(), "cage-running.json")); err != nil {
+						t.Fatal(err)
+					}
+				}
 				s.mu.Lock()
 				switch change {
-				case "guest-stopped":
-					s.windowsState.Running = false
 				case "not-ready":
 					s.ready = false
 				case "gate-closed":

@@ -40,9 +40,9 @@ async function runScenario(name, firstWaitMs, rejectFirst = false) {
       initialization: { required: true, tracked: true, started: true },
       clientContext: { mode: "local", connection_id: "local", client_platform: "windows", server_platform: "windows" },
       beforeNavigate: async (page, state) => {
-        state.account.guest_system = "windows-11";
+        state.account.guest_system = "debian-13";
         Object.assign(state.status, {
-          guest_system: "windows-11", ready: true, vm_running: true,
+          guest_system: "debian-13", ready: true, vm_running: true,
           safety: { gate: { mode: "open", until: new Date(Date.now() + 3600000).toISOString() } },
         });
         await page.addInitScript(() => localStorage.setItem("cage.audio", JSON.stringify({ muted: true })));

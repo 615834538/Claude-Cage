@@ -13,43 +13,6 @@ import (
 	"github.com/sylvinus/agent-vm/internal/guestos"
 )
 
-const initializationLockTimeout = 15 * time.Second
-
-var errInitializationCheckBusy = errors.New("后台检查仍在进行，尚未进入工作台，请稍后重试；持续出现时请导出诊断包")
-
-// Only completion may wait for a monitor. Real lifecycle jobs still reject
-// immediately, and no detached lock waiter can outlive a canceled request.
-func (s *Server) lockInitialization(ctx context.Context, wait bool) error {
-	if wait {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, initializationLockTimeout)
-		defer cancel()
-	}
-	for {
-		if err := ctx.Err(); err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				return errInitializationCheckBusy
-			}
-			return err
-		}
-		if s.busy() {
-			return errJobBusy
-		}
-		if s.op.TryLock() {
-			return nil
-		}
-		if !wait {
-			return errJobBusy
-		}
-		timer := time.NewTimer(50 * time.Millisecond)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-		case <-timer.C:
-		}
-	}
-}
-
 func (s *Server) writeInitialization(r *http.Request, record initializationRecord) error {
 	lifetime := s.lifetimeContext()
 	epoch, _ := r.Context().Value(accountEpochKey{}).(context.Context)
@@ -98,12 +61,10 @@ func (s *Server) initializationState() (initializationView, error) {
 		if json.Unmarshal(data, &record) != nil || record.Version != 1 {
 			return initializationView{}, errors.New("初始化记录无法读取，请保留现有数据并导出诊断包")
 		}
-		pending, err := guestos.LoadInstallation(s.profile)
-		if err != nil {
+		if _, err := guestos.LoadInstallation(s.profile); err != nil {
 			return initializationView{}, err
 		}
-		unboundMac := pending != nil && pending.System == guestos.MacOS && s.macosGuest == nil
-		return initializationView{Required: !record.Completed || s.macSetupPending() || unboundMac, Started: record.Started || unboundMac, Tracked: true, Prepared: s.environmentPrepared()}, nil
+		return initializationView{Required: !record.Completed, Started: record.Started, Tracked: true, Prepared: s.environmentPrepared()}, nil
 	}
 	if !errors.Is(err, os.ErrNotExist) {
 		return initializationView{}, err
@@ -114,16 +75,10 @@ func (s *Server) initializationState() (initializationView, error) {
 	if err != nil {
 		return initializationView{}, err
 	}
-	if s.macosGuest != nil || s.windowsGuest != nil {
-		return initializationView{Required: s.macSetupPending()}, nil
-	}
 	return initializationView{Required: pending != nil || !s.environmentPrepared(), Started: pending != nil}, nil
 }
 
 func (s *Server) finishInitialization(r *http.Request) error {
-	if s.macSetupPending() {
-		return errors.New("请先完成客机的系统权限确认")
-	}
 	s.mu.Lock()
 	ready, gate := s.ready, s.safety.Gate
 	s.mu.Unlock()
@@ -163,8 +118,13 @@ func (s *Server) initialization(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &input) {
 		return
 	}
-	if err := s.lockInitialization(r.Context(), input.Action == "complete"); err != nil {
-		http.Error(w, err.Error(), http.StatusConflict)
+	if input.Action == "complete" {
+		if err := s.lockCompletion(r.Context()); err != nil {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
+	} else if !s.op.TryLock() {
+		http.Error(w, errJobBusy.Error(), http.StatusConflict)
 		return
 	}
 	defer s.op.Unlock()
