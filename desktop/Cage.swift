@@ -234,9 +234,9 @@ final class CageApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNaviga
         }
     }
     @objc private func about() {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CageVersion") as? String ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "开发版本"
-        let status = controllerNeedsUpdate ? "\n当前连接旧后台；更新尚未完成。" : ""
-        NSApp.orderFrontStandardAboutPanel(options: [.applicationName:"Cage", .applicationVersion:version, .credits:NSAttributedString(string:"本机隔离编码工作区\n基于 agent-vm、Lima、Chromium、noVNC 与 xterm.js" + status)])
+        let version = Bundle.main.object(forInfoDictionaryKey: "CageVersion") as? String ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? CageLanguage.text("开发版本")
+        let status = controllerNeedsUpdate ? "\n" + CageLanguage.text("当前连接旧后台；更新尚未完成。") : ""
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName:"Cage", .applicationVersion:version, .credits:NSAttributedString(string:CageLanguage.text("本机隔离编码工作区") + "\n" + CageLanguage.text("基于 agent-vm、Lima、Chromium、noVNC 与 xterm.js") + status)])
     }
     @objc private func settings() { action("settings") }
     @objc private func openProject() { action("openProject") }
@@ -302,7 +302,7 @@ final class CageApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNaviga
                 CageDiagnostics.record("Workbench startup failed: \(error)")
                 let message = error.localizedDescription
                 if message.unicodeScalars.contains(where: { (0x4E00...0x9FFF).contains($0.value) }) { self.showError(message) }
-                else { self.showError("启动工作台失败：本机后台未返回可识别的原因（错误码 \((error as NSError).code)）。请点击“重试连接”；仍失败时请保留此提示并反馈给维护者。") }
+                else { self.showError(CageLanguage.format("启动工作台失败：本机后台未返回可识别的原因（错误代码 {0}）。请点击“重试连接”；仍失败时请保留此提示并反馈给维护者。", String((error as NSError).code))) }
             }
         }
     }
@@ -410,14 +410,12 @@ final class CageApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNaviga
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         CageDiagnostics.record("Workbench navigation failed: \(error)")
         let failure = error as NSError
-        let reason: String
         switch failure.code {
-        case NSURLErrorTimedOut: reason = "等待本机后台响应超时"
-        case NSURLErrorCannotConnectToHost: reason = "本机后台没有接受连接，可能尚未启动或已经退出"
-        case NSURLErrorNetworkConnectionLost: reason = "本机工作台连接在加载完成前中断"
-        default: reason = "内置网页组件未能加载本机工作台（错误码 \(failure.code)）"
+        case NSURLErrorTimedOut: showError(CageLanguage.text("打开工作台失败：等待本机后台响应超时。请点击“重试连接”；仍失败时请保留此错误提示并反馈给维护者。后台任务不会因此自动结束。"))
+        case NSURLErrorCannotConnectToHost: showError(CageLanguage.text("打开工作台失败：本机后台没有接受连接，可能尚未启动或已经退出。请点击“重试连接”；仍失败时请保留此错误提示并反馈给维护者。后台任务不会因此自动结束。"))
+        case NSURLErrorNetworkConnectionLost: showError(CageLanguage.text("打开工作台失败：本机工作台连接在加载完成前中断。请点击“重试连接”；仍失败时请保留此错误提示并反馈给维护者。后台任务不会因此自动结束。"))
+        default: showError(CageLanguage.format("打开工作台失败：内置网页组件未能加载本机工作台（错误代码 {0}）。请点击“重试连接”；仍失败时请保留此错误提示并反馈给维护者。后台任务不会因此自动结束。", String(failure.code)))
         }
-        showError("打开工作台失败：\(reason)。请点击“重试连接”；仍失败时请保留此错误提示并反馈给维护者。后台任务不会因此自动结束。")
     }
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         CageDiagnostics.record("WebKit content process terminated"); bootstrap()

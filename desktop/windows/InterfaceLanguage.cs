@@ -21,4 +21,7 @@ internal static class InterfaceLanguage
     }
 
     public static string Text(string source) => messages.GetValueOrDefault(source, source);
+
+    // Translations are whole sentences; only the {0} detail is inserted, so word order, spacing and punctuation stay per-language.
+    public static string Format(string source, string detail) => Text(source).Replace("{0}", detail);
 }

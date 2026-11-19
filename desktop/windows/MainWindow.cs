@@ -193,13 +193,12 @@ internal sealed class MainWindow : Form
             core.ProcessFailed += (_, _) => { webFailed = true; Error(InterfaceLanguage.Text("工作台显示进程已退出。后台任务保留，可重试连接。")); };
             core.NavigationCompleted += (_, e) => {
                 if (!e.IsSuccess) {
-                    var reason = e.WebErrorStatus.ToString() switch {
-                        "Timeout" => InterfaceLanguage.Text("等待本机后台响应超时"),
-                        "CannotConnect" => InterfaceLanguage.Text("本机后台没有接受连接，可能尚未启动或已经退出"),
-                        "ConnectionAborted" or "ConnectionReset" => InterfaceLanguage.Text("本机工作台连接在加载完成前中断"),
-                        _ => InterfaceLanguage.Text("内置网页组件未能加载本机工作台（错误类型 ") + e.WebErrorStatus + "）",
-                    };
-                    Error(InterfaceLanguage.Text("打开工作台失败：") + reason + InterfaceLanguage.Text("。请点击“重试连接”；仍失败时请保留此错误提示并反馈给维护者。后台任务不会因此自动结束。")); return;
+                    Error(e.WebErrorStatus.ToString() switch {
+                        "Timeout" => InterfaceLanguage.Text("打开工作台失败：等待本机后台响应超时。请点击“重试连接”；仍失败时请保留此错误提示并反馈给维护者。后台任务不会因此自动结束。"),
+                        "CannotConnect" => InterfaceLanguage.Text("打开工作台失败：本机后台没有接受连接，可能尚未启动或已经退出。请点击“重试连接”；仍失败时请保留此错误提示并反馈给维护者。后台任务不会因此自动结束。"),
+                        "ConnectionAborted" or "ConnectionReset" => InterfaceLanguage.Text("打开工作台失败：本机工作台连接在加载完成前中断。请点击“重试连接”；仍失败时请保留此错误提示并反馈给维护者。后台任务不会因此自动结束。"),
+                        _ => InterfaceLanguage.Format("打开工作台失败：内置网页组件未能加载本机工作台（错误代码 {0}）。请点击“重试连接”；仍失败时请保留此错误提示并反馈给维护者。后台任务不会因此自动结束。", e.WebErrorStatus.ToString()),
+                    }); return;
                 }
                 status.Hide(); web.Show(); web.Focus(); PublishVisibility();
             };
@@ -213,7 +212,7 @@ internal sealed class MainWindow : Form
             Error(InterfaceLanguage.Text("缺少 Microsoft Edge WebView2 Runtime。请运行 Cage 安装程序安装随附运行时后重试。"));
             webFailed = true;
         }
-        catch (Exception error) { webFailed = true; Error(InterfaceLanguage.Text("无法初始化工作台：") + error.Message); }
+        catch (Exception error) { webFailed = true; Error(InterfaceLanguage.Format("无法初始化工作台：{0}", error.Message)); }
         finally { retry.Enabled = true; }
     }
 
@@ -330,7 +329,7 @@ internal sealed class MainWindow : Form
         catch (OperationCanceledException) { if (!lifetime.IsCancellationRequested) Error(InterfaceLanguage.Text("启动工作台失败：等待本机后台响应超时。请点击“重试连接”；仍失败时请保留此提示并反馈给维护者。")); }
         catch (Exception error) {
             _ = Backend.Report("Workbench startup failed: " + error);
-            Error(error.Message.Any(c => c is >= '\u4E00' and <= '\u9FFF') ? error.Message : InterfaceLanguage.Text("启动工作台失败：本机后台未返回可识别的原因（错误类型 ") + error.GetType().Name + InterfaceLanguage.Text("）。请点击“重试连接”；仍失败时请保留此提示并反馈给维护者。"));
+            Error(error.Message.Any(c => c is >= '\u4E00' and <= '\u9FFF') ? error.Message : InterfaceLanguage.Format("启动工作台失败：本机后台未返回可识别的原因（错误代码 {0}）。请点击“重试连接”；仍失败时请保留此提示并反馈给维护者。", error.GetType().Name));
         }
         finally { bootstrapping = false; }
     }
