@@ -3,6 +3,7 @@ import { PanelLeft } from "lucide-react";
 import { api, writeClipboard } from "./api";
 import { createPluginViewHost, ProtocolError, ERRORS } from "./plugin-view-host.mjs";
 import "./plugin-view.css";
+import { useTranslation } from "./interface-language.mjs";
 
 // Theme tokens a page may use to match the workbench, without the app's name.
 const TOKENS = ["paper", "ink", "strong", "muted", "line", "chrome", "hover", "selected", "accent", "link", "focus", "input", "button", "button-ink", "success", "danger"];
@@ -31,6 +32,7 @@ function saveState(key, state) {
 // The frame has scripts but no same-origin access, so the page reaches the
 // app only through the messages handled here.
 export function PluginView({ plugin, view, onConfirm, onOpenUrl, onNotify }) {
+  const tr = useTranslation();
   const frame = useRef(null);
   const actions = useRef({});
   actions.current = { onConfirm, onOpenUrl, onNotify };
@@ -81,8 +83,8 @@ export function PluginView({ plugin, view, onConfirm, onOpenUrl, onNotify }) {
   if (!view.url) return (
     <div className="plugin-view-empty">
       <PanelLeft size={26} />
-      <strong>这个页面暂时无法打开</strong>
-      <p>插件可能已停用或无法运行。可以在插件页查看它的状态。</p>
+      <strong>{tr("这个页面暂时无法打开")}</strong>
+      <p>{tr("插件可能已停用或无法运行。可以在插件页查看它的状态。")}</p>
     </div>
   );
   return <iframe ref={frame} key={view.url} className="plugin-view-frame" src={view.url} title={view.title || view.id}

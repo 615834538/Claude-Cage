@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "./interface-language.mjs";
 
 export function AccountIconNumber({ number, y }) {
   const digits = String(number);
@@ -11,10 +12,11 @@ export function AccountIconNumber({ number, y }) {
 // Keep the account number legible in conversation rows.
 // The outline inherits the chrome color; the face uses the same UI font.
 export function AgentIcon({ accountNumber, size = 20 }) {
+  const tr = useTranslation();
   const number = Number.isInteger(accountNumber) && accountNumber > 0 ? String(accountNumber) : "";
   return <svg className="agent-icon" width={size} height={size} viewBox="0 0 24 24"
     fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"
-    role="img" aria-label={number ? `Agent · 账号 ${number}` : "Agent"}>
+    role="img" aria-label={number ? tr("Agent · 账号 {0}", (number)) : "Agent"}>
     <path d="M12 3v3M2 11v5m20-5v5" />
     <rect x="4" y="6" width="16" height="15" rx="4" />
     {number ? <AccountIconNumber number={number} y={14} />

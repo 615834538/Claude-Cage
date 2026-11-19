@@ -2,8 +2,10 @@ import React, { useLayoutEffect, useRef, useState } from "react";
 import { TerminalSquare } from "lucide-react";
 import { AgentIcon } from "./agent-icon";
 import { InlineSelect } from "./inline-select";
+import { useTranslation } from "./interface-language.mjs";
 
 export function TerminalMenu({ choice, busy, profiles, usesOfficialCLI, onClose, onSelect }) {
+  const tr = useTranslation();
   const menu = useRef(null);
   const [configuring, setConfiguring] = useState(false);
   const [account, setAccount] = useState("auto");
@@ -78,29 +80,29 @@ export function TerminalMenu({ choice, busy, profiles, usesOfficialCLI, onClose,
       : hasBackup ? "使用同一接续分组内的可用账号。"
       : "目前没有同组备用账号。在账号管理中设置接续分组并启用备用账号后生效。";
     return <div ref={menu} id="terminal-create-menu" className="terminal-create-menu terminal-create-form"
-      role="group" aria-label="新建 Claude Code 终端">
-      <label>启动账号
-        <InlineSelect inline aria-label="启动账号" value={account} disabled={busy} onValueChange={selectAccount}>
-          <option value="auto">自动选择账号</option>
+      role="group" aria-label={tr("新建 Claude Code 终端")}>
+      <label>{tr("启动账号")}
+        <InlineSelect inline aria-label={tr("启动账号")} value={account} disabled={busy} onValueChange={selectAccount}>
+          <option value="auto">{tr("自动选择账号")}</option>
           {(profiles.accounts || []).map(a => <option key={a.id} value={a.id}>
-            {`#${String(a.number).padStart(2, "0")} ${a.label}${a.status === "ready" ? "" : " · 需要登录"}`}
+            {`#${String(a.number).padStart(2, "0")} ${a.label}${a.status === "ready" ? "" : " · " + tr("需要登录")}`}
           </option>)}
-          <option value="login">在此终端登录</option>
+          <option value="login">{tr("在此终端登录")}</option>
         </InlineSelect>
       </label>
       <label className="check-line"><input type="checkbox" checked={handoff} disabled={busy}
-        onChange={e => setHandoff(e.target.checked)} />额度用尽后自动接续</label>
+        onChange={e => setHandoff(e.target.checked)} />{tr("额度用尽后自动接续")}</label>
       {handoff && <small>{handoffNote}</small>}
-      <button className="primary" disabled={busy} onClick={() => onSelect("claude", account, handoff)}>创建 Claude Code 终端</button>
+      <button className="primary" disabled={busy} onClick={() => onSelect("claude", account, handoff)}>{tr("创建 Claude Code 终端")}</button>
     </div>;
   }
   return (
-    <div ref={menu} id="terminal-create-menu" className="menu terminal-create-menu" role="menu" aria-label="新建终端">
+    <div ref={menu} id="terminal-create-menu" className="menu terminal-create-menu" role="menu" aria-label={tr("新建终端")}>
       <button role="menuitem" disabled={busy} onClick={() => onSelect("shell")}>
-        <TerminalSquare size={16} />普通终端
+        <TerminalSquare size={16} />{tr("普通终端")}
       </button>
       <button role="menuitem" disabled={busy} onClick={configureCode}>
-        <AgentIcon />Claude 终端
+        <AgentIcon />{tr("Claude 终端")}
       </button>
     </div>
   );

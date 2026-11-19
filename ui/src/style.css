@@ -2234,7 +2234,7 @@ svg {
   width: var(--sidebar-width);
   flex: none;
   background: var(--chrome);
-  border-right: 1px solid var(--line);
+  border-inline-end: 1px solid var(--line);
   display: flex;
   flex-direction: column;
   padding: 18px 12px;
@@ -2248,6 +2248,9 @@ svg {
   padding: 8px 10px;
   color: var(--muted);
 }
+.settings-page:dir(rtl) .back-to-workspace svg { transform: scaleX(-1); }
+.settings-page:dir(rtl) .settings-sidebar nav button { text-align: start; }
+.xterm, .address-bar input, input[type="url"], input[type="password"] { direction: ltr; }
 .settings-sidebar h2 {
   font-size: 1.4286rem;
   font-weight: 600;
@@ -2756,6 +2759,9 @@ svg {
 .browser-headers { display: flex; min-width: 0; background: var(--chrome); }
 .browser-header-cell { flex: 1; min-width: 0; }
 .browser-header-cell:first-child:has(+ .browser-header-cell) { flex: 0 0 var(--split-left); }
+/* The paired headers keep the same physical left/right order as the browser view. */
+html[dir="rtl"] .browser-headers:has(.browser-header-cell + .browser-header-cell) { direction: ltr; }
+html[dir="rtl"] .browser-header-cell { direction: rtl; }
 .browser-lane.vertical-browser {
   display: grid;
   grid-template-columns: min(200px, 32%) minmax(0, 1fr);

@@ -63,8 +63,10 @@ import { useWindowVisibility } from "./window-visibility";
 import { AppUpdateButton, AppUpdateDialog, useAppUpdates } from "./app-updates";
 import "./appearance.css";
 import { stopAndExit } from "./quit";
+import { useTranslation } from "./interface-language.mjs";
 
 function App() {
+  const tr = useTranslation();
   const { account } = useAccount();
   const [, refreshClientPreferences] = useState(0);
   useEffect(() => {
@@ -317,7 +319,7 @@ function App() {
   const network = connectionError
     ? { mode: "unknown", label: "外网状态待确认" }
     : networkState(status);
-  const runtimeLabel = connectionError
+  const runtimeLabel = tr(connectionError
     ? "连接中断"
     : busy
       ? network.mode === "checking" || status?.job?.kind === "safety"
@@ -333,7 +335,7 @@ function App() {
           : "离线可用"
         : running
           ? status?.environment_update_required ? "环境待更新" : "浏览器待恢复"
-          : "已停止";
+          : "已停止");
   // A Linux environment keeps what it learned about project files for a while.
   const projectFilesCached = settings?.project_file_cache === true;
   const refreshProjectFiles = async () => {
@@ -1233,7 +1235,7 @@ function App() {
     desktopOpen,
     terminalChoice,
   ]);
-  const project = projectName(contentWorkspace, groups);
+  const project = projectName(contentWorkspace, groups, tr("新项目"));
   const tabLayoutKey = status?.environment_identity_directory || status?.environment_directory || status?.workspace;
   const metadata = { ...(savedTabs[tabLayoutKey] || {}), ...(privateTabMetadata[tabLayoutKey] || {}) };
   for (const tab of tabs) {
@@ -1348,10 +1350,10 @@ function App() {
   const terminalHeader = tab => {
     const path = tab?.workspace || workspace;
     const account = tab?.claude_account_id && terminalAccountName(tab);
-    const detail = tab?.terminalKind === "claude-login" ? `登录 · ${account || "新账号"}`
-      : account ? `Claude · ${account}${tab.claude_account_source === "default" ? "（启动时账号）" : ""}` : "";
+    const detail = tab?.terminalKind === "claude-login" ? tr("登录 · {0}", account || tr("新账号"))
+      : account ? tab.claude_account_source === "default" ? tr("Claude · {0}（启动时账号）", account) : `Claude · ${account}` : "";
     const location = split && tab ? `heading-${tab.id}` : "heading";
-    return <TerminalHeader tab={tab} project={projectName(path, groups)} metadata={metadata}
+    return <TerminalHeader tab={tab} project={projectName(path, groups, tr("新项目"))} metadata={metadata}
       contentWorkspace={path} terminalDetail={detail} terminalDetailHint={tab?.claude_account_source === "default"
         ? "此终端按启动时的普通终端登录标记。若普通终端已换号，请重新打开工作会话确认身份。" : detail}
       busy={busy} onHome={() => setHome(true)}
@@ -1395,42 +1397,42 @@ function App() {
           onClose={dialog.pending ? undefined : () => finishDialog(false)}
           footer={
             <>
-              <button disabled={dialog.pending} onClick={() => finishDialog(false)}>取消</button>
+              <button disabled={dialog.pending} onClick={() => finishDialog(false)}>{tr("取消")}</button>
               {dialog.secondary && (
                 <button disabled={dialog.pending} onClick={() => finishDialog("secondary")}>
-                  {dialog.secondary}
+                  {tr(dialog.secondary)}
                 </button>
               )}
               <button className={dialog.danger ? "primary danger" : "primary"} disabled={dialog.pending} onClick={() => finishDialog(true)}>
-                {dialog.pending ? dialog.pendingLabel : dialog.confirm}
+                {tr(dialog.pending ? dialog.pendingLabel : dialog.confirm)}
               </button>
             </>
           }
         >
           <div className="modal-body">
-            <p>{dialog.body}</p>
+            <p>{tr(dialog.body)}</p>
             {dialog.check && <label className="modal-check">
               <input type="checkbox" checked={Boolean(dialog.checked)} disabled={dialog.pending}
                 onChange={event => setDialog(current => current && { ...current, checked: event.target.checked })} />
-              <span>{dialog.check}</span>
+              <span>{tr(dialog.check)}</span>
             </label>}
-            {dialog.error && <div className="error-message" role="alert">{dialog.error}</div>}
+            {dialog.error && <div className="error-message" role="alert"><SafetyMessage message={dialog.error} /></div>}
           </div>
         </Modal>
       )}
       {quitting && (
         <Modal
-          title={quitting.error ? "未能完成退出" : "正在停止环境"}
+          title={quitting.error ? tr("未能完成退出") : tr("正在停止环境")}
           onClose={cancelAutomaticExit}
           footer={
             <>
               <button onClick={cancelAutomaticExit}>
-                {quitting.error ? "留在 Cage" : "取消自动退出"}
+                {quitting.error ? tr("留在 Cage") : tr("取消自动退出")}
               </button>
-              <button onClick={quitDesktopOnly}>仅退出桌面应用</button>
+              <button onClick={quitDesktopOnly}>{tr("仅退出桌面应用")}</button>
               {quitting.error && (
                 <button className="primary" onClick={stopAndQuit}>
-                  重试停止并退出
+                  {tr("重试停止并退出")}
                 </button>
               )}
             </>
@@ -1443,15 +1445,15 @@ function App() {
             <p>
               {quitting.error ||
                 (connectionError
-                  ? "正在恢复工作台连接，恢复后会继续确认停止结果。"
-                  : "停止完成后 Cage 会自动退出。取消自动退出只保留窗口，环境仍会停止。")}
+                  ? tr("正在恢复工作台连接，恢复后会继续确认停止结果。")
+                  : tr("停止完成后 Cage 会自动退出。取消自动退出只保留窗口，环境仍会停止。"))}
             </p>
             {!quitting.error && (
               <p>
                 <LoaderCircle size={16} className="spin" />{" "}
                 {status?.job?.running
-                  ? status.job.message
-                  : "正在确认环境已停止…"}
+                  ? tr(status.job.message)
+                  : tr("正在确认环境已停止…")}
               </p>
             )}
           </div>
@@ -1464,10 +1466,10 @@ function App() {
       <>
         <div className="boot-screen">
           <Shield size={36} />
-          <h1>连接 Cage 工作台</h1>
+          <h1>{tr("连接 Cage 工作台")}</h1>
           <p>{fatal}</p>
           <p className="muted">
-            请从 Cage 应用打开，或在终端运行 <code>cage desktop</code>。
+            {tr("请从 Cage 应用打开，或在终端运行") + " "}<code>cage desktop</code>。
           </p>
           <button
             className="primary"
@@ -1475,7 +1477,7 @@ function App() {
               nativeAvailable() ? native("reconnect") : location.reload()
             }
           >
-            重新连接
+            {tr("重新连接")}
           </button>
         </div>
         {dialogs}
@@ -1489,7 +1491,7 @@ function App() {
           <h1>Cage</h1>
           <p>
             <LoaderCircle size={16} className="spin" />
-            正在连接工作区…
+            {tr("正在连接工作区…")}
           </p>
         </div>
         {dialogs}
@@ -1573,18 +1575,18 @@ function App() {
         <div className="workbench-main">
           {!managementPage && showHome && terminalHeader(null)}
           {browserError && running && !connectionError && <div className="connection-banner" role="status">
-            <span>客机浏览器暂时无法连接。{browserError}</span>
-            <button onClick={() => refreshStatus.current?.()}>重试</button>
+            <span>{tr("客机浏览器暂时无法连接。")}{browserError}</span>
+            <button onClick={() => refreshStatus.current?.()}>{tr("重试")}</button>
           </div>}
           {connectionError && (
             <div className="connection-banner" role="alert">
-              工作台连接中断，后台状态暂时未知。
+              {tr("工作台连接中断，后台状态暂时未知。")}
               <button
                 onClick={() =>
                   nativeAvailable() ? native("reconnect") : location.reload()
                 }
               >
-                重新连接工作台
+                {tr("重新连接工作台")}
               </button>
             </div>
           )}
@@ -1592,7 +1594,7 @@ function App() {
             <main className="management-page" aria-labelledby={managementPage + "-title"}>
               <header className="chrome management-header">
                 {sidebarButton()}
-                <h1 id={managementPage + "-title"} tabIndex={-1}>{managementPage === "tailscale" ? "Tailscale" : managementPage === "plugins" && pluginPage ? pluginPageTitle(hostPlugins, pluginPage) : managementPage === "plugin-view" ? openPage?.title || "插件页面" : "Claude 账号管理"}</h1>
+                <h1 id={managementPage + "-title"} tabIndex={-1}>{managementPage === "tailscale" ? "Tailscale" : managementPage === "plugins" && pluginPage ? pluginPageTitle(hostPlugins, pluginPage) : managementPage === "plugin-view" ? openPage?.title || tr("插件页面") : tr("Claude 账号管理")}</h1>
               </header>
               <div className="management-content">
                 {managementPage === "plugin-view" ? <PluginView key={pluginView} plugin={openPage?.plugin || pluginView.split("/")[0]} view={openPage?.view || { id: pluginView.split("/")[1] || "" }}
@@ -1614,7 +1616,7 @@ function App() {
           )}
           <main className={`workspace ${split ? "workspace-split" : ""}`} ref={workspaceBox} hidden={Boolean(managementPage)}
             style={{ "--split-left": `${100 * (dualBrowser && nativeSplit?.fraction || 0.5)}%` }}>
-            {dropSide && <div aria-hidden="true" className={`split-drop split-${dropSide}`}>{dropSide === "left" ? "放到左侧" : "放到右侧"}</div>}
+            {dropSide && <div aria-hidden="true" className={`split-drop split-${dropSide}`}>{dropSide === "left" ? tr("放到左侧") : tr("放到右侧")}</div>}
             {!storageRecovery && desktopOpen && accountDesktops.panes.length>0 && <DesktopPanes model={accountDesktops} visible={!settingsOpen && !managementPage && windowVisible}/>}
             {!storageRecovery && desktopOpen && !accountDesktops.panes.length && <ClaudeDesktop
               uploads={desktopFiles.uploads}
@@ -1627,8 +1629,8 @@ function App() {
             />}
             {status.environment_update_required && !busy && (
               <div className="environment-update-banner" role="status">
-                <span>{status.environment_update_error || "环境组件需要更新。请先保存编辑器中的文件。"}</span>
-                <button onClick={() => openSettings("project")}>查看并更新</button>
+                <span>{status.environment_update_error || tr("环境组件需要更新。请先保存编辑器中的文件。")}</span>
+                <button onClick={() => openSettings("project")}>{tr("查看并更新")}</button>
               </div>
             )}
             {!storageRecovery && (status.vm_running || terminal) && (
@@ -1662,11 +1664,11 @@ function App() {
                         tabId={liveBrowser?.id} onStatus={notify}
                         onFallback={(text, message) => setTransfer({ text, message })} />}
                       {!status.ready && <div className="view-overlay">
-                        <RefreshCw /><h3>浏览器连接暂时不可用</h3>
-                        <p>环境和终端仍可运行；恢复浏览器不会停止现有终端。</p>
-                        <button className="primary" disabled={busy} onClick={() => startEnvironment({})}>恢复浏览器</button>
+                        <RefreshCw /><h3>{tr("浏览器连接暂时不可用")}</h3>
+                        <p>{tr("环境和终端仍可运行；恢复浏览器不会停止现有终端。")}</p>
+                        <button className="primary" disabled={busy} onClick={() => startEnvironment({})}>{tr("恢复浏览器")}</button>
                       </div>}
-                      {status.ready && !splitReady && <div className="view-overlay">正在调整浏览器布局…</div>}
+                      {status.ready && !splitReady && <div className="view-overlay">{tr("正在调整浏览器布局…")}</div>}
                     </div>
                   </section>
                 )}
@@ -1702,47 +1704,47 @@ function App() {
                 <div className="welcome-content">
                   <img className="welcome-logo" src={logo} alt="Cage" />
                   {storageRecovery ? <>
-                    <h1>环境存储需要恢复</h1>
+                    <h1>{tr("环境存储需要恢复")}</h1>
                     <p className="welcome-subtitle"><SafetyMessage message={status.storage_recovery.error} /></p>
-                    <p className="field-help">在设置中恢复环境存储后，再启动浏览器和终端。诊断包可以从同一页面导出。</p>
-                    <button className="primary" onClick={() => openSettings("project")}>恢复环境存储</button>
+                    <p className="field-help">{tr("在设置中恢复环境存储后，再启动浏览器和终端。诊断包可以从同一页面导出。")}</p>
+                    <button className="primary" onClick={() => openSettings("project")}>{tr("恢复环境存储")}</button>
                   </> : setupProgress ? <>
-                    <h1>{status.job.error ? "环境安装未完成" : "正在安装 Cage 环境"}</h1>
+                    <h1>{status.job.error ? tr("环境安装未完成") : tr("正在安装 Cage 环境")}</h1>
                     <SetupProgress job={status.job} onDetails={() => setDetails(true)}
                       onStop={stop} onRetry={() => startEnvironment(status.job.kind === "guest-install" ? { guest_system: status.job.setup_progress.system } : {})} disconnected={Boolean(connectionError)} />
                   </> : <>
                   <h1>
                     {busy
                       ? status.job.kind === "stop"
-                        ? "正在停止 Cage 环境"
+                        ? tr("正在停止 Cage 环境")
                         : status.job.kind === "storage"
-                          ? "正在调整环境存储"
+                          ? tr("正在调整环境存储")
                         : status.job.kind === "project"
-                          ? "正在打开项目"
-                          : "正在准备 Cage 环境"
+                          ? tr("正在打开项目")
+                          : tr("正在准备 Cage 环境")
                       : running
                         ? !status.ready
-                          ? "Cage 环境正在连接"
-                          : "Cage 环境已就绪"
+                          ? tr("Cage 环境正在连接")
+                          : tr("Cage 环境已就绪")
                         : setupProxy
-                          ? "为 Claude 准备独立工作区"
-                          : "先启动 Cage 环境"}
+                          ? tr("为 Claude 准备独立工作区")
+                          : tr("先启动 Cage 环境")}
                   </h1>
                   <p className="welcome-subtitle">
                     <SafetyMessage message={busy
-                      ? status.job.message
+                      ? tr(status.job.message)
                       : running
                         ? !status.ready
                           ? status.environment_update_error || "浏览器连接尚未就绪，可以恢复连接或继续使用终端。"
                           : network.mode === "open"
                             ? "环境已连接，网络检查通过。可以浏览网页或打开本地项目。"
-                            : `${network.label}。终端与本地文件仍可使用。`
+                            : tr("{0}。终端与本地文件仍可使用。", tr(network.label))
                         : setupProxy
                           ? "先连接你的代理，再启动浏览器、终端和编辑器。无需安装额外的代理软件。"
                           : "准备独立的浏览器和终端，完成网络检查后开始工作。"} />
                   </p>
                   {!running && (
-                    <ol className="onboarding-steps" aria-label="开始使用 Cage">
+                    <ol className="onboarding-steps" aria-label={tr("开始使用 Cage")}>
                       {["配置代理", "启动环境", "开始工作"].map(
                         (label, index) => (
                           <li
@@ -1754,7 +1756,7 @@ function App() {
                             }
                           >
                             <span>{index + 1}</span>
-                            {label}
+                            {tr(label)}
                           </li>
                         ),
                       )}
@@ -1767,28 +1769,28 @@ function App() {
                         size={24}
                       />
                       <span>
-                        <strong>Cage 隔离环境</strong>
+                        <strong>{tr("Cage 隔离环境")}</strong>
                         <small>
                           {running
                             ? runtimeLabel
                             : setupProxy
-                              ? "自备代理订阅、YAML 配置或节点"
-                              : "代理已配置，首次启动会下载开发环境"}
+                              ? tr("自备代理订阅、YAML 配置或节点")
+                              : tr("代理已配置，首次启动会下载开发环境")}
                         </small>
                       </span>
                     </div>
                     {!busy && !running && !account?.guest_system && status.local_vm_storage && !isRemoteClient() && <GuestSystemPicker system={guestSystem} onChange={setGuestSystem} />}
-                    {!running && status.local_vm_storage && !isRemoteClient() && <button className="storage-entry text-button" disabled={busy} onClick={() => openSettings("project")}>选择环境存储位置</button>}
+                    {!running && status.local_vm_storage && !isRemoteClient() && <button className="storage-entry text-button" disabled={busy} onClick={() => openSettings("project")}>{tr("选择环境存储位置")}</button>}
                     <div className="start-project-footer">
                       <span>
                         <i className={`status-dot ${network.mode}`} />
                         {busy
                           ? runtimeLabel
                           : running
-                            ? network.label
+                            ? tr(network.label)
                             : setupProxy
-                              ? "等待配置代理"
-                              : "环境已停止"}
+                              ? tr("等待配置代理")
+                              : tr("环境已停止")}
                       </span>
                       <button
                         className="primary"
@@ -1818,16 +1820,16 @@ function App() {
                           <TerminalSquare size={16} />
                         )}
                         {busy
-                          ? "正在处理…"
+                          ? tr("正在处理…")
                           : !running
                             ? setupProxy
-                              ? "配置网络与代理"
-                              : guestSystem?.pending ? "继续安装" : "启动 Cage 环境"
+                              ? tr("配置网络与代理")
+                              : guestSystem?.pending ? tr("继续安装") : tr("启动 Cage 环境")
                             : !status.ready
-                              ? "恢复浏览器"
+                              ? tr("恢复浏览器")
                               : !workspace
-                                ? "打开项目"
-                                : "新建终端"}
+                                ? tr("打开项目")
+                                : tr("新建终端")}
                       </button>
                     </div>
                     {terminalMenuAt("start")}
@@ -1836,14 +1838,14 @@ function App() {
                     <div className="welcome-shortcuts">
                       <button onClick={newTerminalHere} data-terminal-location="shortcuts" aria-haspopup="menu" disabled={busy}>
                         <TerminalSquare size={16} />
-                        新建终端
+                        {tr("新建终端")}
                       </button>
                       <button
                         onClick={() => openEditor(contentWorkspace)}
                         disabled={!status.ready || busy}
                       >
                         <FileCode2 size={16} />
-                        浏览文件
+                        {tr("浏览文件")}
                       </button>
                     </div>
                   )}
@@ -1851,29 +1853,29 @@ function App() {
                   {!running && (
                     <p className="welcome-hint">
                       {setupProxy
-                        ? "Cage 不提供代理或 Claude 账户。连接后，在 Cage 内完成 Claude 登录。"
-                        : "首次安装时可在操作详情中查看下载和配置进度；中断后可以继续安装。"}
+                        ? tr("Cage 不提供代理或 Claude 账户。连接后，在 Cage 内完成 Claude 登录。")
+                        : tr("首次安装时可在操作详情中查看下载和配置进度；中断后可以继续安装。")}
                     </p>
                   )}
                   {running && status.ready && (
                     <p className="welcome-hint">
-                      打开项目后，在终端输入 <code>claude</code>，按提示登录你的账户。
+                      {tr("打开项目后，在终端输入") + " "}<code>claude</code>{tr("，按提示登录你的账户。")}
                       <br />
-                      {isRemoteClient() ? "打开的项目位于云端，编辑和删除会直接影响云端文件。" : "打开的项目与本机共享，编辑和删除文件会同步。"}
+                      {isRemoteClient() ? tr("打开的项目位于云端，编辑和删除会直接影响云端文件。") : tr("打开的项目与本机共享，编辑和删除文件会同步。")}
                     </p>
                   )}
                   </>}
                   {status.project_error && (
                     <div className="start-error" role="alert">
-                      <strong>部分项目文件夹尚未连接</strong>
-                      <p>环境和浏览器可继续使用。</p>
+                      <strong>{tr("部分项目文件夹尚未连接")}</strong>
+                      <p>{tr("环境和浏览器可继续使用。")}</p>
                       {status.project_errors?.length ? (
                         <ul className="project-connection-errors">
                           {status.project_errors.map(({ path, message, recovery }) => (
                             <li key={path}>
                               <strong>{projectName(path, groups)}</strong>
                               <span className="project-error-path">{path}</span>
-                              <p>{message}</p>
+                              <p>{tr(message)}</p>
                               <ProjectRecovery recovery={recovery} disabled={!status.ready || busy}
                                 onRetry={() => setProjectDialog({ path })} onSettings={() => openSettings("project")} />
                             </li>
@@ -1884,20 +1886,20 @@ function App() {
                   )}
                   {status.abandoned_guests?.length > 0 && (
                     <div className="start-error" role="status">
-                      <strong>{status.abandoned_guests.map(name => ({ macos: "macOS", windows: "Windows", ubuntu: "Ubuntu" })[name] || name).join(" / ")} 客机已不再支持</strong>
-                      <p>原有客机数据仍原样保留在磁盘上，未做任何改动；如不再需要，可以手动删除。</p>
+                      <strong>{status.abandoned_guests.map(name => ({ macos: "macOS", windows: "Windows", ubuntu: "Ubuntu" })[name] || name).join(" / ")}{" " + tr("客机已不再支持")}</strong>
+                      <p>{tr("原有客机数据仍原样保留在磁盘上，未做任何改动；如不再需要，可以手动删除。")}</p>
                     </div>
                   )}
                   {!storageRecovery && !setupProgress && status.job?.error && (
                     <div className="start-error" role="alert">
-                      <strong>{status.job.message || "本次操作未完成"}</strong>
+                      <strong>{tr(status.job.message || "本次操作未完成")}</strong>
                       <p><SafetyMessage message={status.job.error} /></p>
                       {status.can_restore && (
                         <button
                           className="text-button"
                           onClick={() => openSettings("project")}
                         >
-                          查看恢复选项
+                          {tr("查看恢复选项")}
                         </button>
                       )}
                     </div>
@@ -1907,7 +1909,7 @@ function App() {
                       className="text-button details-link"
                       onClick={() => setDetails(true)}
                     >
-                      查看操作详情
+                      {tr("查看操作详情")}
                     </button>
                   )}
                 </div>
@@ -1916,33 +1918,33 @@ function App() {
           </main>
           <footer className="status-bar">
             {sidebarCollapsed && <AppUpdateButton updates={appUpdates} />}
-            <button onClick={() => setSafetyOpen(true)} title="网络与隔离检查">
+            <button onClick={() => setSafetyOpen(true)} title={tr("网络与隔离检查")}>
               <EnvironmentShield
                 size={14}
                 healthy={status.ready && network.mode === "open"}
               />
-              <span>{running ? network.label : "网络检查"}</span>
+              <span>{running ? tr(network.label) : tr("网络检查")}</span>
             </button>
             <span className="status-divider" />
             <button onClick={() => openSettings("network")}>
               <MapPin size={12} />
               <span>
                 {status.network_error
-                  ? "出口待确认"
+                  ? tr("出口待确认")
                   : status.location || status.safety?.exit_ip
                     ? [
                         status.safety?.exit_ip || status.location?.ip,
                         status.location?.country,
                         status.location?.city,
                       ].filter(Boolean).join(" · ")
-                    : "指定代理出口"}
+                    : tr("指定代理出口")}
               </span>
             </button>
             <span className="status-divider" />
             <button onClick={() => openSettings("region")}>
               <Clock3 size={12} />
               {settings.timezone}
-              {settings.auto_timezone ? " · 自动" : ""}
+              {settings.auto_timezone ? " " + tr("· 自动") : ""}
             </button>
             <span className="status-divider" />
             <NetworkLatency
@@ -1969,7 +1971,7 @@ function App() {
                     : "")} />
             </span>
             {status.job?.log && (
-              <button title="操作详情" onClick={() => setDetails(true)}>
+              <button title={tr("操作详情")} onClick={() => setDetails(true)}>
                 <MoreHorizontal size={15} />
               </button>
             )}
@@ -1978,10 +1980,10 @@ function App() {
               disabled={
                 Boolean(startRequest) || (!running && !busy) || (status?.job?.kind === "stop" && busy)
               }
-              title="停止当前环境"
+              title={tr("停止当前环境")}
             >
               <Power size={12} />
-              <span>停止环境</span>
+              <span>{tr("停止环境")}</span>
             </button>
           </footer>
         </div>
@@ -2014,19 +2016,19 @@ function App() {
       )}
       {rename && (
         <Modal
-          title="重命名标签"
+          title={tr("重命名标签")}
           onClose={() => setRename(null)}
           footer={
             <>
-              <span className="save-note">仅修改工作台中显示的名称</span>
-              <button onClick={() => setRename(null)}>取消</button>
+              <span className="save-note">{tr("仅修改工作台中显示的名称")}</span>
+              <button onClick={() => setRename(null)}>{tr("取消")}</button>
               <button
                 className="primary"
                 form="rename-tab"
                 type="submit"
                 disabled={!rename.title.trim()}
               >
-                保存名称
+                {tr("保存名称")}
               </button>
             </>
           }
@@ -2062,7 +2064,7 @@ function App() {
               setRename(null);
             }}
           >
-            <label htmlFor="tab-title">标签名称</label>
+            <label htmlFor="tab-title">{tr("标签名称")}</label>
             <input
               id="tab-title"
               autoFocus
@@ -2077,12 +2079,12 @@ function App() {
       )}
       {transfer && (
         <Modal
-          title="文本传递"
+          title={tr("文本传递")}
           onClose={() => setTransfer(null)}
           footer={
             <>
-              <span className="save-note">仅在你的操作下传递文本</span>
-              <button onClick={() => setTransfer(null)}>关闭</button>
+              <span className="save-note">{tr("仅在你的操作下传递文本")}</span>
+              <button onClick={() => setTransfer(null)}>{tr("关闭")}</button>
               <button
                 className="primary"
                 onClick={() => {
@@ -2090,7 +2092,7 @@ function App() {
                   setTransfer(null);
                 }}
               >
-                粘贴到 Cage
+                {tr("粘贴到 Cage")}
               </button>
             </>
           }
@@ -2098,7 +2100,7 @@ function App() {
           <div className="modal-body">
             <p>{transfer.message}</p>
             <textarea
-              aria-label="待传递文本"
+              aria-label={tr("待传递文本")}
               className="transfer-text"
               value={transfer.text}
               onChange={(e) =>
@@ -2109,13 +2111,13 @@ function App() {
         </Modal>
       )}
       {details && (
-        <Modal title="操作详情" wide onClose={() => setDetails(false)}>
+        <Modal title={tr("操作详情")} wide onClose={() => setDetails(false)}>
           <div className="modal-body">
             <p><SafetyMessage message={status.job.message} /></p>
             {status.job.error && (
               <div className="error-message"><SafetyMessage message={status.job.error} /></div>
             )}
-            <pre className="job-log">{status.job.log || "暂无日志"}</pre>
+            <pre className="job-log">{status.job.log || tr("暂无日志")}</pre>
           </div>
         </Modal>
       )}

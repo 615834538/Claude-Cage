@@ -18,9 +18,12 @@ import {
 import { api, native, nativeAvailable } from "./api";
 import { setClientContext } from "./client-context.mjs";
 import { Modal } from "./modal";
+import { applyInterfaceLanguage } from "./interface-language.mjs";
 import { HostForm } from "./remote-host-form";
 import logo from "./logo.png";
 import "./remote-hosts.css";
+import { translate, useTranslation } from "./interface-language.mjs";
+import { LanguageSettings } from "./language-settings";
 
 const Navigation = createContext(null);
 export const useSSHNavigation = () => useContext(Navigation);
@@ -45,15 +48,17 @@ function remember(value) {
   }
 }
 function localSummary(status) {
-  if (!status?.known) return "本机状态待确认";
-  if (status.busy) return "本机正在处理环境操作";
+  if (!status?.known) return translate("本机状态待确认");
+  if (status.busy) return translate("本机正在处理环境操作");
   if (status.live_terminals)
-    return `本机有 ${status.live_terminals} 个活动终端`;
-  if (status.running) return "本机环境正在运行";
-  return status.service_running ? "本机控制服务已启动" : "本机环境已停止";
+    return translate("本机有 {0} 个活动终端", status.live_terminals);
+  if (status.running) return translate("本机环境正在运行");
+  return status.service_running ? translate("本机控制服务已启动") : translate("本机环境已停止");
 }
 
 export function ClientRoot({ children }) {
+  const tr = useTranslation();
+  const [languageReady, setLanguageReady] = useState(false);
   const [context, setContext] = useState(null);
   const [error, setError] = useState("");
   const currentIdentity = useRef(null);
@@ -93,20 +98,28 @@ export function ClientRoot({ children }) {
         await api("/session", { token: location.hash.slice(1) });
         history.replaceState(null, "", location.pathname);
       }
+      try {
+        await applyInterfaceLanguage(await api("/client/language"));
+      } catch {
+        // An older controller or an unavailable catalog uses the base UI.
+      }
+      if (!mounted.current) return;
+      setLanguageReady(true);
       window.dispatchEvent(new Event("cage-session-ready"));
       await poll();
-    })().catch((e) => setError(e.message));
+    })().catch((e) => { setError(e.message); setLanguageReady(true); });
     return () => {
       mounted.current = false;
       clearTimeout(timer);
     };
   }, [refresh]);
+  if (!languageReady) return null;
   return (
     <div className="client-shell">
       {error && (
         <div className="client-error error-message" role="alert">
-          {error}
-          <button onClick={() => location.reload()}>重新连接</button>
+          {tr(error)}
+          <button onClick={() => location.reload()}>{tr("重新连接")}</button>
         </div>
       )}
       {context ? (
@@ -117,7 +130,7 @@ export function ClientRoot({ children }) {
         !error && (
           <div className="client-loading">
             <LoaderCircle className="spin" size={18} />
-            正在连接 Cage…
+            {tr("正在连接 Cage…")}
           </div>
         )
       )}
@@ -126,6 +139,7 @@ export function ClientRoot({ children }) {
 }
 
 function Environment({ context, refresh, children }) {
+  const tr = useTranslation();
   const gateway = Boolean(context.desktop_gateway);
   const local = context.mode === "local" && !context.client_only;
   const remote = context.mode === "remote";
@@ -171,8 +185,8 @@ function Environment({ context, refresh, children }) {
   const needsDeploy = connectionHostID === selected && connection?.error_code === "deployment_required";
   const phase = connection?.phase || "";
   const connectingLabel = phase.startsWith("cloud_upload_")
-    ? `正在上传部署包 ${phase.slice("cloud_upload_".length)}%`
-    : { cloud_install: "正在安装云端环境…", cloud_detect: "正在检测服务器…", cloud_start: "正在启动服务…" }[phase] || "正在验证…";
+    ? translate("正在上传部署包 {0}%", phase.slice("cloud_upload_".length))
+    : translate({ cloud_install: "正在安装云端环境…", cloud_detect: "正在检测服务器…", cloud_start: "正在启动服务…" }[phase] || "正在验证…");
   const hostName = remote
     ? context.name || "远程主机"
     : local
@@ -443,7 +457,7 @@ function Environment({ context, refresh, children }) {
       onClick={() => act("local", () => requestTarget("local"))}
     >
       <Computer size={16} />
-      {label}
+      {tr(label)}
     </button>
   );
   const modalOpen = Boolean(form || remove || stop || decision);
@@ -467,7 +481,7 @@ function Environment({ context, refresh, children }) {
         })
       }
     >
-      返回本机解锁
+      {tr("返回本机解锁")}
     </button>
   );
   const access = {
@@ -495,13 +509,13 @@ function Environment({ context, refresh, children }) {
         <strong>{ready ? hostName : "Cage"}</strong>
         {ready && (
           <span className="client-toolbar-hint">
-            {remote ? "SSH · 云端运行" : "当前工作环境"}
+            {remote ? tr("SSH · 云端运行") : tr("当前工作环境")}
           </span>
         )}
         {ready && !showHosts && (
           <button className="ssh-fallback" onClick={openSidebar}>
             <Server size={15} />
-            SSH 主机
+            {tr("SSH 主机")}
           </button>
         )}
       </header>}
@@ -511,16 +525,16 @@ function Environment({ context, refresh, children }) {
           <div>
             <strong>
               {occupied(localStatus)
-                ? "本机也在运行"
+                ? tr("本机也在运行")
                 : localSummary(localStatus)}
             </strong>
             {occupied(localStatus) && (
               <span>
                 {localStatus.live_terminals
-                  ? `${localStatus.live_terminals} 个活动终端`
+                  ? tr("{0} 个活动终端", (localStatus.live_terminals))
                   : localStatus.busy
-                    ? "有操作正在进行"
-                    : "正在占用本机资源"}
+                    ? tr("有操作正在进行")
+                    : tr("正在占用本机资源")}
               </span>
             )}
           </div>
@@ -532,7 +546,7 @@ function Environment({ context, refresh, children }) {
                 setStop(localStatus);
               }}
             >
-              停止本机环境
+              {tr("停止本机环境")}
             </button>
           )}
         </div>
@@ -545,19 +559,19 @@ function Environment({ context, refresh, children }) {
         {showHosts && (
           <aside
             className="workspace-sidebar ssh-sidebar"
-            aria-label="SSH 主机"
+            aria-label={tr("SSH 主机")}
           >
             <div className="sidebar-top">
               <span className="sidebar-brand">
                 <Server size={18} />
-                SSH 主机
+                {tr("SSH 主机")}
               </span>
               {ready && (
                 <button
                   className="icon-button"
                   disabled={Boolean(busy) || verifying}
                   onClick={closeSidebar}
-                  aria-label="返回工作台侧栏"
+                  aria-label={tr("返回工作台侧栏")}
                 >
                   <ArrowLeft size={16} />
                 </button>
@@ -565,11 +579,11 @@ function Environment({ context, refresh, children }) {
             </div>
             <div className="ssh-sidebar-body">
               <div className="ssh-list-heading">
-                <span>已保存的主机</span>
+                <span>{tr("已保存的主机")}</span>
                 <button
                   className="icon-button"
-                  aria-label="添加远程主机"
-                  title="添加远程主机"
+                  aria-label={tr("添加远程主机")}
+                  title={tr("添加远程主机")}
                   disabled={Boolean(busy)}
                   onClick={() => setForm({ host: null })}
                 >
@@ -592,24 +606,24 @@ function Environment({ context, refresh, children }) {
                     </small>
                   </span>
                   {context.host_id === item.id && active && (
-                    <Check size={15} aria-label="已连接" />
+                    <Check size={15} aria-label={tr("已连接")} />
                   )}
                 </button>
               ))}
               {!hosts.length && (
                 <div className="ssh-empty">
-                  <p>还没有远程主机</p>
+                  <p>{tr("还没有远程主机")}</p>
                   <button onClick={() => setForm({ host: null })}>
                     <Plus size={14} />
-                    添加主机
+                    {tr("添加主机")}
                   </button>
                 </div>
               )}
               {host && (
-                <section className="ssh-host-actions" aria-label="所选主机操作">
+                <section className="ssh-host-actions" aria-label={tr("所选主机操作")}>
                   {host.auth.kind === "key_file" && !hostConnected && (
                     <label>
-                      密钥口令（如果已设置）
+                      {tr("密钥口令（如果已设置）")}
                       <input
                         type="password"
                         autoComplete="off"
@@ -624,7 +638,7 @@ function Environment({ context, refresh, children }) {
                       disabled={Boolean(busy)}
                       onClick={() => act("disconnect", disconnect)}
                     >
-                      断开连接
+                      {tr("断开连接")}
                     </button>
                   ) : (
                     !pinnedFailure && (
@@ -641,7 +655,7 @@ function Environment({ context, refresh, children }) {
                       >
                         {busy === "verify" || verifying
                           ? connectingLabel
-                          : needsDeploy ? "部署并连接" : "连接此主机"}
+                          : needsDeploy ? tr("部署并连接") : tr("连接此主机")}
                       </button>
                     )
                   )}
@@ -656,7 +670,7 @@ function Environment({ context, refresh, children }) {
                         })
                       }
                     >
-                      编辑
+                      {tr("编辑")}
                     </button>
                     <button
                       disabled={Boolean(busy) || hostConnected || verifying}
@@ -668,7 +682,7 @@ function Environment({ context, refresh, children }) {
                         })
                       }
                     >
-                      移除连接
+                      {tr("移除连接")}
                     </button>
                   </div>
                 </section>
@@ -679,22 +693,22 @@ function Environment({ context, refresh, children }) {
                 </div>
               )}
               {!context.client_only && local && (
-                <p className="ssh-help">云端连接就绪后再切换工作台。</p>
+                <p className="ssh-help">{tr("云端连接就绪后再切换工作台。")}</p>
               )}
               {error && !decision && !stop && !remove && (
                 <p className="error-message" role="alert">
-                  {error}
+                  {tr(error)}
                 </p>
               )}
               {connection?.state === "failed" &&
                 (!connectionHostID || connectionHostID === selected) && (
                   <div className="ssh-connection" role="alert">
                     <strong>
-                      {connection.message || "连接失败，请重试。"}
+                      {connection.message || tr("连接失败，请重试。")}
                     </strong>
                     {pinnedFailure && (
                       <>
-                        <p>请与服务器管理员核对“{host?.name}”的主机指纹。</p>
+                        <p>{tr("请与服务器管理员核对“")}{host?.name}{tr("”的主机指纹。")}</p>
                         <code>
                           {connection.host_key.algorithm}
                           <br />
@@ -706,7 +720,7 @@ function Environment({ context, refresh, children }) {
                           onClick={() => act("trust", trust)}
                         >
                           <ShieldCheck size={15} />
-                          我已核对指纹，信任此主机
+                          {tr("我已核对指纹，信任此主机")}
                         </button>
                       </>
                     )}
@@ -714,7 +728,7 @@ function Environment({ context, refresh, children }) {
                 )}
               {remote && !active && !connection?.message && (
                 <p className="ssh-help" role="status">
-                  连接已断开。请重新连接并核对云端任务。
+                  {tr("连接已断开。请重新连接并核对云端任务。")}
                 </p>
               )}
               {gateway && candidate && !decision && (
@@ -723,14 +737,14 @@ function Environment({ context, refresh, children }) {
                     <button
                       onClick={() => act("verify", () => verified(candidate))}
                     >
-                      继续连接
+                      {tr("继续连接")}
                     </button>
                   )}
                   <button
                     disabled={decisionBusy}
                     onClick={() => cancel().catch((e) => setError(e.message))}
                   >
-                    取消此次连接
+                    {tr("取消此次连接")}
                   </button>
                 </>
               )}
@@ -740,32 +754,33 @@ function Environment({ context, refresh, children }) {
         {ready ? (
           <div className="client-workbench">{children}</div>
         ) : defaultLocal && !error && candidate?.connection?.state !== "failed" && !expanded ? (
-          <div className="client-loading" role="status">正在打开 Cage 工作台…</div>
+          <div className="client-loading" role="status">{tr("正在打开 Cage 工作台…")}</div>
         ) : (
           <main className="environment-picker">
             <div>
+              <div className="startup-language-slot"><LanguageSettings compact /></div>
               <img className="environment-logo" src={logo} alt="" />
               <h1>
                 {localLost
-                  ? "重新连接本机工作台"
+                  ? tr("重新连接本机工作台")
                   : remote && !active
-                    ? "重新连接 SSH 主机"
-                    : defaultLocal ? "本机工作台连接未完成" : "连接 SSH 主机"}
+                    ? tr("重新连接 SSH 主机")
+                    : defaultLocal ? tr("本机工作台连接未完成") : tr("连接 SSH 主机")}
               </h1>
               <p>
                 {context.client_only
-                  ? "通过 SSH 连接服务器，首次连接可自动部署 Cage。项目、应用和网络由服务器管理。"
-                  : "本机和 SSH 主机使用同一个工作台。项目、应用和网络由选中的环境管理。"}
+                  ? tr("通过 SSH 连接服务器，首次连接可自动部署 Cage。项目、应用和网络由服务器管理。")
+                  : tr("本机和 SSH 主机使用同一个工作台。项目、应用和网络由选中的环境管理。")}
               </p>
               {!context.client_only &&
                 localStatus?.known &&
                 localStatus.available === false &&
                 !localStatus.service_running && (
-                  <p>本机运行组件不可用，可通过 SSH 连接服务器。</p>
+                  <p>{tr("本机运行组件不可用，可通过 SSH 连接服务器。")}</p>
                 )}
               {!showHosts && error && (
                 <p className="error-message" role="alert">
-                  {error}
+                  {tr(error)}
                 </p>
               )}
               <div className="environment-actions">
@@ -775,23 +790,23 @@ function Environment({ context, refresh, children }) {
                 {!showHosts && (
                   <button disabled={Boolean(busy)} onClick={openSidebar}>
                     <Server size={16} />
-                    连接 SSH 主机
+                    {tr("连接 SSH 主机")}
                   </button>
                 )}
               </div>
               {!showHosts && hosts.length > 0 && (
                 <div className="environment-recent">
-                  <h2>已保存的主机</h2>
+                  <h2>{tr("已保存的主机")}</h2>
                   {hosts.map((item) => (
                     <button key={item.id} onClick={() => choose(item)}>
                       <Server size={15} />
                       {item.name}
-                      {recent() === item.id && <small>上次使用</small>}
+                      {recent() === item.id && <small>{tr("上次使用")}</small>}
                     </button>
                   ))}
                 </div>
               )}
-              {busy === "local" && <p role="status">正在连接本机工作台…</p>}
+              {busy === "local" && <p role="status">{tr("正在连接本机工作台…")}</p>}
               {!showHosts && candidate?.connection?.state === "failed" && (
                 <p role="alert" className="error-message">
                   {candidate.connection.message}
@@ -816,12 +831,12 @@ function Environment({ context, refresh, children }) {
       )}
       {remove && (
         <Modal
-          title="移除 SSH 主机"
+          title={tr("移除 SSH 主机")}
           onClose={busy ? undefined : () => setRemove(null)}
           footer={
             <>
               <button disabled={Boolean(busy)} onClick={() => setRemove(null)}>
-                取消
+                {tr("取消")}
               </button>
               <button
                 className="primary"
@@ -839,25 +854,25 @@ function Environment({ context, refresh, children }) {
                   })
                 }
               >
-                确认移除
+                {tr("确认移除")}
               </button>
             </>
           }
         >
           <div className="ssh-dialog-body">
-            <p>移除“{remove.name}”的本机连接配置？云端文件和任务会保留。</p>
-            {error && <p role="alert">{error}</p>}
+            <p>{tr("移除“")}{remove.name}{tr("”的本机连接配置？云端文件和任务会保留。")}</p>
+            {error && <p role="alert">{tr(error)}</p>}
           </div>
         </Modal>
       )}
       {decision && (
         <Modal
-          title="切换到 SSH 主机"
+          title={tr("切换到 SSH 主机")}
           onClose={decisionBusy ? undefined : cancelDecision}
           footer={
             <>
               <button disabled={decisionBusy} onClick={cancelDecision}>
-                取消
+                {tr("取消")}
               </button>
               <button
                 disabled={decisionBusy}
@@ -867,7 +882,7 @@ function Environment({ context, refresh, children }) {
                   )
                 }
               >
-                保留本机运行
+                {tr("保留本机运行")}
               </button>
               <button
                 className="primary"
@@ -882,32 +897,32 @@ function Environment({ context, refresh, children }) {
                   )
                 }
               >
-                停止本机并连接
+                {tr("停止本机并连接")}
               </button>
             </>
           }
         >
           <div className="ssh-dialog-body">
             <p>
-              <Check size={16} /> 已验证{" "}
+              <Check size={16} />{" " + tr("已验证")}{" "}
               {hosts.find(
                 (h) =>
                   h.id ===
                   (decision.pending.connection?.host_id ||
                     decision.pending.host_id),
-              )?.name || "目标主机"}{" "}
-              的 SSH 与 Cage 服务。
+              )?.name || tr("目标主机")}{" "}
+              {tr("的 SSH 与 Cage 服务。")}
             </p>
             <p>
               <strong>{localSummary(decision.status)}。</strong>{" "}
-              停止本机会结束终端任务并释放资源，未保存的内容可能丢失。选择保留后可以在云端工作台稍后停止。
+              {tr("停止本机会结束终端任务并释放资源，未保存的内容可能丢失。选择保留后可以在云端工作台稍后停止。")}
             </p>
             {busy === "commit" && (
-              <p role="status">正在确认环境切换，请稍候…</p>
+              <p role="status">{tr("正在确认环境切换，请稍候…")}</p>
             )}
             {error && (
               <p role="alert" className="error-message">
-                {error}
+                {tr(error)}
               </p>
             )}
             {unlockButton}
@@ -916,12 +931,12 @@ function Environment({ context, refresh, children }) {
       )}
       {stop && (
         <Modal
-          title="停止本机环境？"
+          title={tr("停止本机环境？")}
           onClose={busy ? undefined : () => setStop(null)}
           footer={
             <>
               <button disabled={Boolean(busy)} onClick={() => setStop(null)}>
-                取消
+                {tr("取消")}
               </button>
               <button
                 className="primary"
@@ -937,7 +952,7 @@ function Environment({ context, refresh, children }) {
                   })
                 }
               >
-                确认停止本机
+                {tr("确认停止本机")}
               </button>
             </>
           }
@@ -945,12 +960,12 @@ function Environment({ context, refresh, children }) {
           <div className="ssh-dialog-body">
             <p>
               {localSummary(stop)}
-              。停止将结束本机终端任务并释放资源，未保存的内容可能丢失。云端任务继续运行。
+              {tr("。停止将结束本机终端任务并释放资源，未保存的内容可能丢失。云端任务继续运行。")}
             </p>
-            {busy === "stop" && <p role="status">正在停止本机环境…</p>}
+            {busy === "stop" && <p role="status">{tr("正在停止本机环境…")}</p>}
             {error && (
               <p role="alert" className="error-message">
-                {error}
+                {tr(error)}
               </p>
             )}
             {unlockButton}

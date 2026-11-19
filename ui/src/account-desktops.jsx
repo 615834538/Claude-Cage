@@ -12,6 +12,7 @@ import { InlineSelect } from "./inline-select";
 import { api } from "./api";
 import { AccountIconNumber } from "./agent-icon";
 import { runtimeSocketURL } from "./client-context.mjs";
+import { translate, useTranslation } from "./interface-language.mjs";
 
 const title = (a) => a.number ? `#${String(a.number).padStart(2, "0")} ${a.label}` : a.label;
 const entry = (id) => "/desktop-instances/" + id;
@@ -73,9 +74,9 @@ export function useAccountDesktops(onShow, onHide, notify, confirm, visible, rev
       if (
         action === "stop" &&
         !(await confirm({
-          title: "关闭 " + title(account) + "？",
-          body: "请先保存这个 Desktop 中的工作。",
-          confirm: "关闭实例",
+          title: translate("关闭 {0}？", title(account)),
+          body: translate("请先保存这个 Desktop 中的工作。"),
+          confirm: translate("关闭实例"),
         }))
       )
         return;
@@ -132,6 +133,7 @@ export function useAccountDesktops(onShow, onHide, notify, confirm, visible, rev
 }
 
 export function DesktopList({ model, disabled, selected, onDefault }) {
+  const tr = useTranslation();
   const { catalog, expanded, panes, pending } = model;
   const [creating, setCreating] = useState(false);
   const [accountID, setAccountID] = useState("");
@@ -160,8 +162,8 @@ export function DesktopList({ model, disabled, selected, onDefault }) {
             instances.filter(a => a.id !== "default").map((a) => (
               <div className="account-desktop-row" key={a.id}>
                 <button
-                  title={title(a) + (a.running ? " · 运行中" : " · 未启动")}
-                  aria-label={title(a) + (pending === a.id ? " · 处理中" : a.running ? " · 运行中" : " · 未启动")}
+                  title={title(a) + (a.running ? " " + tr("· 运行中") : " " + tr("· 未启动"))}
+                  aria-label={title(a) + (pending === a.id ? " " + tr("· 处理中") : a.running ? " " + tr("· 运行中") : " " + tr("· 未启动"))}
                   aria-pressed={selected && panes.some((p) => p.id === a.id)}
                   className="sidebar-link"
                   disabled={Boolean(pending) || disabled}
@@ -174,7 +176,7 @@ export function DesktopList({ model, disabled, selected, onDefault }) {
                   <button
                     className="icon-button"
                     disabled={Boolean(pending) || disabled}
-                    aria-label={"并排打开 " + title(a)}
+                    aria-label={tr("并排打开") + " " + title(a)}
                     onClick={() => model.act(a, "start", true)}
                   >
                     <Columns2 size={14} />
@@ -184,7 +186,7 @@ export function DesktopList({ model, disabled, selected, onDefault }) {
                   <button
                     className="icon-button"
                     disabled={Boolean(pending) || disabled}
-                    aria-label={"关闭 " + title(a)}
+                    aria-label={tr("关闭") + " " + title(a)}
                     onClick={() => model.act(a, "stop")}
                   >
                     <Power size={14} />
@@ -194,13 +196,13 @@ export function DesktopList({ model, disabled, selected, onDefault }) {
             ))}
           {catalog?.supported && Array.isArray(catalog.instances) && <div className="desktop-create">
             <button type="button" className="sidebar-link" disabled={disabled || Boolean(pending)}
-              aria-expanded={creating} onClick={() => setCreating(!creating)}><Plus size={16}/>新建 Desktop</button>
+              aria-expanded={creating} onClick={() => setCreating(!creating)}><Plus size={16}/>{tr("新建 Desktop")}</button>
             {creating && <div className="desktop-create-fields">
-              <label>所属账号<InlineSelect inline aria-label="Desktop 所属账号" value={accountID} onValueChange={setAccountID}>
-                <option value="">在此实例中登录</option>
+              <label>{tr("所属账号")}<InlineSelect inline aria-label={tr("Desktop 所属账号")} value={accountID} onValueChange={setAccountID}>
+                <option value="">{tr("在此实例中登录")}</option>
                 {catalog.accounts.map(a => <option key={a.id} value={a.id}>{title(a)}</option>)}
               </InlineSelect></label>
-              <button className="primary" disabled={disabled || Boolean(pending)} onClick={choose}>打开 Desktop</button>
+              <button className="primary" disabled={disabled || Boolean(pending)} onClick={choose}>{tr("打开 Desktop")}</button>
             </div>}
           </div>}
         </div>
@@ -210,6 +212,7 @@ export function DesktopList({ model, disabled, selected, onDefault }) {
 }
 
 function DesktopPane({ account, visible, close, busy }) {
+  const tr = useTranslation();
   const box = useRef(null);
   const [message, setMessage] = useState("");
   const [attempt, retry] = useState(0);
@@ -250,7 +253,7 @@ function DesktopPane({ account, visible, close, busy }) {
           <DesktopAccountLabel account={account} />
         </strong>
         <button disabled={busy} onClick={close}>
-          关闭实例
+          {tr("关闭实例")}
         </button>
       </header>
       <div className="account-desktop-screen" ref={box} />
@@ -258,7 +261,7 @@ function DesktopPane({ account, visible, close, busy }) {
         <div className="account-desktop-message" role="status">
           {message}{" "}
           {message !== "正在连接…" && (
-            <button onClick={() => retry(attempt + 1)}>重新连接</button>
+            <button onClick={() => retry(attempt + 1)}>{tr("重新连接")}</button>
           )}
         </div>
       )}

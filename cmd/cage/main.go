@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/sylvinus/agent-vm/internal/hostproxy"
 	"github.com/sylvinus/agent-vm/internal/limaembed"
 	"github.com/sylvinus/agent-vm/internal/managedproxy"
+	"github.com/sylvinus/agent-vm/internal/uilocale"
 	"github.com/sylvinus/agent-vm/internal/workbench"
 	"io"
 	"os/signal"
@@ -136,9 +138,6 @@ func run() int {
 		}
 		return 0
 	}
-	if err := host.ConfigureWindowsRuntime(); err != nil {
-		return fail(err)
-	}
 	path := os.Getenv(cage.ConfigEnv)
 	if path == "" {
 		home, _ := os.UserHomeDir()
@@ -146,6 +145,32 @@ func run() int {
 	}
 	path, err := filepath.Abs(path)
 	if err != nil {
+		return fail(err)
+	}
+	if args[0] == "interface-language" {
+		if len(args) == 3 && args[1] == "--seed-windows-id" {
+			id, err := strconv.Atoi(args[2])
+			if err == nil {
+				err = uilocale.SeedWindowsInstallerChoice(filepath.Dir(path), id)
+			}
+			if err != nil {
+				return fail(err)
+			}
+			return 0
+		}
+		if len(args) != 2 || args[1] != "--json" {
+			return 2
+		}
+		language, err := uilocale.Native(filepath.Dir(path))
+		if err != nil {
+			return fail(err)
+		}
+		if err := json.NewEncoder(os.Stdout).Encode(language); err != nil {
+			return fail(err)
+		}
+		return 0
+	}
+	if err := host.ConfigureWindowsRuntime(); err != nil {
 		return fail(err)
 	}
 	store := diagnostics.New(filepath.Dir(path))

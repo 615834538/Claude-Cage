@@ -76,6 +76,8 @@ Cage 支持 macOS、Windows 和 Linux：macOS 14+ 的 Apple Silicon Mac、Window
 
 安装包随附工作台和代理核心，无需先安装 Go、Node.js、Docker 或 Clash。首次创建环境时选择存储位置，Cage 会下载 Debian 13 镜像和开发工具。Cage 不提供代理服务或 Claude 账户。
 
+Windows 安装向导和 Cage 首次打开时按主机的显示语言预选界面语言，第一屏可以改选。支持的语言见上方列表，之后也可在「设置 → 通用 → 界面语言」切换。 [界面语言说明](docs/guide/settings.md#界面语言)
+
 源码与安装包公开，版本说明和校验文件见 [GitHub Releases](https://github.com/Lee-xeo/Claude-Cage/releases)。从源码构建工作台需安装 `uv`，平台工具详见[构建说明](.github/CONTRIBUTING.md#工作台构建)。环境的要求、镜像来源与数据保留方式见[Debian 环境](docs/guide/guest-systems.md)。Intel Mac 的实验性开发构建见 [Intel Mac 开发说明](docs/intel-macos-development.md)。
 
 功能以所用构建为准，公开安装包的能力与验证范围以发行说明为准。

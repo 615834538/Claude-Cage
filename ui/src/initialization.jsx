@@ -18,14 +18,24 @@ import { networkState } from "./safety-state.mjs";
 import { useSSHNavigation } from "./remote-hosts";
 import logo from "./logo.png";
 import "./initialization.css";
+import { useTranslation } from "./interface-language.mjs";
+import { LanguageSettings } from "./language-settings";
 
 const steps = [["system", "系统与存储"], ["proxy", "网络代理"], ["install", "安装与检查"]];
 
 function InitializationFrame({ children }) {
-  return <main className="initialization"><header className="initialization-brand"><img src={logo} alt="" /><strong>Cage</strong><span>首次设置</span></header>{children}</main>;
+  const tr = useTranslation();
+  return <main className="initialization">
+    <header className="initialization-brand">
+      <img src={logo} alt="" /><strong>Cage</strong><span>{tr("首次设置")}</span>
+      <div className="startup-language-slot"><LanguageSettings compact /></div>
+    </header>
+    {children}
+  </main>;
 }
 
 export function InitializationGate({ children }) {
+  const tr = useTranslation();
   const [state, setState] = useState(null);
   const [error, setError] = useState("");
   const [attempt, retry] = useState(0);
@@ -42,12 +52,13 @@ export function InitializationGate({ children }) {
     return () => { live = false; };
   }, [remote, attempt]);
   if (remote) return children;
-  if (error) return <InitializationFrame><section className="initialization-content"><h1>继续准备 Cage</h1><p role="alert"><SafetyMessage message={error} /></p><button className="primary" onClick={() => retry(value => value + 1)}>重新连接</button><DiagnosticSettings /></section></InitializationFrame>;
-  if (!state) return <InitializationFrame><section className="initialization-content"><h1>正在读取环境状态</h1><p role="status"><LoaderCircle size={18} className="spin" />正在检查已有配置和安装进度…</p></section></InitializationFrame>;
+  if (error) return <InitializationFrame><section className="initialization-content"><h1>{tr("继续准备 Cage")}</h1><p role="alert"><SafetyMessage message={error} /></p><button className="primary" onClick={() => retry(value => value + 1)}>{tr("重新连接")}</button><DiagnosticSettings /></section></InitializationFrame>;
+  if (!state) return <InitializationFrame><section className="initialization-content"><h1>{tr("正在读取环境状态")}</h1><p role="status"><LoaderCircle size={18} className="spin" />{tr("正在检查已有配置和安装进度…")}</p></section></InitializationFrame>;
   return state.required ? <Initialization initial={state} onComplete={() => setState({ required: false })} /> : children;
 }
 
 function Initialization({ initial, onComplete }) {
+  const tr = useTranslation();
   const { account, refresh } = useAccount();
   const navigation = useSSHNavigation();
   const [step, setStep] = useState(initial.started || account?.guest_system ? "install" : "system");
@@ -155,7 +166,7 @@ function Initialization({ initial, onComplete }) {
       setMirrors(null);
       const { accepted } = outcome;
       setStep("install");
-      setStatus(current => ({ ...current, job: { ...accepted, running: true, kind: accepted.kind || "start", message: accepted.message || "正在准备客机环境…" } }));
+      setStatus(current => ({ ...current, job: { ...accepted, running: true, kind: accepted.kind || "start", message: accepted.message || tr("正在准备客机环境…") } }));
     });
   }
   async function stop() {
@@ -163,36 +174,36 @@ function Initialization({ initial, onComplete }) {
     await run(async () => { const accepted = await api("/stop", {}); setStatus(current => ({ ...current, job: { ...accepted, running: true } })); });
   }
   async function waitForJob(accepted, kind) {
-    if (!accepted.id) throw new Error("操作未返回任务编号，请核对状态后重试。");
+    if (!accepted.id) throw new Error(tr("操作未返回任务编号，请核对状态后重试。"));
     while (alive.current) {
       const next = await api("/status");
       if (!alive.current) break;
       setStatus(next);
       const current = next.job;
-      if (current?.id !== accepted.id || current.kind !== kind) throw new Error("操作状态已变化，请核对状态后重试。");
-      if (current.error || current.canceled) throw new Error(current.error || "操作已取消，请核对状态后重试。");
+      if (current?.id !== accepted.id || current.kind !== kind) throw new Error(tr("操作状态已变化，请核对状态后重试。"));
+      if (current.error || current.canceled) throw new Error(current.error || tr("操作已取消，请核对状态后重试。"));
       if (!current.running) return next;
       await new Promise(resolve => setTimeout(resolve, 300));
     }
-    throw new Error("初始化页面已关闭，操作未继续。");
+    throw new Error(tr("初始化页面已关闭，操作未继续。"));
   }
   // A changed exit or environment configuration only takes effect after a full
   // stop. Confirm first, then start only after the accepted stop has finished.
   async function restart() {
     await run(async () => {
       const running = status.vm_running;
-      if (!await confirm({ title: running ? "重启环境并重新检测？" : "启动环境并重新检测？", body: "请先保存文件。当前终端会话会结束，浏览器登录和项目文件会保留。重新检测通过前，外网保持关闭。", confirm: running ? "重启并检查" : "启动并检测" })) return;
+      if (!await confirm({ title: running ? tr("重启环境并重新检测？") : tr("启动环境并重新检测？"), body: tr("请先保存文件。当前终端会话会结束，浏览器登录和项目文件会保留。重新检测通过前，外网保持关闭。"), confirm: running ? tr("重启并检查") : tr("启动并检测") })) return;
       const current = await api("/status");
       if (!alive.current) return;
-      if (current.job?.running) throw new Error("其他操作仍在进行，请等待完成后重试。");
+      if (current.job?.running) throw new Error(tr("其他操作仍在进行，请等待完成后重试。"));
       if (current.vm_running) {
         const stopped = await waitForJob(await api("/stop", {}), "stop");
-        if (stopped.vm_running) throw new Error("环境尚未停止，请核对状态后重试。");
+        if (stopped.vm_running) throw new Error(tr("环境尚未停止，请核对状态后重试。"));
       }
       if (!alive.current) return;
       const accepted = await api("/start", startOptions());
-      if (!accepted.id) throw new Error("启动请求未返回任务编号，请核对状态后重试。");
-      setStatus(current => ({ ...current, job: { ...accepted, running: true, kind: "start", message: accepted.message || "正在启动并检查环境…" } }));
+      if (!accepted.id) throw new Error(tr("启动请求未返回任务编号，请核对状态后重试。"));
+      setStatus(current => ({ ...current, job: { ...accepted, running: true, kind: "start", message: accepted.message || tr("正在启动并检查环境…") } }));
     });
   }
   async function enter() {
@@ -210,7 +221,7 @@ function Initialization({ initial, onComplete }) {
   async function checkNetwork() {
     await run(async () => {
       const accepted = await api("/safety/check", {});
-      setStatus(current => ({ ...current, job: { ...accepted, running: true, kind: "safety", message: "正在检查代理出口和环境隔离…" } }));
+      setStatus(current => ({ ...current, job: { ...accepted, running: true, kind: "safety", message: tr("正在检查代理出口和环境隔离…") } }));
     });
   }
   async function back() {
@@ -248,48 +259,48 @@ function Initialization({ initial, onComplete }) {
   const index = steps.findIndex(([key]) => key === step);
   return <InitializationFrame>
     <section className="initialization-content">
-      <ol className="initialization-steps" aria-label="初始化步骤">{steps.map(([key, label], position) => <li key={key} aria-current={step === key ? "step" : undefined}><span>{position < index ? <Check size={14} /> : position + 1}</span>{label}</li>)}</ol>
-      <div className="initialization-title"><h1>{title}</h1><p>{step === "system" ? "Cage 会在这台电脑里创建一套独立的 Debian 系统，供终端、浏览器和编辑器使用。不需要更换磁盘时，可以保留默认存储位置。" : step === "proxy" ? "先导入已有的代理配置。下方会自动查找本机代理软件，无需自己找文件；也可以添加订阅或节点。导入后选择出口，点击「应用代理」，再开始安装。" : showReady ? "系统、开发组件和网络检查均已完成，可以进入工作台开始使用。" : networkPending ? "系统已经装好，无需重新安装。按下方指引完成检查，就能进入工作台。" : "Cage 会自动下载系统、安装工具，再引导你完成授权。需要你操作时会显示具体步骤；中断后可以继续原任务。"}</p></div>
-      {connectionError && <div className="initialization-notice" role="alert"><SafetyMessage message={connectionError} /><button onClick={() => pollNow.current?.()}>重新连接</button></div>}
-      {!status ? <p role="status"><LoaderCircle size={18} className="spin" />正在读取安装状态…</p> : <>
+      <ol className="initialization-steps" aria-label={tr("初始化步骤")}>{steps.map(([key, label], position) => <li key={key} aria-current={step === key ? "step" : undefined}><span>{position < index ? <Check size={14} /> : position + 1}</span>{tr(label)}</li>)}</ol>
+      <div className="initialization-title"><h1>{tr(title)}</h1><p>{step === "system" ? tr("Cage 会在这台电脑里创建一套独立的 Debian 系统，供终端、浏览器和编辑器使用。不需要更换磁盘时，可以保留默认存储位置。") : step === "proxy" ? tr("先导入已有的代理配置。下方会自动查找本机代理软件，无需自己找文件；也可以添加订阅或节点。导入后选择出口，点击「应用代理」，再开始安装。") : showReady ? tr("系统、开发组件和网络检查均已完成，可以进入工作台开始使用。") : networkPending ? tr("系统已经装好，无需重新安装。按下方指引完成检查，就能进入工作台。") : tr("Cage 会自动下载系统、安装工具，再引导你完成授权。需要你操作时会显示具体步骤；中断后可以继续原任务。")}</p></div>
+      {connectionError && <div className="initialization-notice" role="alert"><SafetyMessage message={connectionError} /><button onClick={() => pollNow.current?.()}>{tr("重新连接")}</button></div>}
+      {!status ? <p role="status"><LoaderCircle size={18} className="spin" />{tr("正在读取安装状态…")}</p> : <>
         <div className="initialization-stage" key={step}>
           {step === "system" && <>
             <GuestSystemPicker system={choice} onChange={setChoice} onReselect={() => { setPending(null); setCanReselect(false); }} preserveOnUnmount />
-            {pending ? <p className="field-help">撤销原安装选择后，Cage 会改为安装 Debian 13；已下载的镜像和已保存的代理配置会保留。</p> : <>
+            {pending ? <p className="field-help">{tr("撤销原安装选择后，Cage 会改为安装 Debian 13；已下载的镜像和已保存的代理配置会保留。")}</p> : <>
               <InitializationStorage value={storage} onChange={setStorage} disabled={busy} />
               <GuestProfileOptions value={guestProfile} onChange={setGuestProfile} disabled={busy} system={choice?.guest_system} />
             </>}
           </>}
           {step === "proxy" && <><ProxySettings initializing status={status} onConfirm={confirm} onDirty={setProxyDirty} onApplied={async () => { setProxy(await api("/proxy")); pollNow.current?.(); }} /></>}
-          {step === "install" && (showReady ? <div className="initialization-ready"><ShieldCheck size={36} /><h2>{entering ? "正在进入工作台" : "环境已就绪"}</h2><p role={entering ? "status" : undefined}>{entering ? "正在等待后台检查结束并确认环境状态，请稍候…" : "独立系统已安装，工具、文件和登录状态会持续保存。以后打开 Cage 可直接进入工作台。"}</p></div> : <>
-            {needsRestart && <section className="initialization-notice" aria-label="需要重启环境"><h2>下一步：重启环境并重新检测</h2><p>环境设置已变化。请先保存文件，再点击下方按钮。重启并通过检查前，外网保持关闭。</p><button className="primary" disabled={busy || Boolean(connectionError)} onClick={restart}>{status.vm_running ? "重启环境并重新检测" : "启动环境并重新检测"}</button></section>}
-            {progress ? <SetupProgress job={progress} onDetails={() => setDetails(true)} onStop={stop} onRetry={needsRestart ? restart : install} disconnected={Boolean(connectionError) || submitting} /> : <div className="initialization-operation" role="status">{busy && <LoaderCircle size={22} className="spin" />}<p>{measuring ? "正在经所选代理测量 Debian 软件源的下载速度，最多约 20 秒…" : stopped ? "安装已停止，已有下载和磁盘会保留。点击「继续安装」接着完成。" : job.message || (status.vm_running ? "请完成客机连接和网络检查。" : "准备继续原安装，已有文件和磁盘会保留。")}</p>{!busy && !job.error && !mirrors && !needsRestart && <button className="primary" disabled={Boolean(connectionError)} onClick={install}>{status.ready ? "重新启动并检查" : "继续安装"}</button>}{busy && !measuring && <button onClick={stop} disabled={submitting}>停止安装</button>}</div>}
-            {job.error && !progress && <div className="initialization-notice" role="alert"><SafetyMessage message={job.error} />{!networkPending && !needsRestart && <button className="primary" disabled={busy || Boolean(connectionError)} onClick={install}>继续安装</button>}</div>}
+          {step === "install" && (showReady ? <div className="initialization-ready"><ShieldCheck size={36} /><h2>{tr(entering ? "正在进入工作台" : "环境已就绪")}</h2><p role={entering ? "status" : undefined}>{tr(entering ? "正在等待后台检查结束并确认环境状态，请稍候…" : "独立系统已安装，工具、文件和登录状态会持续保存。以后打开 Cage 可直接进入工作台。")}</p></div> : <>
+            {needsRestart && <section className="initialization-notice" aria-label={tr("需要重启环境")}><h2>{tr("下一步：重启环境并重新检测")}</h2><p>{tr("环境设置已变化。请先保存文件，再点击下方按钮。重启并通过检查前，外网保持关闭。")}</p><button className="primary" disabled={busy || Boolean(connectionError)} onClick={restart}>{status.vm_running ? tr("重启环境并重新检测") : tr("启动环境并重新检测")}</button></section>}
+            {progress ? <SetupProgress job={progress} onDetails={() => setDetails(true)} onStop={stop} onRetry={needsRestart ? restart : install} disconnected={Boolean(connectionError) || submitting} /> : <div className="initialization-operation" role="status">{busy && <LoaderCircle size={22} className="spin" />}<p>{measuring ? tr("正在经所选代理测量 Debian 软件源的下载速度，最多约 20 秒…") : stopped ? tr("安装已停止，已有下载和磁盘会保留。点击「继续安装」接着完成。") : job.message || (status.vm_running ? tr("请完成客机连接和网络检查。") : tr("准备继续原安装，已有文件和磁盘会保留。"))}</p>{!busy && !job.error && !mirrors && !needsRestart && <button className="primary" disabled={Boolean(connectionError)} onClick={install}>{status.ready ? tr("重新启动并检查") : tr("继续安装")}</button>}{busy && !measuring && <button onClick={stop} disabled={submitting}>{tr("停止安装")}</button>}</div>}
+            {job.error && !progress && <div className="initialization-notice" role="alert"><SafetyMessage message={job.error} />{!networkPending && !needsRestart && <button className="primary" disabled={busy || Boolean(connectionError)} onClick={install}>{tr("继续安装")}</button>}</div>}
             {status.ready && network.mode !== "open" && !busy && !needsRestart && <>
-              <div className="initialization-network"><p>{status.safety?.error || job.error || status.network_error || "客机已经连接，请完成网络和隔离检查后进入工作台。"}</p><button disabled={Boolean(connectionError)} onClick={checkNetwork}>运行网络与隔离检查</button></div>
+              <div className="initialization-network"><p>{status.safety?.error || job.error || status.network_error || tr("客机已经连接，请完成网络和隔离检查后进入工作台。")}</p><button disabled={Boolean(connectionError)} onClick={checkNetwork}>{tr("运行网络与隔离检查")}</button></div>
             </>}
-            {(progress?.setup_progress.phase === "image" || (failed && !networkPending)) && <p>系统镜像遵循主机代理设置。下载失败时，可在操作详情中查看当前文件和重试记录。客机内的联网请求使用 Cage 代理。</p>}
-            <div className="initialization-recovery">{canReselect && <button disabled={busy} onClick={() => setStep("system")}>查看或撤销原安装选择</button>}<button onClick={() => setStep("proxy")} disabled={busy}>检查 Cage 代理配置</button>{!progress && <button onClick={() => setDetails(true)}>查看操作详情</button>}</div>
+            {(progress?.setup_progress.phase === "image" || (failed && !networkPending)) && <p>{tr("系统镜像遵循主机代理设置。下载失败时，可在操作详情中查看当前文件和重试记录。客机内的联网请求使用 Cage 代理。")}</p>}
+            <div className="initialization-recovery">{canReselect && <button disabled={busy} onClick={() => setStep("system")}>{tr("查看或撤销原安装选择")}</button>}<button onClick={() => setStep("proxy")} disabled={busy}>{tr("检查 Cage 代理配置")}</button>{!progress && <button onClick={() => setDetails(true)}>{tr("查看操作详情")}</button>}</div>
           </>)}
         </div>
-        {mirrors && step === "install" && <section className="initialization-notice" aria-label="Debian 软件源"><h2>安装前，选择 Debian 软件源</h2><p>已经所选代理依次测量各软件源的下载速度。国内直连时国内镜像通常更快；出口在海外时官方 CDN 更快。</p>
-          <table className="mirror-samples"><tbody>{mirrors.samples.map(sample => <tr key={sample.id}><td>{sample.name}</td><td><code>{sample.host}</code></td><td>{sample.error ? <span className="mirror-error">{sample.error}</span> : formatSpeed(sample.bytes_per_second)}</td></tr>)}</tbody></table>
-          <label className="mirror-option"><input type="radio" name="debian-mirror" value="auto" checked={mirrorChoice === "auto"} onChange={() => setMirrorChoice("auto")} />Debian 官方源优先（deb.debian.org，不可达时改用国内镜像）{mirrors.recommended === "auto" && <em>推荐</em>}</label>
-          <label className="mirror-option"><input type="radio" name="debian-mirror" value={mirrors.domestic} checked={mirrorChoice === mirrors.domestic} onChange={() => setMirrorChoice(mirrors.domestic)} />国内镜像优先（{mirrorNames[mirrors.domestic]}首选，另一镜像其次，都不可达时用官方源）{mirrors.recommended === mirrors.domestic && <em>推荐</em>}</label>
-          <p>选择保存在设置中，之后的安装、更新和维护沿用；也可以在环境的 <code>/etc/claude-cage/debian-mirror</code> 中修改。</p>
-          <button className="primary" disabled={busy || !mirrorChoice || Boolean(connectionError)} onClick={() => install(mirrorChoice)}>使用所选软件源并开始安装</button></section>}
+        {mirrors && step === "install" && <section className="initialization-notice" aria-label={tr("Debian 软件源")}><h2>{tr("安装前，选择 Debian 软件源")}</h2><p>{tr("已经所选代理依次测量各软件源的下载速度。国内直连时国内镜像通常更快；出口在海外时官方 CDN 更快。")}</p>
+          <table className="mirror-samples"><tbody>{mirrors.samples.map(sample => <tr key={sample.id}><td>{tr(sample.name)}</td><td><code>{sample.host}</code></td><td>{sample.error ? <span className="mirror-error">{tr(sample.error)}</span> : formatSpeed(sample.bytes_per_second)}</td></tr>)}</tbody></table>
+          <label className="mirror-option"><input type="radio" name="debian-mirror" value="auto" checked={mirrorChoice === "auto"} onChange={() => setMirrorChoice("auto")} />{tr("Debian 官方源优先（deb.debian.org，不可达时改用国内镜像）")}{mirrors.recommended === "auto" && <em>{tr("推荐")}</em>}</label>
+          <label className="mirror-option"><input type="radio" name="debian-mirror" value={mirrors.domestic} checked={mirrorChoice === mirrors.domestic} onChange={() => setMirrorChoice(mirrors.domestic)} />{tr("国内镜像优先（{0}首选，另一镜像其次，都不可达时用官方源）", tr(mirrorNames[mirrors.domestic] ?? mirrors.domestic))}{mirrors.recommended === mirrors.domestic && <em>{tr("推荐")}</em>}</label>
+          <p>{tr("选择保存在设置中，之后的安装、更新和维护沿用；也可以在环境的") + " "}<code>/etc/claude-cage/debian-mirror</code>{" " + tr("中修改。")}</p>
+          <button className="primary" disabled={busy || !mirrorChoice || Boolean(connectionError)} onClick={() => install(mirrorChoice)}>{tr("使用所选软件源并开始安装")}</button></section>}
         {error && <p className="initialization-notice" role="alert"><SafetyMessage message={error} /></p>}
         <footer className="initialization-actions">
-          {step === "system" ? <span /> : <button className="text-button" disabled={busy} onClick={back}><ChevronLeft size={16} />上一步</button>}
-          {step === "system" && <button className="primary" disabled={busy || !storage?.directory.trim() || choice === undefined || !validGuestChoice(choice) || Boolean(connectionError)} onClick={nextFromSystem}>{submitting && <LoaderCircle size={16} className="spin" />}下一步：配置代理</button>}
-          {step === "proxy" && <button className="primary" disabled={busy || proxyDirty || !account?.guest_system && !pending && !validGuestChoice(choice) || needsProxySetup(null, status, proxy) || Boolean(connectionError)} onClick={install}>{submitting ? <LoaderCircle size={16} className="spin" /> : null}开始安装</button>}
-          {step === "install" && showReady && <button className="primary" disabled={busy || Boolean(connectionError)} aria-busy={entering} onClick={enter}>{entering && <LoaderCircle size={16} className="spin" />}{entering ? "正在进入…" : "进入工作台"}</button>}
+          {step === "system" ? <span /> : <button className="text-button" disabled={busy} onClick={back}><ChevronLeft size={16} />{tr("上一步")}</button>}
+          {step === "system" && <button className="primary" disabled={busy || !storage?.directory.trim() || choice === undefined || !validGuestChoice(choice) || Boolean(connectionError)} onClick={nextFromSystem}>{submitting && <LoaderCircle size={16} className="spin" />}{tr("下一步：配置代理")}</button>}
+          {step === "proxy" && <button className="primary" disabled={busy || proxyDirty || !account?.guest_system && !pending && !validGuestChoice(choice) || needsProxySetup(null, status, proxy) || Boolean(connectionError)} onClick={install}>{submitting ? <LoaderCircle size={16} className="spin" /> : null}{tr("开始安装")}</button>}
+          {step === "install" && showReady && <button className="primary" disabled={busy || Boolean(connectionError)} aria-busy={entering} onClick={enter}>{entering && <LoaderCircle size={16} className="spin" />}{tr(entering ? "正在进入…" : "进入工作台")}</button>}
         </footer>
       </>}
-      <div className="initialization-support"><button className="text-button" aria-expanded={help} onClick={() => setHelp(!help)}>日志与诊断</button>{navigation && !busy && <button className="text-button" onClick={() => navigation.open()}>只连接 SSH 主机</button>}</div>
+      <div className="initialization-support"><button className="text-button" aria-expanded={help} onClick={() => setHelp(!help)}>{tr("日志与诊断")}</button>{navigation && !busy && <button className="text-button" onClick={() => navigation.open()}>{tr("只连接 SSH 主机")}</button>}</div>
       {help && <DiagnosticSettings />}
     </section>
-    {details && <Modal title="初始化操作详情" onClose={() => setDetails(false)}><InitializationDetails status={status} /></Modal>}
-    {dialog && <Modal title={dialog.title} onClose={() => settleDialog(false)} footer={<><button onClick={() => settleDialog(false)}>取消</button><button className="primary" onClick={() => settleDialog(true)}>{dialog.confirm}</button></>}><div className="modal-body"><p>{dialog.body}</p></div></Modal>}
+    {details && <Modal title={tr("初始化操作详情")} onClose={() => setDetails(false)}><InitializationDetails status={status} /></Modal>}
+    {dialog && <Modal title={dialog.title} onClose={() => settleDialog(false)} footer={<><button onClick={() => settleDialog(false)}>{tr("取消")}</button><button className="primary" onClick={() => settleDialog(true)}>{tr(dialog.confirm)}</button></>}><div className="modal-body"><p>{tr(dialog.body)}</p></div></Modal>}
   </InitializationFrame>;
 }

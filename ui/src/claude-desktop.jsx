@@ -17,6 +17,7 @@ import { DeviceCheckButton } from "./device-checks";
 import { RemoteView } from "./views";
 import { useWindowVisibility } from "./window-visibility";
 import "./claude-desktop.css";
+import { useTranslation } from "./interface-language.mjs";
 
 const desktopZooms = [0.75, 0.9, 1, 1.1, 1.25, 1.5];
 
@@ -32,6 +33,7 @@ export function useDesktopZoom() {
 }
 
 export function DesktopToolbar({ desktop, platform, title = "Claude Desktop", zoom, setZoom, onConfirm, onStop, busy, refresh, sidebarCollapsed, onExpand, children }) {
+  const tr = useTranslation();
   const [hidden, setHidden] = useState(() => {
     try { return localStorage.getItem("cage-desktop-toolbar-hidden") === "true"; }
     catch { return false; }
@@ -44,8 +46,8 @@ export function DesktopToolbar({ desktop, platform, title = "Claude Desktop", zo
   if (hidden && desktop?.running) {
     return (
       <div className="desktop-toolbar-reveal">
-        {sidebarCollapsed && <button className="icon-button" aria-label="展开侧栏" title="展开侧栏" onClick={onExpand}><PanelLeftOpen size={15} /></button>}
-        <button className="icon-button" aria-label="显示 Desktop 工具栏" title="显示 Desktop 工具栏" onClick={() => toggleToolbar(false)}><ChevronDown size={15} /></button>
+        {sidebarCollapsed && <button className="icon-button" aria-label={tr("展开侧栏")} title={tr("展开侧栏")} onClick={onExpand}><PanelLeftOpen size={15} /></button>}
+        <button className="icon-button" aria-label={tr("显示 Desktop 工具栏")} title={tr("显示 Desktop 工具栏")} onClick={() => toggleToolbar(false)}><ChevronDown size={15} /></button>
       </div>
     );
   }
@@ -54,7 +56,7 @@ export function DesktopToolbar({ desktop, platform, title = "Claude Desktop", zo
         {sidebarCollapsed && (
           <button
             className="icon-button"
-            aria-label="展开侧栏"
+            aria-label={tr("展开侧栏")}
             onClick={onExpand}
           >
             <PanelLeftOpen size={17} />
@@ -70,13 +72,13 @@ export function DesktopToolbar({ desktop, platform, title = "Claude Desktop", zo
         <DeviceCheckButton target="desktop" disabled={busy || !desktop?.running} />
         {desktop?.running && (
           <label className="desktop-display-size">
-            显示大小
-            <InlineSelect aria-label="Desktop 显示大小" value={zoom} onValueChange={(next) => {
+            {tr("显示大小")}
+            <InlineSelect aria-label={tr("Desktop 显示大小")} value={zoom} onValueChange={(next) => {
               const value = Number(next);
               setZoom(value);
               try { localStorage.setItem("cage-desktop-zoom", String(value)); } catch { /* Session-only preference. */ }
             }}>
-              {desktopZooms.map((value) => <option key={value} value={value}>{Math.round(value * 100)}%{value === 1 ? "（默认）" : ""}</option>)}
+              {desktopZooms.map((value) => <option key={value} value={value}>{Math.round(value * 100)}%{value === 1 ? tr("（默认）") : ""}</option>)}
             </InlineSelect>
           </label>
         )}
@@ -96,18 +98,18 @@ export function DesktopToolbar({ desktop, platform, title = "Claude Desktop", zo
             }}
           >
             <Power size={15} />
-            关闭应用
+            {tr("关闭应用")}
           </button>
         )}
         <button
           className="icon-button"
-          aria-label={"刷新 " + title + " 状态"}
+          aria-label={tr("刷新") + " " + title + " " + tr("状态")}
           disabled={busy}
           onClick={refresh}
         >
           <RefreshCw size={15} />
         </button>
-        {desktop?.running && <button className="icon-button" aria-label="隐藏 Desktop 工具栏" title="隐藏 Desktop 工具栏" onClick={() => toggleToolbar(true)}><ChevronUp size={15} /></button>}
+        {desktop?.running && <button className="icon-button" aria-label={tr("隐藏 Desktop 工具栏")} title={tr("隐藏 Desktop 工具栏")} onClick={() => toggleToolbar(true)}><ChevronUp size={15} /></button>}
       </header>
   );
 }
@@ -125,6 +127,7 @@ export function ClaudeDesktop({
   onExpand,
   sidebarCollapsed,
 }) {
+  const tr = useTranslation();
   const [closedChooser, setClosedChooser] = useState("");
   const directoryRequest = uploads.find((item) => item.directory && item.id !== closedChooser);
   const [zoom, setZoom] = useDesktopZoom();
@@ -221,23 +224,23 @@ export function ClaudeDesktop({
         onConfirm={onConfirm} onStop={() => run("stop")} busy={busy} refresh={() => refresh()} sidebarCollapsed={sidebarCollapsed} onExpand={onExpand}>
         {desktop?.installed && <button className="quiet-button" disabled={busy} onClick={async () => {
           if (!desktop.running || await onConfirm({ title: "更新 Claude Desktop？", body: "请先保存应用内的工作。更新会关闭 Claude Desktop，从官方软件源安装可用版本，再重新打开；登录资料继续保留。", confirm: "更新应用" })) run("update");
-        }}>更新应用</button>}
+        }}>{tr("更新应用")}</button>}
       </DesktopToolbar>
       {(error || statusError || desktop?.failed) && (
         <div className="connection-banner" role="alert">
           <SafetyMessage message={error || statusError || (desktop?.failure_reason === "oom-kill"
             ? "环境内存不足，Claude Desktop 已被系统关闭。请在设置中检查计算资源后重新打开。"
             : "Claude Desktop 未能启动，可重试打开或修复安装。")} />
-          <button onClick={onDetails}>操作详情</button>
+          <button onClick={onDetails}>{tr("操作详情")}</button>
         </div>
       )}
-      {desktop?.running && desktop.managed === false && !desktop.native_user_session && <div className="connection-banner" role="status">当前应用尚未接入 Cage 账户解锁。请先保存并关闭应用，再重新打开。</div>}
+      {desktop?.running && desktop.managed === false && !desktop.native_user_session && <div className="connection-banner" role="status">{tr("当前应用尚未接入 Cage 账户解锁。请先保存并关闭应用，再重新打开。")}</div>}
       {busy && ownJob && (
         <div className="desktop-progress" role="status">
           <RefreshCw size={16} className="spin" />
           {status.job.message}
           <button className="text-button" onClick={onDetails}>
-            查看进度
+            {tr("查看进度")}
           </button>
         </div>
       )}
@@ -258,15 +261,14 @@ export function ClaudeDesktop({
             <h2>
               {desktop?.installed
                 ? "Claude Desktop"
-                : "在 Cage 中使用 Claude Desktop"}
+                : tr("在 Cage 中使用 Claude Desktop")}
             </h2>
             <p>
-              Chat 和 Code 共用一个官方应用。在 Cage
-              内安装、登录并使用，项目文件来自已打开的文件夹。
+              {tr("Chat 和 Code 共用一个官方应用。在 Cage 内安装、登录并使用，项目文件来自已打开的文件夹。")}
             </p>
             {!desktop?.installed && (
               <p>
-                首次使用时从 Anthropic 官方源下载，不增加 Cage 默认安装包体积。
+                {tr("首次使用时从 Anthropic 官方源下载，不增加 Cage 默认安装包体积。")}
               </p>
             )}
             <div className="desktop-actions">
@@ -281,7 +283,7 @@ export function ClaudeDesktop({
                   ) : (
                     <Download size={16} />
                   )}
-                  {desktop.installed ? "打开 Claude Desktop" : "下载并安装"}
+                  {desktop.installed ? tr("打开 Claude Desktop") : tr("下载并安装")}
                 </button>
               )}
               {desktop?.installed && (
@@ -290,7 +292,7 @@ export function ClaudeDesktop({
                   disabled={busy}
                   onClick={() => run("install")}
                 >
-                  更新 / 修复安装
+                  {tr("更新 / 修复安装")}
                 </button>
               )}
               {!desktop && (
@@ -299,14 +301,13 @@ export function ClaudeDesktop({
                   disabled={busy}
                   onClick={refresh}
                 >
-                  重新读取状态
+                  {tr("重新读取状态")}
                 </button>
               )}
             </div>
-            {desktop?.installed && <p>Linux 版通过系统软件源更新。可点击上方“更新应用”，或在 Cage 终端运行 sudo apt update && sudo apt install --only-upgrade claude-desktop。</p>}
+            {desktop?.installed && <p>{tr("Linux 版通过系统软件源更新。可点击上方“更新应用”，或在 Cage 终端运行 sudo apt update && sudo apt install --only-upgrade claude-desktop。")}</p>}
             <p className="desktop-note">
-              关闭应用后释放图形会话资源，登录状态保留在 Cage
-              环境中。需要额外虚拟机的 Cowork 功能暂未适配。
+              {tr("关闭应用后释放图形会话资源，登录状态保留在 Cage 环境中。需要额外虚拟机的 Cowork 功能暂未适配。")}
             </p>
           </div>
         )}

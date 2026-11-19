@@ -375,6 +375,8 @@ func (s *Server) handler() http.Handler {
 	mux.HandleFunc("GET "+hostPluginIconPath, s.hostPluginIcon)
 	mux.HandleFunc("GET /api/client/about", s.appAbout)
 	mux.HandleFunc("POST /api/client/about", s.appAbout)
+	mux.HandleFunc("GET /api/client/language", s.interfaceLanguage)
+	mux.HandleFunc("POST /api/client/language", s.interfaceLanguage)
 	mux.HandleFunc("POST /api/projects/open", s.openProject)
 	mux.HandleFunc("POST /api/projects/save", s.saveProject)
 	mux.HandleFunc("POST /api/projects/remove", s.removeProject)
@@ -517,9 +519,9 @@ func (s *Server) handler() http.Handler {
 				return
 			}
 		}
-		// App metadata belongs to this executable, even while an SSH workload
-		// is selected. Like client/context, it uses local session authentication.
-		if r.URL.Path == "/api/client/about" {
+		// Shell preferences and metadata belong to this computer, even while an
+		// SSH workload is selected. They use local session authentication.
+		if r.URL.Path == "/api/client/about" || r.URL.Path == "/api/client/language" {
 			mux.ServeHTTP(w, r)
 			return
 		}

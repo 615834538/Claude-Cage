@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { api } from "./api";
+import { useTranslation } from "./interface-language.mjs";
 
 function speedLabel(value) {
   if (value == null) return "—";
@@ -11,6 +12,7 @@ function speedLabel(value) {
 }
 
 export function NetworkSpeed({ enabled }) {
+  const tr = useTranslation();
   const [rates, setRates] = useState(null);
   useEffect(() => {
     if (!enabled) return;
@@ -59,13 +61,13 @@ export function NetworkSpeed({ enabled }) {
   }, [enabled]);
 
   return (
-    <span className="status-network-speed" role="group" aria-label="代理实时速度">
+    <span className="status-network-speed" role="group" aria-label={tr("代理实时速度")}>
       <span>
-        <ArrowUp size={12} role="img" aria-label="上行速度" tabIndex={0} />
+        <ArrowUp size={12} role="img" aria-label={tr("上行速度")} tabIndex={0} />
         <span>{speedLabel(enabled ? rates?.up : null)}</span>
       </span>
       <span>
-        <ArrowDown size={12} role="img" aria-label="下行速度" tabIndex={0} />
+        <ArrowDown size={12} role="img" aria-label={tr("下行速度")} tabIndex={0} />
         <span>{speedLabel(enabled ? rates?.down : null)}</span>
       </span>
     </span>
